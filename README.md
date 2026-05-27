@@ -12,6 +12,7 @@ Trước khi bắt đầu làm task mới:
 git pull origin main
 git checkout -b feature/task-name
 ```
+Pull project để update code, checkout để tạo branch mới, không code thẳng vào main nha ae
 
 Trước khi push:
 
