@@ -80,8 +80,10 @@ cd <repo-name>
 
 ---
 
-## 5. Cấu hình Backend
+## 5. Cấu hình Backend (Ai Front thì không cần Xem)
 
+**AE NHỚ CÀI .NET 10 NHA !!!!!**
+Link:https://dotnet.microsoft.com/en-us/download/dotnet/10.0
 Đi vào thư mục backend:
 
 ```bash
@@ -95,32 +97,23 @@ dotnet restore
 ```
 
 Mở file `appsettings.json` và kiểm tra connection string:
+**AE VÔ FILE NÀY XONG ĐỔI DÒNG NÀY**
 
 ```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=SE_Career_Roadmap;Trusted_Connection=True;TrustServerCertificate=True;"
-  }
-}
+ "DefaultConnection": "Server=localhost,1433;Database=SE_Career_Roadmap;User Id=sa;Password=12345;TrustServerCertificate=True;Encrypt=True;"
 ```
+Đổi User Id với password là Login với password trong SSMS của ae
+**GIỐNG TRONG PRJ301 **
+<img width="468" height="450" alt="image" src="https://github.com/user-attachments/assets/10b76864-1334-4a2a-86d1-ea99d15f244c" />
 
-Nếu dùng SQL Server instance khác, sửa `Server=...` cho đúng máy.
-
-Ví dụ dùng SQL Server Express:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost\\SQLEXPRESS;Database=SE_Career_Roadmap;Trusted_Connection=True;TrustServerCertificate=True;"
-  }
-}
-```
 
 Chạy backend:
 
 ```bash
+dotnet build
 dotnet run
 ```
+
 
 Backend thường chạy ở một trong các URL sau:
 
@@ -129,7 +122,7 @@ http://localhost:5087
 https://localhost:7032
 ```
 
-Mở Swagger để test API:
+Mở Swagger để test API(Chạy Code BackEnd xong nó tự mở nha ae):
 
 ```txt
 http://localhost:5087/swagger
