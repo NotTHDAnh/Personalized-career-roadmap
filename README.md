@@ -2,6 +2,8 @@
 
 Dự án web hỗ trợ định hướng nghề nghiệp và tạo lộ trình học tập cá nhân hóa cho sinh viên ngành Software Engineering.
 
+# WARNING: NHỚ CHẠY CẢ 2 CÁI FRONT VỚI BACK LUÔN NHA AE !!!!!!!!!!!!!!!!!
+
 ## 1. Công nghệ sử dụng
 
 ### Frontend
