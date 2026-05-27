@@ -4,6 +4,23 @@ Dự án web hỗ trợ định hướng nghề nghiệp và tạo lộ trình h
 
 # WARNING: NHỚ CHẠY CẢ 2 CÁI FRONT VỚI BACK LUÔN NHA AE !!!!!!!!!!!!!!!!!
 
+## 0. Checklist trước khi code (SET UP XONG ĐỌC CŨNG ĐC)
+
+Trước khi bắt đầu làm task mới:
+
+```bash
+git pull origin main
+git checkout -b feature/task-name
+```
+
+Trước khi push:
+
+```bash
+npm run build
+dotnet build
+git status
+```
+
 ## 1. Công nghệ sử dụng
 
 ### Frontend
@@ -80,9 +97,11 @@ git clone https://github.com/<owner>/<repo-name>.git
 cd <repo-name>
 ```
 
+clone xong ae chạy file Database.sql(src/Database.sql) trong SSMS là có database nha
+
 ---
 
-## 5. Cấu hình Backend (Ai Front thì không cần Xem)
+## 5. Cấu hình Backend
 
 **AE NHỚ CÀI .NET 10 NHA !!!!!**
 Link:https://dotnet.microsoft.com/en-us/download/dotnet/10.0
@@ -105,7 +124,7 @@ Mở file `appsettings.json` và kiểm tra connection string:
  "DefaultConnection": "Server=localhost,1433;Database=SE_Career_Roadmap;User Id=sa;Password=12345;TrustServerCertificate=True;Encrypt=True;"
 ```
 Đổi User Id với password là Login với password trong SSMS của ae
-**GIỐNG TRONG PRJ301 **
+**GIỐNG TRONG PRJ301**
 <img width="468" height="450" alt="image" src="https://github.com/user-attachments/assets/10b76864-1334-4a2a-86d1-ea99d15f244c" />
 
 
@@ -120,7 +139,7 @@ dotnet run
 Backend thường chạy ở một trong các URL sau:
 
 ```txt
-http://localhost:5087
+http://localhost:5087 (CÁI NÀY MỚI HAY XÀI NHA AE)
 https://localhost:7032
 ```
 
@@ -184,7 +203,7 @@ http://localhost:5173
 ---
 
 ## 7. Cấu hình CORS cho Backend
-
+**(CÁI NÀY ĐƯỢC CẤU HÌNH TRƯỚC RỒI KHÔNG CẦN ĐỤNG VÀO)**
 Trong `Program.cs`, cần có cấu hình CORS để frontend gọi được API.
 
 Thêm trước `var app = builder.Build();`:
@@ -485,28 +504,11 @@ Vite chỉ đọc `.env` khi start dev server.
 
 ---
 
-## 15. Checklist trước khi code
-
-Trước khi bắt đầu làm task mới:
-
-```bash
-git pull origin main
-git checkout -b feature/task-name
-```
-
-Trước khi push:
-
-```bash
-npm run build
-dotnet build
-git status
-```
-
 Nếu build pass thì commit và push.
 
 ---
 
-## 16. Ghi chú cho team
+## 15. Ghi chú cho team
 
 - Backend và frontend chạy ở hai terminal riêng.
 - Không sửa trực tiếp trên branch `main`.
