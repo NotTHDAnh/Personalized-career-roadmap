@@ -2,7 +2,7 @@ import { useState } from "react";
 import LoginScreen from "./features/auth/LoginScreen";
 import type { LoginMode } from "./features/auth/LoginScreen";
 import {StudentDashboard} from "./layouts/StudentDashboard";
-import {StaffPanel} from "./features/staff/StaffPanel";
+import StaffPanel from "./features/staff/StaffPanel";
 import type { LoginUser } from "./features/auth/authApi";
 
 type AppSession = {
