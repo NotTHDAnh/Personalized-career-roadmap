@@ -167,6 +167,7 @@ npm install
 ```
 
 Tạo file `.env` từ file mẫu:
+# Trong thư mục frontend nha 
 
 ```bash
 cp .env.example .env
@@ -177,6 +178,8 @@ Nếu dùng Windows PowerShell:
 ```powershell
 Copy-Item .env.example .env
 ```
+
+Hoặc tạo mới file tên ".env" trong thư mục frontend
 
 Nội dung file `.env`:
 
