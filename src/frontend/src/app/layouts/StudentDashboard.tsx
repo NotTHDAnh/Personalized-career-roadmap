@@ -8,8 +8,8 @@ import {
   FileText, ChevronRight, User, Settings, Star
 } from "lucide-react";
 import type { DashTab } from "../types";
-import { ProfileTab } from "../features/profile/ProfileTab";
-import { RoadmapTab } from "../features/roadmap/RoadmapTab";
+import ProfileTab from "../features/profile/ProfileTab";
+import RoadmapTab from "../features/roadmap/RoadmapTab";
 import { MentorTab } from "../features/mentor/MentorTab";
 
 export function StudentDashboard({ onLogout }: { onLogout: () => void }) {
@@ -29,149 +29,112 @@ export function StudentDashboard({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div
-      className="flex h-screen overflow-hidden"
-      style={{ fontFamily: "'Manrope', 'Inter', sans-serif", backgroundColor: "#F1F5F9" }}
+      className="ml-[280px] w-[calc(100vw-280px)] min-h-screen"
+      style={{ fontFamily: "'Inter', sans-serif" }}
     >
-      {/* ── Sidebar ── */}
-      <div
-        className="w-64 flex flex-col h-full border-r border-slate-200 shrink-0"
-        style={{ backgroundColor: "#1B365D" }}
-      >
-        {/* Branding */}
-        <div className="px-5 py-5 border-b border-white/10">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-              style={{ backgroundColor: "#0D9488" }}
-            >
-              <GraduationCap size={17} className="text-white" />
-            </div>
-            <div>
-              <p className="text-white font-extrabold text-xs leading-tight tracking-tight">
-                Smart Career Roadmap
-              </p>
-              <p
-                className="text-blue-300 text-[9px]"
-                style={{ fontFamily: "'JetBrains Mono', monospace" }}
-              >
-                Student Portal
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Student avatar */}
-        <div className="px-5 py-4 border-b border-white/10">
+      <aside className="fixed left-0 top-0 h-screen w-[280px] bg-[#1b365d] text-white flex flex-col">
+        <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-xs text-white shrink-0"
-              style={{ backgroundColor: "#0D9488" }}
-            >
-              NA
-            </div>
-            <div className="min-w-0">
-              <p className="text-white font-bold text-xs truncate">Nguyen Van An</p>
-              <p
-                className="text-blue-300 text-[9px] truncate"
-                style={{ fontFamily: "'JetBrains Mono', monospace" }}
-              >
-                20210001 · Year 2
-              </p>
+            <span className="material-symbols-outlined text-[#71f8e4] text-3xl">
+              school
+            </span>
+            <div>
+              <h1 className="font-bold leading-tight">Smart Career Roadmap</h1>
+              <p className="text-xs text-white/60">Student Portal</p>
             </div>
           </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <p
-            className="px-2 mb-3 text-[9px] font-bold uppercase tracking-[0.18em] text-blue-400"
-            style={{ fontFamily: "'JetBrains Mono', monospace" }}
-          >
-            Navigation
-          </p>
+        <nav className="flex-1 p-4 space-y-2">
           {navItems.map((item) => (
             <button
               key={item.id}
+              type="button"
               onClick={() => setTab(item.id)}
-              className={`w-full flex items-start gap-3 px-3 py-3 rounded-xl text-left transition-all group ${
-                tab === item.id
-                  ? "text-white"
-                  : "text-blue-200 hover:text-white hover:bg-white/10"
-              }`}
-              style={tab === item.id ? { backgroundColor: "rgba(13,148,136,0.3)" } : {}}
-            >
-              <div
-                className={`mt-0.5 shrink-0 ${
-                  tab === item.id ? "text-teal-300" : "text-blue-400 group-hover:text-blue-200"
+              className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${tab === item.id
+                ? "bg-[#006b5f] text-white shadow"
+                : "text-white/70 hover:bg-white/10 hover:text-white"
                 }`}
-              >
+            >
+              <span className="material-symbols-outlined text-[20px]">
                 {item.icon}
-              </div>
-              <div>
-                <p className="text-xs font-bold leading-tight">{item.label}</p>
-                <p
-                  className={`text-[10px] mt-0.5 ${tab === item.id ? "text-teal-200" : "text-blue-400"}`}
-                >
-                  {item.desc}
-                </p>
-              </div>
-              {tab === item.id && (
-                <ChevronRight size={13} className="ml-auto mt-0.5 text-teal-300 shrink-0" />
-              )}
+              </span>
+              {item.label}
             </button>
           ))}
         </nav>
 
-        {/* Logout */}
-        <div className="px-3 py-4 border-t border-white/10">
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-blue-300 hover:text-white hover:bg-white/10 transition-all text-xs font-semibold"
-          >
-            <LogOut size={15} />
-            Sign Out
-          </button>
-        </div>
-      </div>
-
-      {/* ── Main content ── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar */}
-        <div className="flex items-center justify-between px-7 py-4 bg-white border-b border-slate-100 shrink-0">
-          <div>
-            <h2 className="font-extrabold text-base tracking-tight" style={{ color: "#1B365D" }}>
-              {tabTitles[tab].title}
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">{tabTitles[tab].sub}</p>
-          </div>
+        <div className="mt-auto p-6 border-t border-white/10">
           <div className="flex items-center gap-3">
-            <button className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-all relative">
-              <Bell size={15} />
-              <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-400" />
-            </button>
-            <div
-              className="flex items-center gap-2 pl-3 border-l border-slate-200"
-            >
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-extrabold text-white"
-                style={{ backgroundColor: "#0D9488" }}
-              >
-                NA
-              </div>
-              <span className="text-xs font-bold text-slate-600 hidden sm:block">
-                Nguyen Van An
+            <div className="w-10 h-10 rounded-full bg-[#006b5f] text-white flex items-center justify-center font-bold">
+              AJ
+            </div>
+
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-sm font-semibold text-white truncate">
+                Alex Johnson
+              </span>
+              <span className="text-[10px] uppercase tracking-wider text-[#6df5e1] font-bold">
+                Senior Student
               </span>
             </div>
           </div>
-        </div>
 
-        {/* Tab content */}
-        <div className="flex-1 overflow-y-auto px-7 py-6">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="mt-4 w-full flex items-center gap-3 rounded-lg px-4 py-3 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+          >
+            <span className="material-symbols-outlined">logout</span>
+            <span className="text-sm font-semibold">Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      <main className="flex-1 min-w-0 w-full">
+        <header className="h-20 bg-white border-b border-[#c4c6cf] px-6 md:px-10 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-[#74777f]">
+              Student Dashboard
+            </p>
+            <h2 className="text-xl font-bold text-[#002046]">
+              {navItems.find((item) => item.id === tab)?.label}
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="lg:hidden rounded-xl border border-[#c4c6cf] px-3 py-2 text-sm font-semibold"
+              onClick={() => {
+                const nextIndex =
+                  (navItems.findIndex((item) => item.id === tab) + 1) %
+                  navItems.length;
+                setTab(navItems[nextIndex].id);
+              }}
+            >
+              Next Tab
+            </button>
+
+            <button className="w-10 h-10 rounded-full bg-[#eff4ff] flex items-center justify-center">
+              <span className="material-symbols-outlined text-[#002046]">
+                notifications
+              </span>
+            </button>
+
+            <div className="w-10 h-10 rounded-full bg-[#006b5f] text-white flex items-center justify-center font-bold">
+              S
+            </div>
+          </div>
+        </header>
+
+        <div className="p-6 md:p-10">
           {tab === "profile" && <ProfileTab />}
           {tab === "roadmap" && <RoadmapTab />}
           {tab === "mentor" && <MentorTab />}
+          {/* {activeTab === "market" && <StitchMarketTrendsTab />} */}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
