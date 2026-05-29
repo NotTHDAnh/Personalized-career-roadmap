@@ -16,21 +16,43 @@ export default function LandingPage({ onStudentLogin, onStaffLogin }: Props) {
   const [role, setRole] = useState<Role>("student");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [remember, setRemember] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      await loginApi({
+      const request = await loginApi({
         email,
         password,
         role,
       });
 
-      if (role === "student") onStudentLogin();
-      else onStaffLogin();
+
+      const inputRole = role === "student" ? "STUDENT" : "STAFF";
+      // catch error on role
+      if(request.user.role === "STUDENT" && inputRole !== "STUDENT"){
+        setError("This account is not a student account.");
+        return;
+      }
+
+      if(request.user.role !== "STUDENT" && inputRole !== "STAFF"){
+        setError("This account is not a staff/admin account.");
+        return;
+      }
+
+      // console.log(request.user.role)
+      if (request.user.role === "STUDENT" && inputRole === "STUDENT") onStudentLogin();
+      else if((request.user.role === "STAFF" || request.user.role === "MENTOR") && inputRole === "STAFF") onStaffLogin();
+
+      localStorage.setItem("accessToken", request.accessToken);
+      localStorage.setItem("currentUser", JSON.stringify(request.user));
+      localStorage.setItem("loginMode", inputRole);
+      
     } catch (error) {
       console.error(error);
+      setError(error instanceof Error ? error.message : "Login Failed.");
     }
   };
 
@@ -133,7 +155,10 @@ export default function LandingPage({ onStudentLogin, onStaffLogin }: Props) {
             {(["student", "staff"] as Role[]).map((r) => (
               <button
                 key={r}
-                onClick={() => setRole(r)}
+                onClick={() => {
+                  setRole(r);
+                  setError("");
+                }}
                 className="flex-1 py-3 text-sm transition-colors"
                 style={
                   role === r
@@ -145,6 +170,13 @@ export default function LandingPage({ onStudentLogin, onStaffLogin }: Props) {
               </button>
             ))}
           </div>
+
+          {error && (
+              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+          )}
+
 
           {/* Google SSO */}
           <button
@@ -221,6 +253,16 @@ export default function LandingPage({ onStudentLogin, onStaffLogin }: Props) {
                 />
               </div>
             </div>
+
+            <label className="flex items-center gap-2 text-sm text-[#44474e]">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="rounded border-[#c4c6cf]"
+                />
+                Remember me on this device
+              </label>
 
             <button
               type="submit"
