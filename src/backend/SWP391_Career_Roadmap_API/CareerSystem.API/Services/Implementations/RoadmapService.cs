@@ -33,19 +33,86 @@ namespace CareerSystem.API.Services.Implementations
 
             string passedCoursesText = passedCourses.Any() ? string.Join(", ", passedCourses) : "Chưa có môn nào";
 
+            // Get all the course from database
+            var allCourses = await _context.Courses
+            .Select(c => new
+            {
+                c.CourseCode,
+                c.CourseName,
+                c.TotalStudyHours
+            })
+
+            .ToListAsync();
+
+            // convert course to text
+            string availableCoursesText =
+            string.Join("\n",
+                allCourses.Select(c =>
+                    $"- {c.CourseCode}: {c.CourseName} ({c.TotalStudyHours}h)"
+                )
+            );
+
+            // Lấy toàn bộ course + learning outcomes + skills từ DB
+            var courseCatalog = await _context.Courses
+                .Select(c => new
+                {
+                    courseId = c.CourseId,
+                    courseCode = c.CourseCode,
+                    courseName = c.CourseName,
+                    credits = c.Credits,
+                    totalStudyHours = c.TotalStudyHours,
+
+                    learningOutcomes = _context.CourseLearningOutcomes
+                        .Where(clo => clo.CourseId == c.CourseId)
+                        .Select(clo => new
+                        {
+                            outcomeId = clo.Id,
+                            skillId = clo.SkillId,
+                            skillName = clo.Skill.SkillName,
+                            skillCategory = clo.Skill.Category,
+                            outcomeDescription = clo.OutcomeDescription
+                        })
+                        .ToList()
+                })
+                .ToListAsync();
+            // serialize data to json
+            var courseCatalogJson = JsonSerializer.Serialize(
+                courseCatalog,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = false
+                }
+            );
+
             // 2. Ép API Key từ appsettings.json
             string apiKey = _configuration["AiSettings:ApiKey"]
                 ?? throw new Exception("Thiếu cấu hình API Key của hệ thống.");
 
             // 3. Viết Prompt "điều khiển" AI
             string prompt = $@"
-                Bạn là một Mentor IT xuất sắc. 
-                Mục tiêu của sinh viên là trở thành: {targetRole.RoleName}.
-                Sinh viên đã hoàn thành các môn: {passedCoursesText}.
-                Hãy đề xuất lộ trình học tiếp theo (gồm 3-5 môn cốt lõi, không trùng với môn đã học).
-                
-                QUAN TRỌNG: Chỉ trả về MỘT mảng JSON duy nhất, không kèm văn bản giải thích.
-                Định dạng bắt buộc:
+                Bạn là Mentor IT cho sinh viên Software Engineering.
+
+                Mục tiêu nghề nghiệp của sinh viên:
+                {targetRole.RoleName}
+
+                Các môn sinh viên đã hoàn thành:
+                {passedCoursesText}
+
+                Đây là COURSE_CATALOG_JSON lấy trực tiếp từ database.
+                Bạn CHỈ được chọn courseCode và skillId tồn tại trong JSON này.
+
+                COURSE_CATALOG_JSON:
+                {courseCatalogJson}
+
+                Yêu cầu:
+                - Đề xuất các môn tiếp theo phù hợp với target role.
+                - Không chọn môn sinh viên đã hoàn thành.
+                - Không bịa courseCode.
+                - Không bịa skillId.
+                - Mỗi item phải dùng courseCode và skillId có trong COURSE_CATALOG_JSON.
+                - Nếu một môn có nhiều learning outcomes, chọn skillId phù hợp nhất.
+
+               Định dạng bắt buộc:
                 [
                   {{ ""courseCode"": ""MÃ_MÔN"", ""skillName"": ""Tên Kỹ năng (Ngắn gọn)"" }}
                 ]";
@@ -69,6 +136,8 @@ namespace CareerSystem.API.Services.Implementations
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var recommendedCourses = JsonSerializer.Deserialize<List<AiCourseRecommendationDto>>(aiJsonResponse, options);
 
+
+
             if (recommendedCourses != null && recommendedCourses.Any())
             {
                 DateOnly currentDeadline = DateOnly.FromDateTime(DateTime.Now);
@@ -76,7 +145,30 @@ namespace CareerSystem.API.Services.Implementations
 
                 foreach (var rec in recommendedCourses)
                 {
+                    // Tìm course trong DB dựa trên courseCode mà AI trả về.
+                    // Nếu AI trả courseCode không tồn tại thì bỏ qua để tránh lỗi FK course_id.
                     var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == rec.CourseCode);
+
+                    if (courseDb == null)
+                    {
+                        continue;
+                    }
+                    // Lấy skill thật từ DB thông qua CourseLearningOutcomes.
+                    // SkillNode.SkillId là foreign key tới Skills.SkillId,
+                    var skillDb = await (
+                        from clo in _context.CourseLearningOutcomes
+                        join skill in _context.Skills on clo.SkillId equals skill.SkillId
+                        where clo.CourseId == courseDb.CourseId
+                        select skill
+                    ).FirstOrDefaultAsync();
+
+                    // Nếu course chưa được map với skill nào trong DB thì bỏ qua.
+                    // Làm vậy để không insert SkillNode với skill_id rác.
+                    if (skillDb == null)
+                    {
+                        continue;
+                    }
+
                     int totalHours = courseDb?.TotalStudyHours ?? 30; // Nếu AI bịa ra môn mới chưa có trong DB, mặc định cho 30 giờ
 
                     int daysRequired = (int)Math.Ceiling((decimal)totalHours / request.DailyStudyHours);
@@ -86,7 +178,7 @@ namespace CareerSystem.API.Services.Implementations
                     {
                         NodeId = Guid.NewGuid().ToString(),
                         RoadmapId = newRoadmap.RoadmapId,
-                        SkillId = "SKILL_AUTO_GEN",
+                        SkillId = skillDb.SkillId,
                         CourseId = courseDb?.CourseId,
                         ParentNodeId = previousNodeId,
                         Status = "PENDING",
