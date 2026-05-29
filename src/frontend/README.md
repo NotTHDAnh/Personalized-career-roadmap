@@ -1,7 +1,7 @@
 
-  # Enterprise Web App Interface
+  # Execute action
 
-  This is a code bundle for Enterprise Web App Interface. The original project is available at https://www.figma.com/design/gBiu7796evnZrYqK0GMiRy/Enterprise-Web-App-Interface.
+  This is a code bundle for Execute action. The original project is available at https://www.figma.com/design/vN0Bjgd0HaazxiiktcY0XT/Execute-action.
 
   ## Running the code
 

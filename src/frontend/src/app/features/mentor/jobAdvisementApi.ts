@@ -1,5 +1,6 @@
 import { apiClient } from "../../../shared/api/apiClient";
 
-export const jobAdvisementApi = {
-  analyze: (payload: unknown) => apiClient.post("/job-advisement/analyze", payload),
+export const fetchMentorSuggestions = async () => {
+  const response = await apiClient.get("/mentor");
+  return response.data;
 };

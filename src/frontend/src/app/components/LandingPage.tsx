@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { BookOpen, Target, BarChart2, Users, Check, Mail, Lock } from "lucide-react";
-import { loginApi } from "./authApi";
 
 type Role = "student" | "staff";
 
@@ -17,21 +16,10 @@ export default function LandingPage({ onStudentLogin, onStaffLogin }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    try {
-      await loginApi({
-        email,
-        password,
-        role,
-      });
-
-      if (role === "student") onStudentLogin();
-      else onStaffLogin();
-    } catch (error) {
-      console.error(error);
-    }
+    if (role === "student") onStudentLogin();
+    else onStaffLogin();
   };
 
   const handleGoogle = () => {
