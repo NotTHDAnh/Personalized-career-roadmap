@@ -15,6 +15,7 @@ namespace CareerSystem.API.Controllers
             _roadmapService = roadmapService;
         }
 
+        //API tạo roadmap
         [HttpPost("generate-personalized")]
         public async Task<IActionResult> GeneratePersonalizedRoadmap([FromBody] PersonalizedRoadmapRequest request)
         {
@@ -29,6 +30,21 @@ namespace CareerSystem.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ex.Message);
+            }
+        }
+
+        //API xem chi tiết roadmap
+        [HttpGet("{roadmapId}")]
+        public async Task<IActionResult> GetRoadmapDetail(string roadmapId)
+        {
+            try
+            {
+                var roadmap = await _roadmapService.GetRoadmapDetailAsync(roadmapId);
+                return Ok(roadmap);
+            }
+            catch (Exception ex)
+            {
+                return NotFound(new { message = ex.Message });
             }
         }
     }
