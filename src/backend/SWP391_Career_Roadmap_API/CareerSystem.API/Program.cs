@@ -1,8 +1,5 @@
 
 using CareerSystem.API.Data;
-using CareerSystem.API.Services.Implementations;
-using CareerSystem.API.Services.Interfaces;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 
 namespace CareerSystem.API
@@ -26,6 +23,9 @@ namespace CareerSystem.API
 
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IRoadmapService,
                 CareerSystem.API.Services.Implementations.RoadmapService>();
+
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IMentorService,
+                CareerSystem.API.Services.Implementations.MentorService>();
 
             // CORS
             builder.Services.AddCors(options =>
