@@ -112,13 +112,15 @@ namespace CareerSystem.API.Services.Implementations
                 - Mỗi item phải dùng courseCode và skillId có trong COURSE_CATALOG_JSON.
                 - Nếu một môn có nhiều learning outcomes, chọn skillId phù hợp nhất.
 
-               Định dạng bắt buộc:
+               Định dạng bắt buộc, chỉ trả JSON:
                 [
                   {{ ""courseCode"": ""MÃ_MÔN"", ""skillName"": ""Tên Kỹ năng (Ngắn gọn)"" }}
                 ]";
 
             // 4. Gọi Gemini API thật
             string aiJsonResponse = await CallGeminiApiAsync(prompt, apiKey);
+            //Console.WriteLine(aiJsonResponse);
+            aiJsonResponse = CleanAiJson(aiJsonResponse);
 
             // 5. Khởi tạo Roadmap
             var newRoadmap = new Roadmap
@@ -293,5 +295,22 @@ namespace CareerSystem.API.Services.Implementations
 
             return result;
         }
+        
+        private string CleanAiJson(string text)
+        {
+            text = text.Trim();
+
+            if (text.StartsWith("```json"))
+                text = text.Substring(7);
+
+            if (text.StartsWith("```"))
+                text = text.Substring(3);
+
+            if (text.EndsWith("```"))
+                text = text.Substring(0, text.Length - 3);
+
+            return text.Trim();
+        }
+
     }
 }
