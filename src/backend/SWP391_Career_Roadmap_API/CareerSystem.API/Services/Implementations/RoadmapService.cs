@@ -122,7 +122,7 @@ namespace CareerSystem.API.Services.Implementations
             //Console.WriteLine(aiJsonResponse);
             aiJsonResponse = CleanAiJson(aiJsonResponse);
 
-            // 5. Khởi tạo Lộ trình
+            // 5. Khởi tạo Roadmap
             var newRoadmap = new Roadmap
             {
                 RoadmapId = Guid.NewGuid().ToString(),
@@ -134,29 +134,27 @@ namespace CareerSystem.API.Services.Implementations
             };
             _context.Roadmaps.Add(newRoadmap);
 
-            // 6. Phân tích kết quả JSON & Tính toán Deadline
+            // 6. Bóc tách kết quả JSON, đối chiếu với Database thật, tính toán Deadline, rồi khởi tạo các Node học tập tương ứng
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var recommendedCourses = JsonSerializer.Deserialize<List<AiCourseRecommendationDto>>(aiJsonResponse, options);
-
-
 
             if (recommendedCourses != null && recommendedCourses.Any())
             {
                 DateOnly currentDeadline = DateOnly.FromDateTime(DateTime.Now);
                 string? previousNodeId = null;
 
+                //Tránh lỗi chia cho 0 nếu sinh viên nhập DailyStudyHours = 0
+                decimal dailyHours = request.DailyStudyHours > 0 ? (decimal)request.DailyStudyHours : 2.0m;
+
                 foreach (var rec in recommendedCourses)
                 {
-                    // Tìm course trong DB dựa trên courseCode mà AI trả về.
-                    // Nếu AI trả courseCode không tồn tại thì bỏ qua để tránh lỗi FK course_id.
-                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == rec.CourseCode);
+                    // 6.1. Đối chiếu mã môn AI chọn với Database thật
+                    if (string.IsNullOrWhiteSpace(rec.CourseCode)) continue;
 
-                    if (courseDb == null)
-                    {
-                        continue;
-                    }
-                    // Lấy skill thật từ DB thông qua CourseLearningOutcomes.
-                    // SkillNode.SkillId là foreign key tới Skills.SkillId,
+                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == rec.CourseCode);
+                    if (courseDb == null) continue; // Bỏ qua nếu AI bịa mã môn sai
+
+                    // 6.2. Truy xuất kỹ năng cốt lõi của môn học (Để map vào SkillId)
                     var skillDb = await (
                         from clo in _context.CourseLearningOutcomes
                         join skill in _context.Skills on clo.SkillId equals skill.SkillId
@@ -164,66 +162,69 @@ namespace CareerSystem.API.Services.Implementations
                         select skill
                     ).FirstOrDefaultAsync();
 
-                    // Nếu course chưa được map với skill nào trong DB thì bỏ qua.
-                    // Làm vậy để không insert SkillNode với skill_id rác.
+                    if (skillDb == null && !string.IsNullOrWhiteSpace(rec.SkillName))
+                    {
+                        skillDb = await _context.Skills.FirstOrDefaultAsync(s =>
+                            s.SkillName.Contains(rec.SkillName) || rec.SkillName.Contains(s.SkillName));
+                    }
+
+                    // Nếu tìm mọi cách vẫn không có skill nào khớp thì bỏ qua
                     if (skillDb == null)
                     {
                         continue;
                     }
 
-                    int totalHours = courseDb?.TotalStudyHours ?? 30; // Nếu AI bịa ra môn mới chưa có trong DB, mặc định cho 30 giờ
-
-                    int daysRequired = (int)Math.Ceiling((decimal)totalHours / request.DailyStudyHours);
+                    // 6.3. Thuật toán tính toán thời gian hoàn thành (Deadline)
+                    int totalHours = courseDb.TotalStudyHours ?? 30;
+                    int daysRequired = (int)Math.Ceiling(totalHours / dailyHours);
                     currentDeadline = currentDeadline.AddDays(daysRequired);
 
+                    // 6.4. Khởi tạo Node học tập
                     var node = new SkillNode
                     {
                         NodeId = Guid.NewGuid().ToString(),
-                        RoadmapId = newRoadmap.RoadmapId,
-                        SkillId = skillDb.SkillId,
-                        CourseId = courseDb?.CourseId,
-                        ParentNodeId = previousNodeId,
+                        RoadmapId = newRoadmap.RoadmapId,      // Nối với vỏ lộ trình vừa tạo
+                        SkillId = skillDb.SkillId,             // Nối với kỹ năng chuẩn
+                        CourseId = courseDb.CourseId,          // Nối với môn học chuẩn
+                        ParentNodeId = previousNodeId,         // Nối tiếp với môn học trước đó (A -> B -> C)
                         Status = "PENDING",
                         Deadline = currentDeadline
                     };
 
                     _context.SkillNodes.Add(node);
+
+                    // Cập nhật lại previousNodeId để môn tiếp theo có thể nối vào đuôi môn này
                     previousNodeId = node.NodeId;
                 }
             }
 
-            // 7. Lưu xuống DB
+            // 7. Lưu Roadmap và các SkillNode xuống Database
             await _context.SaveChangesAsync();
 
             return newRoadmap.RoadmapId;
         }
+
 
         // HÀM GỌI GEMINI API
         private async Task<string> CallGeminiApiAsync(string prompt, string apiKey)
         {
             using var client = new HttpClient();
 
-            // 1. DỌN DẸP API KEY: Cắt bỏ mọi khoảng trắng hoặc dấu Enter thừa nếu copy bị dính
+            // 1. CHUẨN HOÁ API KEY
             apiKey = apiKey.Trim();
-
-            // Model mới nhất của Google hiện tại (2.5 Flash)
             string geminiUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
-
-            // 2. ÉP KIỂU TƯỜNG MINH: Chuyển chuỗi thành đối tượng Uri để HttpClient không bao giờ báo lỗi
             var requestUri = new Uri(geminiUrl);
 
+            // 2. ĐÓNG GÓI YÊU CẦU
             var requestBody = new
             {
                 contents = new[]
                 {
-            new
-            {
-                parts = new[] { new { text = prompt } }
-            }
-        }
+                    new { parts = new[] { new { text = prompt } } }
+                }
             };
 
-            // 3. TRUYỀN VÀO BẰNG ĐỐI TƯỢNG Uri VỪA TẠO Ở TRÊN
+            // 3. GỌI API
             var response = await client.PostAsJsonAsync(requestUri, requestBody);
 
             if (!response.IsSuccessStatusCode)
@@ -232,19 +233,31 @@ namespace CareerSystem.API.Services.Implementations
                 throw new Exception($"Lỗi gọi Gemini API: {errorMsg}");
             }
 
-            // ... (Đoạn code bóc tách JSON bên dưới bạn giữ nguyên y hệt như cũ nhé) ...
-
+            // 4. BÓC TÁCH KẾT QUẢ
             var responseJson = await response.Content.ReadAsStringAsync();
             var jsonNode = JsonNode.Parse(responseJson);
 
             string textResult = jsonNode?["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.ToString() ?? "[]";
 
-            textResult = textResult.Trim();
-            if (textResult.StartsWith("```json")) textResult = textResult.Substring(7);
-            if (textResult.StartsWith("```")) textResult = textResult.Substring(3);
-            if (textResult.EndsWith("```")) textResult = textResult.Substring(0, textResult.Length - 3);
+            // 5. TRUYỀN QUA HÀM CHUẨN HOÁ TRƯỚC KHI TRẢ VỀ
+            return CleanJsonString(textResult);
+        }
 
-            return textResult.Trim();
+        // HÀM CHUẨN HOÁ JSON
+        private string CleanJsonString(string text)
+        {
+            // Tìm vị trí của dấu ngoặc vuông mở '[' đầu tiên và đóng ']' cuối cùng
+            int startIndex = text.IndexOf('[');
+            int endIndex = text.LastIndexOf(']');
+
+            // Nếu tìm thấy mảng JSON, chỉ cắt lấy đúng phần đó, bỏ toàn bộ chữ rác
+            if (startIndex >= 0 && endIndex >= startIndex)
+            {
+                return text.Substring(startIndex, endIndex - startIndex + 1);
+            }
+
+            // Nếu không có dấu ngoặc vuông nào, trả về chuỗi gốc đã cắt khoảng trắng
+            return text.Trim();
         }
 
         public async Task<RoadmapDetailDto> GetRoadmapDetailAsync(string roadmapId)
@@ -282,7 +295,7 @@ namespace CareerSystem.API.Services.Implementations
 
             return result;
         }
-
+        
         private string CleanAiJson(string text)
         {
             text = text.Trim();
@@ -299,57 +312,5 @@ namespace CareerSystem.API.Services.Implementations
             return text.Trim();
         }
 
-        //// HÀM GỌI GEMINI API
-        //private async Task<string> CallGeminiApiAsync(string prompt, string apiKey)
-        //{
-        //    using var client = new HttpClient();
-
-        //    // API Endpoint của Google Gemini 1.5 Flash (Model mới nhất và nhanh nhất)
-        //    string geminiUrl = $"[https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=){apiKey}";
-
-        //    // Xây dựng Body đúng chuẩn tài liệu của Google
-        //    var requestBody = new
-        //    {
-        //        contents = new[]
-        //        {
-        //            new
-        //            {
-        //                parts = new[] { new { text = prompt } }
-        //            }
-        //        }
-        //    };
-
-        //    var response = await client.PostAsJsonAsync(geminiUrl, requestBody);
-
-        //    if (!response.IsSuccessStatusCode)
-        //    {
-        //        var errorMsg = await response.Content.ReadAsStringAsync();
-        //        throw new Exception($"Lỗi gọi Gemini API: {errorMsg}");
-        //    }
-
-        //    // Đọc cục JSON khổng lồ trả về
-        //    var responseJson = await response.Content.ReadAsStringAsync();
-        //    var jsonNode = JsonNode.Parse(responseJson);
-
-        //    // Bóc tách đi sâu vào cấu trúc để lấy đúng đoạn text AI sinh ra
-        //    string textResult = jsonNode?["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.ToString() ?? "[]";
-
-        //    // BƯỚC QUAN TRỌNG: Dọn dẹp chuỗi (Vì AI hay bọc kết quả trong markdown ```json ... ```)
-        //    textResult = textResult.Trim();
-        //    if (textResult.StartsWith("```json"))
-        //    {
-        //        textResult = textResult.Substring(7); // Cắt bỏ chữ ```json ở đầu
-        //    }
-        //    if (textResult.StartsWith("```"))
-        //    {
-        //        textResult = textResult.Substring(3);
-        //    }
-        //    if (textResult.EndsWith("```"))
-        //    {
-        //        textResult = textResult.Substring(0, textResult.Length - 3); // Cắt bỏ ``` ở cuối
-        //    }
-
-        //    return textResult.Trim();
-        //}
     }
 }
