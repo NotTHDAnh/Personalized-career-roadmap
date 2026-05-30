@@ -4,7 +4,6 @@ using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
-using System.Text.Json.Nodes; // Thư viện dùng để đọc kết quả từ Gemini
 
 namespace CareerSystem.API.Services.Implementations
 {
@@ -21,16 +20,14 @@ namespace CareerSystem.API.Services.Implementations
 
         public async Task<string> GeneratePersonalizedRoadmapAsync(PersonalizedRoadmapRequest request)
         {
-            // 1. Lấy thông tin nghề nghiệp và các môn sinh viên đã học
+            // 1. Kiểm tra xem user và role có tồn tại không
             var targetRole = await _context.CareerRoles.FindAsync(request.TargetRoleId)
                 ?? throw new Exception("Không tìm thấy nghề nghiệp mục tiêu.");
 
-            var passedCourses = await _context.AcademicRecords
-                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m)
-                .Include(a => a.Course)
-                .Select(a => a.Course.CourseCode)
-                .ToListAsync();
+            // 2. Tạm thời dùng hàm Mock để giả lập kết quả AI (tránh lỗi gọi mạng khi đang code)
+            string aiJsonResponse = GetMockAiResponse();
 
+<<<<<<< HEAD
             string passedCoursesText = passedCourses.Any() ? string.Join(", ", passedCourses) : "Chưa có môn nào";
 
             // Get all the course from database
@@ -123,6 +120,9 @@ namespace CareerSystem.API.Services.Implementations
             aiJsonResponse = CleanAiJson(aiJsonResponse);
 
             // 5. Khởi tạo Lộ trình
+=======
+            // 3. Khởi tạo Lộ trình (Roadmap) mới
+>>>>>>> parent of 0cd2494 (Merge branch 'feature/AI' of https://github.com/NotTHDAnh/personalized-career-roadmap into feature/AI)
             var newRoadmap = new Roadmap
             {
                 RoadmapId = Guid.NewGuid().ToString(),
@@ -134,19 +134,23 @@ namespace CareerSystem.API.Services.Implementations
             };
             _context.Roadmaps.Add(newRoadmap);
 
-            // 6. Phân tích kết quả JSON & Tính toán Deadline
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var recommendedCourses = JsonSerializer.Deserialize<List<AiCourseRecommendationDto>>(aiJsonResponse, options);
+            // 4. Đọc kết quả AI & TÍNH TOÁN DEADLINE nối tiếp
+            var recommendedCourses = JsonSerializer.Deserialize<List<AiCourseRecommendationDto>>(aiJsonResponse);
 
+<<<<<<< HEAD
 
 
             if (recommendedCourses != null && recommendedCourses.Any())
+=======
+            if (recommendedCourses != null)
+>>>>>>> parent of 0cd2494 (Merge branch 'feature/AI' of https://github.com/NotTHDAnh/personalized-career-roadmap into feature/AI)
             {
                 DateOnly currentDeadline = DateOnly.FromDateTime(DateTime.Now);
                 string? previousNodeId = null;
 
                 foreach (var rec in recommendedCourses)
                 {
+<<<<<<< HEAD
                     // Tìm course trong DB dựa trên courseCode mà AI trả về.
                     // Nếu AI trả courseCode không tồn tại thì bỏ qua để tránh lỗi FK course_id.
                     var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == rec.CourseCode);
@@ -172,8 +176,17 @@ namespace CareerSystem.API.Services.Implementations
                     }
 
                     int totalHours = courseDb?.TotalStudyHours ?? 30; // Nếu AI bịa ra môn mới chưa có trong DB, mặc định cho 30 giờ
+=======
+                    // Lấy môn học từ DB để biết cần bao nhiêu giờ học (TotalStudyHours)
+                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == rec.CourseCode);
+>>>>>>> parent of 0cd2494 (Merge branch 'feature/AI' of https://github.com/NotTHDAnh/personalized-career-roadmap into feature/AI)
 
-                    int daysRequired = (int)Math.Ceiling((decimal)totalHours / request.DailyStudyHours);
+                    // Nếu môn học có trong DB thì lấy số giờ, nếu không có mặc định cho 30 giờ
+                    int totalHours = courseDb?.TotalStudyHours ?? 30;
+
+                    // Tính số ngày hoàn thành: Tổng giờ học / Giờ học mỗi ngày (Làm tròn lên)
+                    int daysRequired = (int)Math.Ceiling(totalHours / request.DailyStudyHours);
+
                     currentDeadline = currentDeadline.AddDays(daysRequired);
 
                     var node = new SkillNode
@@ -188,39 +201,25 @@ namespace CareerSystem.API.Services.Implementations
                     };
 
                     _context.SkillNodes.Add(node);
-                    previousNodeId = node.NodeId;
+                    previousNodeId = node.NodeId; // Lưu lại ID để môn sau nối đuôi vào môn trước
                 }
             }
 
-            // 7. Lưu xuống DB
+            // 5. Lưu toàn bộ xuống SQL Server
             await _context.SaveChangesAsync();
 
             return newRoadmap.RoadmapId;
         }
 
-        // HÀM GỌI GEMINI API
-        private async Task<string> CallGeminiApiAsync(string prompt, string apiKey)
+        // Hàm giả lập dữ liệu trả về từ AI 
+        private string GetMockAiResponse()
         {
-            using var client = new HttpClient();
-
-            // 1. DỌN DẸP API KEY: Cắt bỏ mọi khoảng trắng hoặc dấu Enter thừa nếu copy bị dính
-            apiKey = apiKey.Trim();
-
-            // Model mới nhất của Google hiện tại (2.5 Flash)
-            string geminiUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
-
-            // 2. ÉP KIỂU TƯỜNG MINH: Chuyển chuỗi thành đối tượng Uri để HttpClient không bao giờ báo lỗi
-            var requestUri = new Uri(geminiUrl);
-
-            var requestBody = new
-            {
-                contents = new[]
-                {
-            new
-            {
-                parts = new[] { new { text = prompt } }
-            }
+            return @"[
+                { ""courseCode"": ""PRJ301"", ""skillName"": ""Java Web Development"" },
+                { ""courseCode"": ""IOT102"", ""skillName"": ""Internet of Things"" }
+            ]";
         }
+<<<<<<< HEAD
             };
 
             // 3. TRUYỀN VÀO BẰNG ĐỐI TƯỢNG Uri VỪA TẠO Ở TRÊN
@@ -351,5 +350,7 @@ namespace CareerSystem.API.Services.Implementations
 
         //    return textResult.Trim();
         //}
+=======
+>>>>>>> parent of 0cd2494 (Merge branch 'feature/AI' of https://github.com/NotTHDAnh/personalized-career-roadmap into feature/AI)
     }
 }
