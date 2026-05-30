@@ -48,7 +48,7 @@ namespace CareerSystem.API.Services.Implementations
                     gpa = a.Gpa
                 }).ToListAsync();
 
-            // Get Course + Learning OutCOme, Skill from DB for contexting the AI
+            // Get Course + Learning OutCome, Skill from DB for contexting the AI
             var courseCatalog = await _context.Courses
                 .Select(c => new
                 {
@@ -128,6 +128,8 @@ namespace CareerSystem.API.Services.Implementations
                 }}";
 
             string aiJsonResponse = await CallGeminiApiAsync(prompt, apiKey);
+            //Console.WriteLine(aiJsonResponse);
+            aiJsonResponse = CleanAiJson(aiJsonResponse);
 
             var result = JsonSerializer.Deserialize<MentorAskResponseDto>(
                 aiJsonResponse,
@@ -218,6 +220,7 @@ namespace CareerSystem.API.Services.Implementations
 
             return text.Trim();
         }
+
 
     }
 }
