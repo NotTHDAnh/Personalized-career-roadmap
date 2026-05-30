@@ -27,9 +27,6 @@ export function StudentDashboard({ onLogout }: { onLogout: () => void }) {
     mentor: { title: "AI Virtual Mentor", sub: "Get personalized guidance from your AI academic advisor" },
   };
 
-  const currentUser = localStorage.getItem("currentUser");
-  const student = currentUser?  JSON.parse(currentUser) : "Student";
-
   return (
     <div
       className="ml-[280px] w-[calc(100vw-280px)] min-h-screen"
@@ -70,15 +67,15 @@ export function StudentDashboard({ onLogout }: { onLogout: () => void }) {
         <div className="mt-auto p-6 border-t border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#006b5f] text-white flex items-center justify-center font-bold">
-              {student?.fullName.trim().split(/\s+/).at(-1)?.[0].toUpperCase()}
+              AJ
             </div>
 
             <div className="flex flex-col overflow-hidden">
               <span className="text-sm font-semibold text-white truncate">
-                {student?.fullName}
+                Alex Johnson
               </span>
               <span className="text-[10px] uppercase tracking-wider text-[#6df5e1] font-bold">
-                {student?.role}
+                Senior Student
               </span>
             </div>
           </div>
