@@ -4,6 +4,9 @@ Dự án web hỗ trợ định hướng nghề nghiệp và tạo lộ trình h
 
 # WARNING: NHỚ CHẠY CẢ 2 CÁI FRONT VỚI BACK LUÔN NHA AE !!!!!!!!!!!!!!!!!
 
+### Cách xài github
+https://www.youtube.com/watch?v=wFKu81ZMEcg
+
 ## 0. Checklist trước khi code (SET UP XONG ĐỌC CŨNG ĐC)
 
 Trước khi bắt đầu làm task mới:
