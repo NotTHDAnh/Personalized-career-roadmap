@@ -5,21 +5,21 @@ GO
 -- 1. USERS
 -- ============================================================
 INSERT INTO Users (user_id, email, password_hash, full_name, role, oauth_provider, created_at) VALUES
-  ('USR_0001', 'nguyen.van.an@fpt.edu.vn', '$2b$12$abc123hashXXXXXXXXXXXX', N'Nguyen Van An', 'STUDENT', 'LOCAL', '2024-09-01'),
-  ('USR_0002', 'tran.thi.bich@fpt.edu.vn', '$2b$12$def456hashXXXXXXXXXXXX', N'Tran Thi Bich', 'STUDENT', 'LOCAL', '2024-09-01'),
-  ('USR_0003', 'le.minh.duc@fpt.edu.vn', '$2b$12$ghi789hashXXXXXXXXXXXX', N'Le Minh Duc', 'STUDENT', 'GOOGLE', '2024-09-02'),
-  ('USR_0004', 'pham.thi.huong@fpt.edu.vn', '$2b$12$jkl012hashXXXXXXXXXXXX', N'Pham Thi Huong', 'STUDENT', 'LOCAL', '2024-09-02'),
-  ('USR_0005', 'hoang.van.khoa@fpt.edu.vn', '$2b$12$mno345hashXXXXXXXXXXXX', N'Hoang Van Khoa', 'STUDENT', 'LOCAL', '2024-09-03'),
-  ('USR_0006', 'vu.thi.lan@fpt.edu.vn', '$2b$12$pqr678hashXXXXXXXXXXXX', N'Vu Thi Lan', 'STUDENT', 'GOOGLE', '2024-09-03'),
-  ('USR_0007', 'do.minh.nam@fpt.edu.vn', '$2b$12$stu901hashXXXXXXXXXXXX', N'Do Minh Nam', 'STUDENT', 'LOCAL', '2024-09-04'),
-  ('USR_0008', 'nguyen.thi.oanh@fpt.edu.vn', '$2b$12$vwx234hashXXXXXXXXXXXX', N'Nguyen Thi Oanh', 'STUDENT', 'LOCAL', '2024-09-04'),
-  ('USR_0009', 'tran.van.phuc@fpt.edu.vn', '$2b$12$yza567hashXXXXXXXXXXXX', N'Tran Van Phuc', 'STUDENT', 'GOOGLE', '2024-09-05'),
-  ('USR_0010', 'le.thi.quynh@fpt.edu.vn', '$2b$12$bcd890hashXXXXXXXXXXXX', N'Le Thi Quynh', 'STUDENT', 'LOCAL', '2024-09-05'),
-  ('USR_S001', 'staff.advisor@fpt.edu.vn', '$2b$12$efa111hashXXXXXXXXXXXX', N'Nguyen Hoang Staff', 'STAFF', 'LOCAL', '2024-08-01'),
-  ('USR_S002', 'career.support@fpt.edu.vn', '$2b$12$fbb222hashXXXXXXXXXXXX', N'Tran Minh Support', 'STAFF', 'LOCAL', '2024-08-01'),
-  ('USR_S003', 'academic.admin@fpt.edu.vn', '$2b$12$gcc333hashXXXXXXXXXXXX', N'Le Van Admin', 'STAFF', 'LOCAL', '2024-08-02'),
-  ('USR_M001', 'mentor.java@fptsoftware.com', '$2b$12$hdd444hashXXXXXXXXXXXX', N'Pham Quoc Mentor', 'MENTOR', 'LOCAL', '2024-07-01'),
-  ('USR_M002', 'mentor.ai@fptsoftware.com', '$2b$12$iee555hashXXXXXXXXXXXX', N'Vo Thi AI Mentor', 'MENTOR', 'GOOGLE', '2024-07-01');
+  ('USR_0001', 'nguyen.van.an@fpt.edu.vn', '100000.V97uqn3m9RJ4lHBuHuE96w==.YNDNMSSmbPZgogcVvlX4WZriLMed8Hf6tHEgjjHDbP0=', N'Nguyen Van An', 'STUDENT', 'LOCAL', '2024-09-01'),
+  ('USR_0002', 'tran.thi.bich@fpt.edu.vn', '100000.59nR6+HZau4ri2BUoixzTw==.fgj4cJUpOoRLpA6FnoTA3eMlq2aTgkkPKsUnCGPzkfU=', N'Tran Thi Bich', 'STUDENT', 'LOCAL', '2024-09-01'),
+  ('USR_0003', 'le.minh.duc@fpt.edu.vn', '100000.pKq1dBNLedj+//D16x9Srg==.p/2pwg+mhBCDanzo6qe35tCv4Vnas2PecfqKKPLpa4c=', N'Le Minh Duc', 'STUDENT', 'GOOGLE', '2024-09-02'),
+  ('USR_0004', 'pham.thi.huong@fpt.edu.vn', '100000.MmKYLiOzQUe//CeuEdMzRA==.dKhczMQEPrb4RfqIukgIVD38fYZaFJlkSwKlV8LIub0=', N'Pham Thi Huong', 'STUDENT', 'LOCAL', '2024-09-02'),
+  ('USR_0005', 'hoang.van.khoa@fpt.edu.vn', '100000.4xqJ12Nk2wjgFt4n5CyEvw==.7onjg/PxelSPaPv9pI1DSf/LQCgryK4L8btJ5IPXuJs=', N'Hoang Van Khoa', 'STUDENT', 'LOCAL', '2024-09-03'),
+  ('USR_0006', 'vu.thi.lan@fpt.edu.vn', '100000.lpCkxlnP4f03J+EK0mhoCg==.fn/YBaeprzDOZ0n+0q1GiM/Q7BjFlveneBpgWyQBFy0=', N'Vu Thi Lan', 'STUDENT', 'GOOGLE', '2024-09-03'),
+  ('USR_0007', 'do.minh.nam@fpt.edu.vn', '100000.W68xJzxs/S4pXB86kwNGmQ==.yEKK39mmNDDyZGvoHUljQgoA+xaTnMZckC/tXbkpmpo=', N'Do Minh Nam', 'STUDENT', 'LOCAL', '2024-09-04'),
+  ('USR_0008', 'nguyen.thi.oanh@fpt.edu.vn', '100000.5syOpiQMiUIeL9CF9+nlJw==.wz08a0T1FDj9PWlodej5otybZqe4yA7pV6j/Y2dElkw=', N'Nguyen Thi Oanh', 'STUDENT', 'LOCAL', '2024-09-04'),
+  ('USR_0009', 'tran.van.phuc@fpt.edu.vn', '100000.tutlgx6PQJshfizGJXUV4w==.lc8RMkyD5q3BZwyriLhnsgvTlj/F2Wsee2uT36AKyLg=', N'Tran Van Phuc', 'STUDENT', 'GOOGLE', '2024-09-05'),
+  ('USR_0010', 'le.thi.quynh@fpt.edu.vn', '100000.aNIV0cMDVgPtsoeaRiTQTA==.+3wExkuCVmnX+61/RQFjfcfHq+RC3wWcHRQWI1TQwOc=', N'Le Thi Quynh', 'STUDENT', 'LOCAL', '2024-09-05'),
+  ('USR_S001', 'staff.advisor@fpt.edu.vn', '100000.0GLeB8OCS5mSqvfGnNT2Ag==.wnGPjq/jiJJaNLUoY9UBR8UKeZrn+yaf/Zprf22MZA0=', N'Nguyen Hoang Staff', 'STAFF', 'LOCAL', '2024-08-01'),
+  ('USR_S002', 'career.support@fpt.edu.vn', '100000.QIm/oEntCT+Ky7Gon6Neug==.FmhJL3kQ8XIPxKfh+Vt4tozLX3ihzTOJzFR79K7UDXg=', N'Tran Minh Support', 'STAFF', 'LOCAL', '2024-08-01'),
+  ('USR_S003', 'academic.admin@fpt.edu.vn', '100000.vVeL5rgPdW2Hh8+peXD7zg==.2z7fMxwJ4qT0byG+jvoJ/zC4n3SfSTXsXQmnsR5vWfo=', N'Le Van Admin', 'STAFF', 'LOCAL', '2024-08-02'),
+  ('USR_M001', 'mentor.java@fptsoftware.com', '100000.tpDNFrl7u9iIq3UMcO1rvw==.GyjqzmKOjvCr6O5OsiiLI7M14QJAeZxP7TxIMJdM1Qk=', N'Pham Quoc Mentor', 'MENTOR', 'LOCAL', '2024-07-01'),
+  ('USR_M002', 'mentor.ai@fptsoftware.com', '100000.2DdIfLnlV0TGalMzC31+EQ==.ZcV25LYTg4Xlu468KdsKwUXqXWGWCUEXEi1zCVdxpHM=', N'Vo Thi AI Mentor', 'MENTOR', 'GOOGLE', '2024-07-01');
 GO
 
 -- ============================================================
