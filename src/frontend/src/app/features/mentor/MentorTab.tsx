@@ -215,7 +215,11 @@ export function MentorTab() {
           {typing && (
             <div className="flex justify-start">
               <div className="max-w-[78%] rounded-2xl rounded-bl-sm bg-[#eff4ff] px-5 py-4 text-sm text-[#0b1c30]">
-                AI Mentor is typing...
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:120ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:240ms]" />
+                </div>
               </div>
             </div>
           )}

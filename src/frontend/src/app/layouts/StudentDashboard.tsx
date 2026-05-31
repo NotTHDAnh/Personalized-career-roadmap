@@ -14,6 +14,8 @@ import { MentorTab } from "../features/mentor/MentorTab";
 
 export function StudentDashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<DashTab>("profile");
+  const currentUser = localStorage.getItem("currentUser");
+  const student = currentUser?JSON.parse(currentUser):"Student";
 
   const navItems: { id: DashTab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: "profile", label: "Profile & Transcripts", icon: <BookOpen size={17} />, desc: "GPA · Courses · Status" },
@@ -67,15 +69,15 @@ export function StudentDashboard({ onLogout }: { onLogout: () => void }) {
         <div className="mt-auto p-6 border-t border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#006b5f] text-white flex items-center justify-center font-bold">
-              AJ
+             {student?.fullName.trim().split(/\s+/).at(-1)?.[0].toUpperCase()} 
             </div>
 
             <div className="flex flex-col overflow-hidden">
               <span className="text-sm font-semibold text-white truncate">
-                Alex Johnson
+                {student?.fullName || "Student"}
               </span>
               <span className="text-[10px] uppercase tracking-wider text-[#6df5e1] font-bold">
-                Senior Student
+                {student?.role || "None"}
               </span>
             </div>
           </div>
@@ -123,7 +125,7 @@ export function StudentDashboard({ onLogout }: { onLogout: () => void }) {
             </button>
 
             <div className="w-10 h-10 rounded-full bg-[#006b5f] text-white flex items-center justify-center font-bold">
-              S
+             {student?.fullName.trim().split(/\s+/).at(-1)?.[0].toUpperCase()} 
             </div>
           </div>
         </header>
