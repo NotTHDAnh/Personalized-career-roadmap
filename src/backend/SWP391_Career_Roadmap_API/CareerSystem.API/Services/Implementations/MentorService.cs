@@ -1,5 +1,6 @@
 ﻿using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
+using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -136,9 +137,11 @@ namespace CareerSystem.API.Services.Implementations
                 }}";
 
             string aiJsonResponse;
+            string rawJsonResponse;
             try
             {
                 aiJsonResponse = await CallGeminiApiAsync(prompt, apiKey);
+                rawJsonResponse = aiJsonResponse; // Lưu lại phản hồi thô để debug nếu cần
             }
             catch (Exception ex)
             {
@@ -184,8 +187,65 @@ namespace CareerSystem.API.Services.Implementations
                     result.FollowUpQuestion = "Bạn muốn định hướng theo mảng nào hơn: Backend, FrontEnd, FullStack, AI, Data hay Mobile?";
                 }
             }
+            // 5. Save Q&A to DB for future reference
+            // 1. Get or create session
+            var session = await _context.MentorSessions
+                .FirstOrDefaultAsync(s => s.UserId == request.UserId);
+
+            if (session == null)
+            {
+                session = new MentorSession
+                {
+                    SessionId = Guid.NewGuid().ToString(),
+                    UserId = request.UserId,
+                    CreatedAt = DateTime.Now
+                };
+                _context.MentorSessions.Add(session);
+                await _context.SaveChangesAsync();
+            }
+
+            // 2. Save USER's question
+            var userMessage = new ChatMessage
+            {
+                MessageId = Guid.NewGuid().ToString(),
+                SessionId = session.SessionId,
+                Sender = "USER",
+                Content = request.Question,
+                Timestamp = DateTime.Now
+            };
+            _context.ChatMessages.Add(userMessage);
+
+            // 3. Save AI's answer
+            var aiMessage = new ChatMessage
+            {
+                MessageId = Guid.NewGuid().ToString(),
+                SessionId = session.SessionId,
+                Sender = "AI",
+                Content = rawJsonResponse, // Save as JSON
+                Timestamp = DateTime.Now
+            };
+            _context.ChatMessages.Add(aiMessage);
+
+            await _context.SaveChangesAsync();
 
             return result;
+        }
+
+        public async Task<List<ChatMessageDto>> GetSessionHistoryAsync(string userId)
+        {
+            var messages = await _context.ChatMessages
+                .Where(m => m.Session.UserId == userId)
+                .OrderBy(m => m.Timestamp)
+                .Select(m => new ChatMessageDto
+                {
+                    MessageId = m.MessageId,
+                    Sender = m.Sender,
+                    Content = m.Content,
+                    Timestamp = m.Timestamp
+                })
+                .ToListAsync();
+
+            return messages;
         }
 
         private async Task<string> CallGeminiApiAsync(string prompt, string apiKey)
