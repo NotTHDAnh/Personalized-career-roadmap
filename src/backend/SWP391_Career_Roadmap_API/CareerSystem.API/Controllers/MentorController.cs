@@ -18,8 +18,15 @@ namespace CareerSystem.API.Controllers
         [HttpPost("ask")]
         public async Task<IActionResult> Ask([FromBody] MentorAskRequestDto request)
         {
-            var result = await _mentorService.AskAsync(request);
-            return Ok(result);
+            try
+            {
+                var result = await _mentorService.AskAsync(request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
         }
 
         [HttpGet("history/{userId}")]

@@ -29,6 +29,11 @@ namespace CareerSystem.API.Services.Implementations
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == request.UserId);
 
+            if (user == null)
+            {
+                throw new Exception("User not found.");
+            }
+
             // Get roles that only appear in DB
             var careerRoles = await _context.CareerRoles
                 .Select(r => new
@@ -128,7 +133,23 @@ namespace CareerSystem.API.Services.Implementations
                   ""followUpQuestion"": ""câu hỏi thêm nếu chưa rõ, ngược lại để rỗng""
                 }}";
 
-            string aiJsonResponse = await CallGeminiApiAsync(prompt, apiKey);
+            string aiJsonResponse;
+            try
+            {
+                aiJsonResponse = await CallGeminiApiAsync(prompt, apiKey);
+            }
+            catch (Exception ex)
+            {
+                return new MentorAskResponseDto
+                {
+                    Answer = "AI service is currently busy. Please try again in a few moments.",
+                    TargetRoleId = "",
+                    TargetRoleName = "",
+                    RecommendedCareers = new List<String>(),
+                    MissingSkills = new List<String>(),
+                    FollowUpQuestion = ""
+                };
+            }
             //Console.WriteLine(aiJsonResponse);
             aiJsonResponse = CleanAiJson(aiJsonResponse);
 
