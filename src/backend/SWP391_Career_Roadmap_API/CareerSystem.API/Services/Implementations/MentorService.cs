@@ -26,6 +26,9 @@ namespace CareerSystem.API.Services.Implementations
             if (string.IsNullOrWhiteSpace(request.Question))
                 throw new Exception("Question is required.");
 
+            if (request.Question.Length > 1000)
+                throw new Exception("Question is too long.");
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == request.UserId);
 
             if (user == null)
