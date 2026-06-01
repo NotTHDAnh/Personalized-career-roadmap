@@ -1,15 +1,3 @@
-// import React, { useState, useRef, useEffect } from "react";
-// import {
-//   GraduationCap, BookOpen, Map, MessageCircle, LogOut, Send,
-//   AlertTriangle, Plus, Trash2, ChevronDown, ArrowRight,
-//   CheckCircle2, Clock, Circle, Eye, EyeOff, Bot,
-//   Users, UploadCloud, Check, X, Bell, TrendingUp, Award,
-//   FileText, ChevronRight, User, Settings, Star
-// } from "lucide-react";
-// import type { Message } from "../../types";
-// import { AI_PROMPTS } from "../../data/mockData";
-// import { getAIResponse } from "../../services/mockAi";
-
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { Message } from "../../types";
@@ -125,10 +113,18 @@ export function MentorTab() {
   const [recommendedCareers, setRecommendedCareers] = useState<string[]>([]);
 
   const [typing, setTyping] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // useEffect(() => {
+  //   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  // }, [messages, typing]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+
+    if (!container) return;
+
+    container.scrollTop = container.scrollHeight;
   }, [messages, typing]);
 
   // function send(text: string) {
@@ -218,51 +214,6 @@ export function MentorTab() {
       void send(input);
     }
   }
-
-  // async function handleCreateRoadmapClick() {
-  //   if (!targetRole || creatingRoadmap) return;
-
-  //   if (!targetRole.id) {
-  //     const errorMsg: Message = {
-  //       id: Date.now(),
-  //       role: "ai",
-  //       content:
-  //         "I detected your target role, but I could not find its targetRoleId. Please ask AI Mentor with a clearer target career role before creating a roadmap.",
-  //     };
-
-  //     setMessages((prev) => [...prev, errorMsg]);
-  //     return;
-  //   }
-
-  //   setCreatingRoadmap(true);
-
-  //   try {
-  //     await apiClient.post("/Roadmap/generate-personalized", {
-  //       userId,
-  //       targetRoleId: targetRole.id,
-  //       dailyStudyHours: 2,
-  //     });
-
-  //     const successMsg: Message = {
-  //       id: Date.now(),
-  //       role: "ai",
-  //       content: `Roadmap for ${targetRole.name} has been created successfully.`,
-  //     };
-
-  //     setMessages((prev) => [...prev, successMsg]);
-  //   } catch {
-  //     const errorMsg: Message = {
-  //       id: Date.now(),
-  //       role: "ai",
-  //       content:
-  //         "Failed to create roadmap. Please make sure the backend is running and try again.",
-  //     };
-
-  //     setMessages((prev) => [...prev, errorMsg]);
-  //   } finally {
-  //     setCreatingRoadmap(false);
-  //   }
-  // }
 
   async function handleCreateRoadmapClick() {
     if (!targetRole || creatingRoadmap) return;
@@ -357,9 +308,12 @@ export function MentorTab() {
   }
 
   return (
-    <div className="grid xl:grid-cols-[0.72fr_0.28fr] gap-8">
-      <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm min-h-[680px] flex flex-col">
-        <div className="p-6 border-b border-[#c4c6cf]">
+    // <div className="grid xl:grid-cols-[0.72fr_0.28fr] gap-8">
+    //   <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm min-h-[680px] flex flex-col">
+    <div className="grid min-h-0 xl:grid-cols-[0.72fr_0.28fr] gap-8">
+      <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm h-[calc(100vh-180px)] min-h-[560px] flex flex-col overflow-hidden">
+        {/* <div className="p-6 border-b border-[#c4c6cf]"> */}
+        <div className="shrink-0 p-6 border-b border-[#c4c6cf]">
           <p className="text-xs font-bold uppercase tracking-widest text-[#74777f]">
             AI Virtual Mentor
           </p>
@@ -371,7 +325,28 @@ export function MentorTab() {
           </p>
         </div>
 
-        <div className="flex-1 p-6 overflow-y-auto space-y-4">
+        {/* <div className="flex-1 p-6 overflow-y-auto space-y-4"> */}
+        {/* <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3">
+          {messages.map((message) => (
+            <div
+              ref={messagesContainerRef}
+              className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3"
+            >
+              <div
+                className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${message.role === "user"
+                  ? "bg-[#006b5f] text-white rounded-br-sm"
+                  : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
+                  }`}
+              >
+                {message.content}
+              </div>
+            </div>
+          ))} */}
+
+        <div
+          ref={messagesContainerRef}
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3"
+        >
           {messages.map((message) => (
             <div
               key={message.id}
@@ -380,8 +355,8 @@ export function MentorTab() {
             >
               <div
                 className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${message.role === "user"
-                  ? "bg-[#006b5f] text-white rounded-br-sm"
-                  : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
+                    ? "bg-[#006b5f] text-white rounded-br-sm"
+                    : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
                   }`}
               >
                 {message.content}
@@ -401,10 +376,11 @@ export function MentorTab() {
             </div>
           )}
 
-          <div ref={bottomRef} />
+          {/* <div ref={bottomRef} /> */}
         </div>
 
-        <div className="p-6 border-t border-[#c4c6cf]">
+        {/* <div className="p-6 border-t border-[#c4c6cf]"> */}
+        <div className="shrink-0 border-t border-[#c4c6cf] p-6">
           {recommendedCareers.length > 0 && (
             <div className="mb-4 rounded-2xl border border-[#c4c6cf] bg-white p-4">
               <p className="text-sm font-semibold text-[#002046]">
