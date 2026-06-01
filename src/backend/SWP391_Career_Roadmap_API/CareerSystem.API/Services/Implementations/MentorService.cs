@@ -12,11 +12,13 @@ namespace CareerSystem.API.Services.Implementations
     {
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly GithubService _githubService;
 
-        public MentorService(AppDbContext context, IConfiguration configuration)
+        public MentorService(AppDbContext context, IConfiguration configuration, GithubService githubService)
         {
             _configuration = configuration;
             _context = context;
+            _githubService = githubService;
         }
 
         public async Task<MentorAskResponseDto> AskAsync(MentorAskRequestDto request)
@@ -36,6 +38,8 @@ namespace CareerSystem.API.Services.Implementations
             {
                 throw new Exception("User not found.");
             }
+            // Get data from Github repo of student from DB
+            string githubContextJson = await _githubService.BuildGithubContextJsonAsync(request.UserId);
 
             // Get roles that only appear in DB
             var careerRoles = await _context.CareerRoles
@@ -78,6 +82,32 @@ namespace CareerSystem.API.Services.Implementations
                     .ToList()
                 }).ToListAsync();
 
+            // Get latest mentor session of this student
+            var latestSession = await _context.MentorSessions
+                .Where(s => s.UserId == request.UserId)
+                .OrderByDescending(s => s.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            // Get recent chat history from DB.
+            // Only take latest 20 messages to avoid sending too much context to AI.
+            var chatHistory = new List<object>();
+
+            if (latestSession != null)
+            {
+                chatHistory = await _context.ChatMessages
+                    .Where(m => m.SessionId == latestSession.SessionId)
+                    .OrderBy(m => m.Timestamp)
+                    .Take(20)
+                    .Select(m => new
+                    {
+                        sender = m.Sender,
+                        content = m.Content,
+                        timestamp = m.Timestamp
+                    })
+                    .Cast<object>()
+                    .ToListAsync();
+            }
+
             // get context Data, contributing to AI Context
             var contextData = new
             {
@@ -91,7 +121,8 @@ namespace CareerSystem.API.Services.Implementations
                 selectedTopic = request.SelectedTopic,
                 careerRoles,
                 passedCourse,
-                courseCatalog
+                courseCatalog,
+                chatHistory
             };
 
             // convert(Serialize) data string to json
@@ -119,12 +150,19 @@ namespace CareerSystem.API.Services.Implementations
                 Câu hỏi của sinh viên:
                 {request.Question}
 
+                GitHub repositories:
+                {githubContextJson}
+
                 Nhiệm vụ:
                 1. Trả lời câu hỏi tư vấn nghề nghiệp của sinh viên.
                 2. Nếu xác định được nghề phù hợp, chọn đúng targetRoleId từ careerRoles.
                 3. Nếu câu hỏi chưa đủ rõ để chọn nghề, targetRoleId phải là null.
                 4. Nếu targetRoleId là null, hãy hỏi thêm 1 câu để làm rõ định hướng.
                 5. Không tạo roadmap.
+                7. Không bịa repo
+                8. Chỉ dùng GitHub Repo nếu có
+                9. Nếu GitHub Repo trống, trả về GitHub Repo evidence is not available.
+                10. Dùng chatHistory để hiểu ngữ cảnh trước đó, ví dụ target role đã được nhắc tới trước đó.
 
                 Định dạng bắt buộc, chỉ trả JSON:
                 {{
