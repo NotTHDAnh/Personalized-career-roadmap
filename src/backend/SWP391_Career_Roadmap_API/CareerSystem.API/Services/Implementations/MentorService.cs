@@ -134,9 +134,11 @@ namespace CareerSystem.API.Services.Implementations
                 }}";
 
             string aiJsonResponse;
+            string rawJsonResponse;
             try
             {
                 aiJsonResponse = await CallGeminiApiAsync(prompt, apiKey);
+                rawJsonResponse = aiJsonResponse; // Lưu lại phản hồi thô để debug nếu cần
             }
             catch (Exception ex)
             {
@@ -186,11 +188,11 @@ namespace CareerSystem.API.Services.Implementations
             // 1. Get or create session
             var session = await _context.MentorSessions
                 .FirstOrDefaultAsync(s => s.UserId == request.UserId);
-    
+
             if (session == null)
             {
-                session = new MentorSession 
-                { 
+                session = new MentorSession
+                {
                     SessionId = Guid.NewGuid().ToString(),
                     UserId = request.UserId,
                     CreatedAt = DateTime.Now
@@ -198,7 +200,7 @@ namespace CareerSystem.API.Services.Implementations
                 _context.MentorSessions.Add(session);
                 await _context.SaveChangesAsync();
             }
-            
+
             // 2. Save USER's question
             var userMessage = new ChatMessage
             {
@@ -209,20 +211,20 @@ namespace CareerSystem.API.Services.Implementations
                 Timestamp = DateTime.Now
             };
             _context.ChatMessages.Add(userMessage);
-            
+
             // 3. Save AI's answer
             var aiMessage = new ChatMessage
             {
                 MessageId = Guid.NewGuid().ToString(),
                 SessionId = session.SessionId,
                 Sender = "AI",
-                Content = JsonSerializer.Serialize(result), // Save as JSON
+                Content = rawJsonResponse, // Save as JSON
                 Timestamp = DateTime.Now
             };
             _context.ChatMessages.Add(aiMessage);
-            
+
             await _context.SaveChangesAsync();
-            
+
             return result;
         }
 
@@ -239,7 +241,7 @@ namespace CareerSystem.API.Services.Implementations
                     Timestamp = m.Timestamp
                 })
                 .ToListAsync();
-            
+
             return messages;
         }
 
