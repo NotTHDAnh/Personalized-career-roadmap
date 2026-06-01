@@ -9,7 +9,7 @@
 // import type { Message } from "../../types";
 // import { AI_PROMPTS } from "../../data/mockData";
 // import { getAIResponse } from "../../services/mockAi";
-
+import ReactMarkdown from "react-markdown";
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { Message } from "../../types";
@@ -50,19 +50,19 @@ function formatMentorResponse(response: MentorAskResponse) {
     response.answer || "The AI Mentor couldn't find an appropriate answer. Please try asking your question more clearly.",
 
     response.targetRoleName
-      ? `Target Role:\n${response.targetRoleName}`
+      ? `**Target Role:**\n${response.targetRoleName}`
       : "",
 
     response.recommendedCareers?.length
-      ? `Recommended Careers:\n- ${response.recommendedCareers.join("\n- ")}`
+      ? `**Recommended Careers:**\n- ${response.recommendedCareers.join("\n- ")}`
       : "",
 
     response.missingSkills?.length
-      ? `Missing Skills:\n- ${response.missingSkills.join("\n- ")}`
+      ? `**Missing Skills:**\n- ${response.missingSkills.join("\n- ")}`
       : "",
 
     response.followUpQuestion
-      ? `Follow-up Question:\n${response.followUpQuestion}`
+      ? `**Follow-up Question:**\n${response.followUpQuestion}`
       : "",
   ]
     .filter(Boolean)
@@ -207,7 +207,9 @@ export function MentorTab() {
                   : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
                   }`}
               >
-                {message.content}
+                <ReactMarkdown>
+                  {message.content}
+                </ReactMarkdown>
               </div>
             </div>
           ))}
