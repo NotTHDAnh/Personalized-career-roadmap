@@ -28,5 +28,19 @@ namespace CareerSystem.API.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
+        [HttpGet("history/{userId}")]
+        public async Task<IActionResult> GetChatHistory(string userId)
+        {
+            try
+            {
+                var history = await _mentorService.GetSessionHistoryAsync(userId);
+                return Ok(history);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
     }
 }

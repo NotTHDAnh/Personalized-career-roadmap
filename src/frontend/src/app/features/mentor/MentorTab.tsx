@@ -29,7 +29,15 @@ type MentorAskResponse = {
   answer?: string;
   recommendedCareers?: string[];
   missingSkills?: string[];
+
 };
+
+type GenerateRoadmapResponse = {
+  message?: string;
+  roadmapId?: string;
+};
+
+type RoadmapPreview = Record<string, unknown>; //type cho roadmap review
 
 function getCurrentUser(): CurrentUser | null {
   try {
@@ -101,12 +109,34 @@ export function MentorTab() {
       content: `Hello, ${studentName} 👋 I am your AI Academic Mentor. I can help you analyze career direction, skill gaps, and personalized learning roadmap based on your academic profile.`,
     },
   ]);
+
   const [input, setInput] = useState("");
+
+  const [targetRole, setTargetRole] = useState<{
+    id?: string;
+    name: string;
+  } | null>(null);
+
+  const [creatingRoadmap, setCreatingRoadmap] = useState(false);
+  const [roadmapPreview, setRoadmapPreview] = useState<RoadmapPreview | null>(null);
+  const [showRoadmapPreview, setShowRoadmapPreview] = useState(false);
+  const [previewCollapsed, setPreviewCollapsed] = useState(false);
+
+  const [recommendedCareers, setRecommendedCareers] = useState<string[]>([]);
+
   const [typing, setTyping] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // useEffect(() => {
+  //   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  // }, [messages, typing]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+
+    if (!container) return;
+
+    container.scrollTop = container.scrollHeight;
   }, [messages, typing]);
 
   // function send(text: string) {
@@ -144,6 +174,24 @@ export function MentorTab() {
     try {
       const mentorResponse = await askMentor(trimmedText, userId);
 
+      if (mentorResponse.targetRoleName) {
+        setTargetRole({
+          id: mentorResponse.targetRoleId,
+          name: mentorResponse.targetRoleName,
+        });
+      }
+
+      if (mentorResponse.recommendedCareers?.length) {
+        setRecommendedCareers(mentorResponse.recommendedCareers);
+      }
+
+      if (mentorResponse.targetRoleName) {
+        setTargetRole({
+          id: mentorResponse.targetRoleId,
+          name: mentorResponse.targetRoleName,
+        });
+      }
+
       const aiMsg: Message = {
         id: Date.now() + 1,
         role: "ai",
@@ -179,10 +227,105 @@ export function MentorTab() {
     }
   }
 
+  async function handleCreateRoadmapClick() {
+    if (!targetRole || creatingRoadmap) return;
+
+    if (!targetRole.id) {
+      const errorMsg: Message = {
+        id: Date.now(),
+        role: "ai",
+        content:
+          "I detected your target role, but I could not find its targetRoleId. Please ask AI Mentor with a clearer target career role before creating a roadmap.",
+      };
+
+      setMessages((prev) => [...prev, errorMsg]);
+      return;
+    }
+
+    setCreatingRoadmap(true);
+
+    try {
+      const generatedResult = await apiClient.post<GenerateRoadmapResponse>(
+        "/Roadmap/generate-personalized",
+        {
+          userId,
+          targetRoleId: targetRole.id,
+          dailyStudyHours: 2,
+        }
+      );
+
+      if (!generatedResult.roadmapId) {
+        throw new Error("Roadmap was created but roadmapId was not returned.");
+      }
+
+      const roadmapDetail = await apiClient.get<RoadmapPreview>(
+        `/Roadmap/${generatedResult.roadmapId}`
+      );
+
+      setRoadmapPreview(roadmapDetail);
+
+      // setRoadmapPreview(generatedRoadmap);
+      setShowRoadmapPreview(true);
+      setPreviewCollapsed(false);
+
+      const successMsg: Message = {
+        id: Date.now(),
+        role: "ai",
+        content: `I created a roadmap for ${targetRole.name}. Please review the roadmap preview below, then choose Save or Cancel.`,
+      };
+
+      setMessages((prev) => [...prev, successMsg]);
+    } catch {
+      const errorMsg: Message = {
+        id: Date.now(),
+        role: "ai",
+        content:
+          "Failed to create roadmap. Please make sure the backend service is running, then try again.",
+      };
+
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setCreatingRoadmap(false);
+    }
+  }
+
+  function handleSaveRoadmapClick() {
+    const successMsg: Message = {
+      id: Date.now(),
+      role: "ai",
+      content: "Roadmap has been saved successfully.",
+    };
+
+    setMessages((prev) => [...prev, successMsg]);
+    setShowRoadmapPreview(false);
+  }
+
+  function handleCancelRoadmapClick() {
+    setShowRoadmapPreview(false);
+    setPreviewCollapsed(false);
+
+    const cancelMsg: Message = {
+      id: Date.now(),
+      role: "ai",
+      content: "Roadmap preview has been cancelled.",
+    };
+
+    setMessages((prev) => [...prev, cancelMsg]);
+  }
+
+  function handleChooseRecommendedCareer(career: string) {
+    const confirmPrompt = `I choose ${career} as my target career role. Please confirm this target role and return its targetRoleId for roadmap generation.`;
+
+    void send(confirmPrompt);
+  }
+
   return (
-    <div className="grid xl:grid-cols-[0.72fr_0.28fr] gap-8">
-      <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm min-h-[680px] flex flex-col">
-        <div className="p-6 border-b border-[#c4c6cf]">
+    // <div className="grid xl:grid-cols-[0.72fr_0.28fr] gap-8">
+    //   <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm min-h-[680px] flex flex-col">
+    <div className="grid min-h-0 xl:grid-cols-[0.72fr_0.28fr] gap-8">
+      <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm h-[calc(100vh-180px)] min-h-[560px] flex flex-col overflow-hidden">
+        {/* <div className="p-6 border-b border-[#c4c6cf]"> */}
+        <div className="shrink-0 p-6 border-b border-[#c4c6cf]">
           <p className="text-xs font-bold uppercase tracking-widest text-[#74777f]">
             AI Virtual Mentor
           </p>
@@ -194,7 +337,28 @@ export function MentorTab() {
           </p>
         </div>
 
-        <div className="flex-1 p-6 overflow-y-auto space-y-4">
+        {/* <div className="flex-1 p-6 overflow-y-auto space-y-4"> */}
+        {/* <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3">
+          {messages.map((message) => (
+            <div
+              ref={messagesContainerRef}
+              className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3"
+            >
+              <div
+                className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${message.role === "user"
+                  ? "bg-[#006b5f] text-white rounded-br-sm"
+                  : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
+                  }`}
+              >
+                {message.content}
+              </div>
+            </div>
+          ))} */}
+
+        <div
+          ref={messagesContainerRef}
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3"
+        >
           {messages.map((message) => (
             <div
               key={message.id}
@@ -203,8 +367,8 @@ export function MentorTab() {
             >
               <div
                 className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${message.role === "user"
-                  ? "bg-[#006b5f] text-white rounded-br-sm"
-                  : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
+                    ? "bg-[#006b5f] text-white rounded-br-sm"
+                    : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
                   }`}
               >
                 <ReactMarkdown>
@@ -226,10 +390,32 @@ export function MentorTab() {
             </div>
           )}
 
-          <div ref={bottomRef} />
+          {/* <div ref={bottomRef} /> */}
         </div>
 
-        <div className="p-6 border-t border-[#c4c6cf]">
+        {/* <div className="p-6 border-t border-[#c4c6cf]"> */}
+        <div className="shrink-0 border-t border-[#c4c6cf] p-6">
+          {recommendedCareers.length > 0 && (
+            <div className="mb-4 rounded-2xl border border-[#c4c6cf] bg-white p-4">
+              <p className="text-sm font-semibold text-[#002046]">
+                Choose one career to create your roadmap:
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {recommendedCareers.map((career) => (
+                  <button
+                    key={career}
+                    type="button"
+                    onClick={() => handleChooseRecommendedCareer(career)}
+                    disabled={typing}
+                    className="rounded-full border border-[#006b5f] px-4 py-2 text-sm font-semibold text-[#006b5f] transition hover:bg-[#f0fffb] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Use {career}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex gap-3">
             <input
               value={input}
@@ -243,6 +429,20 @@ export function MentorTab() {
 
             <button
               type="button"
+              onClick={() => void handleCreateRoadmapClick()}
+              disabled={!targetRole || typing || creatingRoadmap}
+              title={
+                targetRole
+                  ? `Create roadmap for ${targetRole.name}`
+                  : "Ask AI Mentor about a target career role first"
+              }
+              className="rounded-xl border border-[#006b5f] px-5 font-semibold text-[#006b5f] transition hover:bg-[#f0fffb] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {creatingRoadmap ? "Creating..." : "Create Roadmap"}
+            </button>
+
+            <button
+              type="button"
               onClick={() => void send(input)}
               disabled={!input.trim() || typing}
               className="rounded-xl bg-[#006b5f] text-white px-5 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
@@ -250,6 +450,58 @@ export function MentorTab() {
               Send
             </button>
           </div>
+
+          {showRoadmapPreview && roadmapPreview && (
+            <div className="mt-4 rounded-2xl border border-[#b7d8d2] bg-[#f0fffb] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#006b5f]">
+                    Roadmap Preview
+                  </p>
+                  <h4 className="mt-1 text-base font-bold text-[#002046]">
+                    {targetRole ? `Generated roadmap for ${targetRole.name}` : "Generated roadmap"}
+                  </h4>
+                  <p className="mt-1 text-sm text-[#44474e]">
+                    Review the generated roadmap before confirming your choice.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setPreviewCollapsed((prev) => !prev)}
+                  className="rounded-xl border border-[#006b5f] px-4 py-2 text-sm font-semibold text-[#006b5f] hover:bg-white"
+                >
+                  {previewCollapsed ? "Show" : "Hide"}
+                </button>
+              </div>
+
+              {!previewCollapsed && (
+                <div className="mt-4 max-h-72 overflow-y-auto rounded-xl bg-white p-4 text-sm text-[#0b1c30]">
+                  <pre className="whitespace-pre-wrap break-words font-sans">
+                    {JSON.stringify(roadmapPreview, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              <div className="mt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelRoadmapClick}
+                  className="rounded-xl border border-[#c4c6cf] px-5 py-2 text-sm font-semibold text-[#44474e] hover:bg-white"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveRoadmapClick}
+                  className="rounded-xl bg-[#006b5f] px-5 py-2 text-sm font-semibold text-white hover:bg-[#00544b]"
+                >
+                  Save Roadmap
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
