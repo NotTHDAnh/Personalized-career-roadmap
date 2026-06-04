@@ -1,4 +1,4 @@
-﻿using CareerSystem.API.DTOs;
+using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,30 +22,16 @@ namespace CareerSystem.API.Controllers
             if (request.DailyStudyHours <= 0)
                 return BadRequest("Số giờ học mỗi ngày phải lớn hơn 0.");
 
-            try
-            {
-                var roadmapId = await _roadmapService.GeneratePersonalizedRoadmapAsync(request);
-                return Ok(new { message = "Lộ trình đã tạo thành công!", roadmapId = roadmapId });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            var roadmapId = await _roadmapService.GeneratePersonalizedRoadmapAsync(request);
+            return Ok(new { message = "Lộ trình đã tạo thành công!", roadmapId = roadmapId });
         }
 
         //API xem chi tiết roadmap
         [HttpGet("{roadmapId}")]
         public async Task<IActionResult> GetRoadmapDetail(string roadmapId)
         {
-            try
-            {
-                var roadmap = await _roadmapService.GetRoadmapDetailAsync(roadmapId);
-                return Ok(roadmap);
-            }
-            catch (Exception ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
+            var roadmap = await _roadmapService.GetRoadmapDetailAsync(roadmapId);
+            return Ok(roadmap);
         }
     }
 }
