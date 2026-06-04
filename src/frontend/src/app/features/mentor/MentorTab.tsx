@@ -322,7 +322,7 @@ export function MentorTab() {
   return (
     // <div className="grid xl:grid-cols-[0.72fr_0.28fr] gap-8">
     //   <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm min-h-[680px] flex flex-col">
-    <div className="grid min-h-0 xl:grid-cols-[0.72fr_0.28fr] gap-8">
+    <div className="grid min-h-0 gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
       <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm h-[calc(100vh-180px)] min-h-[560px] flex flex-col overflow-hidden">
         {/* <div className="p-6 border-b border-[#c4c6cf]"> */}
         <div className="shrink-0 p-6 border-b border-[#c4c6cf]">
@@ -367,8 +367,8 @@ export function MentorTab() {
             >
               <div
                 className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${message.role === "user"
-                    ? "bg-[#006b5f] text-white rounded-br-sm"
-                    : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
+                  ? "bg-[#006b5f] text-white rounded-br-sm"
+                  : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
                   }`}
               >
                 <ReactMarkdown>
@@ -451,7 +451,7 @@ export function MentorTab() {
             </button>
           </div>
 
-          {showRoadmapPreview && roadmapPreview && (
+          {/* {showRoadmapPreview && roadmapPreview && (
             <div className="mt-4 rounded-2xl border border-[#b7d8d2] bg-[#f0fffb] p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -501,12 +501,77 @@ export function MentorTab() {
                 </button>
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </section>
 
       <aside className="space-y-6">
         <div className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm p-6">
+          <div className="rounded-2xl border border-[#c4c6cf] bg-white p-6 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-[#006b5f]">
+                  Roadmap Preview
+                </p>
+
+                <h4 className="mt-2 text-xl font-bold text-[#002046]">
+                  {showRoadmapPreview && targetRole
+                    ? `Generated roadmap for ${targetRole.name}`
+                    : "No roadmap generated yet"}
+                </h4>
+
+                <p className="mt-2 text-sm text-[#44474e]">
+                  {showRoadmapPreview
+                    ? "Review the generated roadmap before confirming your choice."
+                    : "Ask the AI Mentor about a target career role, then click Create Roadmap."}
+                </p>
+              </div>
+
+              {showRoadmapPreview && roadmapPreview && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewCollapsed((prev) => !prev)}
+                  className="shrink-0 rounded-xl border border-[#006b5f] px-4 py-2 text-sm font-semibold text-[#006b5f] hover:bg-[#f0fffb]"
+                >
+                  {previewCollapsed ? "Show" : "Hide"}
+                </button>
+              )}
+            </div>
+
+            {showRoadmapPreview && roadmapPreview ? (
+              <>
+                {!previewCollapsed && (
+                  <div className="mt-5 max-h-[420px] overflow-y-auto rounded-xl bg-[#f8fafc] p-4 text-sm text-[#0b1c30]">
+                    <pre className="whitespace-pre-wrap break-words font-sans">
+                      {JSON.stringify(roadmapPreview, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                <div className="mt-5 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancelRoadmapClick}
+                    className="rounded-xl border border-[#c4c6cf] px-5 py-2 text-sm font-semibold text-[#44474e] hover:bg-[#f8fafc]"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveRoadmapClick}
+                    className="rounded-xl bg-[#006b5f] px-5 py-2 text-sm font-semibold text-white hover:bg-[#00544b]"
+                  >
+                    Save Roadmap
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="mt-5 rounded-xl border border-dashed border-[#c4c6cf] bg-[#f8fafc] p-5 text-sm text-[#74777f]">
+                Roadmap preview will appear here after generation.
+              </div>
+            )}
+          </div>
           <h4 className="font-bold text-[#002046]">Suggested Prompts</h4>
 
           <div className="mt-4 space-y-3">
