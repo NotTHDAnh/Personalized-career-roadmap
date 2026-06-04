@@ -1,4 +1,4 @@
-﻿using CareerSystem.API.Data;
+using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
@@ -11,116 +11,21 @@ namespace CareerSystem.API.Services.Implementations
     public class RoadmapService : IRoadmapService
     {
         private readonly AppDbContext _context;
-        private readonly IConfiguration _configuration;
+        private readonly IAiRecommendationService _aiRecommendationService;
+        private readonly IPromptContextService _promptContextService;
 
-        public RoadmapService(AppDbContext context, IConfiguration configuration)
+        public RoadmapService(AppDbContext context, IAiRecommendationService aiRecommendationService, IPromptContextService promptContextService)
         {
             _context = context;
-            _configuration = configuration;
+            _aiRecommendationService = aiRecommendationService;
+            _promptContextService = promptContextService;
         }
 
         public async Task<string> GeneratePersonalizedRoadmapAsync(PersonalizedRoadmapRequest request)
         {
-            // 1. Lấy thông tin nghề nghiệp và các môn sinh viên đã học
-            var targetRole = await _context.CareerRoles.FindAsync(request.TargetRoleId)
-                ?? throw new Exception("Không tìm thấy nghề nghiệp mục tiêu.");
+            var (targetRole, passedCoursesText, courseCatalogJson) = await _promptContextService.BuildRoadmapContextAsync(request);
 
-            var passedCourses = await _context.AcademicRecords
-                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m)
-                .Include(a => a.Course)
-                .Select(a => a.Course.CourseCode)
-                .ToListAsync();
-
-            string passedCoursesText = passedCourses.Any() ? string.Join(", ", passedCourses) : "Chưa có môn nào";
-
-            // Get all the course from database
-            var allCourses = await _context.Courses
-            .Select(c => new
-            {
-                c.CourseCode,
-                c.CourseName,
-                c.TotalStudyHours
-            })
-
-            .ToListAsync();
-
-            // convert course to text
-            string availableCoursesText =
-            string.Join("\n",
-                allCourses.Select(c =>
-                    $"- {c.CourseCode}: {c.CourseName} ({c.TotalStudyHours}h)"
-                )
-            );
-
-            // Lấy toàn bộ course + learning outcomes + skills từ DB
-            var courseCatalog = await _context.Courses
-                .Select(c => new
-                {
-                    courseId = c.CourseId,
-                    courseCode = c.CourseCode,
-                    courseName = c.CourseName,
-                    credits = c.Credits,
-                    totalStudyHours = c.TotalStudyHours,
-
-                    learningOutcomes = _context.CourseLearningOutcomes
-                        .Where(clo => clo.CourseId == c.CourseId)
-                        .Select(clo => new
-                        {
-                            outcomeId = clo.Id,
-                            skillId = clo.SkillId,
-                            skillName = clo.Skill.SkillName,
-                            skillCategory = clo.Skill.Category,
-                            outcomeDescription = clo.OutcomeDescription
-                        })
-                        .ToList()
-                })
-                .ToListAsync();
-            // serialize data to json
-            var courseCatalogJson = JsonSerializer.Serialize(
-                courseCatalog,
-                new JsonSerializerOptions
-                {
-                    WriteIndented = false
-                }
-            );
-
-            // 2. Ép API Key từ appsettings.json
-            string apiKey = _configuration["AiSettings:ApiKey"]
-                ?? throw new Exception("Thiếu cấu hình API Key của hệ thống.");
-
-            // 3. Viết Prompt "điều khiển" AI
-            string prompt = $@"
-                Bạn là Mentor IT cho sinh viên Software Engineering.
-
-                Mục tiêu nghề nghiệp của sinh viên:
-                {targetRole.RoleName}
-
-                Các môn sinh viên đã hoàn thành:
-                {passedCoursesText}
-
-                Đây là COURSE_CATALOG_JSON lấy trực tiếp từ database.
-                Bạn CHỈ được chọn courseCode và skillId tồn tại trong JSON này.
-
-                COURSE_CATALOG_JSON:
-                {courseCatalogJson}
-
-                Yêu cầu:
-                - Đề xuất các môn tiếp theo phù hợp với target role.
-                - Không chọn môn sinh viên đã hoàn thành.
-                - Không bịa courseCode.
-                - Không bịa skillId.
-                - Mỗi item phải dùng courseCode và skillId có trong COURSE_CATALOG_JSON.
-                - Nếu một môn có nhiều learning outcomes, chọn skillId phù hợp nhất.
-
-               Định dạng bắt buộc, chỉ trả JSON:
-                [
-                  {{ ""courseCode"": ""MÃ_MÔN"", ""skillName"": ""Tên Kỹ năng (Ngắn gọn)"" }}
-                ]";
-
-            // 4. Gọi Gemini API thật
-            string aiJsonResponse = await CallGeminiApiAsync(prompt, apiKey);
-            //Console.WriteLine(aiJsonResponse);
-            aiJsonResponse = CleanAiJson(aiJsonResponse);
+            var recommendedCourses = await _aiRecommendationService.GetRoadmapCoursesAsync(targetRole, passedCoursesText, courseCatalogJson);
 
             // 5. Khởi tạo Roadmap
             var newRoadmap = new Roadmap
@@ -135,8 +40,6 @@ namespace CareerSystem.API.Services.Implementations
             _context.Roadmaps.Add(newRoadmap);
 
             // 6. Bóc tách kết quả JSON, đối chiếu với Database thật, tính toán Deadline, rồi khởi tạo các Node học tập tương ứng
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var recommendedCourses = JsonSerializer.Deserialize<List<AiCourseRecommendationDto>>(aiJsonResponse, options);
 
             if (recommendedCourses != null && recommendedCourses.Any())
             {
@@ -205,60 +108,7 @@ namespace CareerSystem.API.Services.Implementations
         }
 
 
-        // HÀM GỌI GEMINI API
-        private async Task<string> CallGeminiApiAsync(string prompt, string apiKey)
-        {
-            using var client = new HttpClient();
 
-            // 1. CHUẨN HOÁ API KEY
-            apiKey = apiKey.Trim();
-            string geminiUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
-            var requestUri = new Uri(geminiUrl);
-
-            // 2. ĐÓNG GÓI YÊU CẦU
-            var requestBody = new
-            {
-                contents = new[]
-                {
-                    new { parts = new[] { new { text = prompt } } }
-                }
-            };
-
-            // 3. GỌI API
-            var response = await client.PostAsJsonAsync(requestUri, requestBody);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorMsg = await response.Content.ReadAsStringAsync();
-                throw new Exception($"Lỗi gọi Gemini API: {errorMsg}");
-            }
-
-            // 4. BÓC TÁCH KẾT QUẢ
-            var responseJson = await response.Content.ReadAsStringAsync();
-            var jsonNode = JsonNode.Parse(responseJson);
-
-            string textResult = jsonNode?["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.ToString() ?? "[]";
-
-            // 5. TRUYỀN QUA HÀM CHUẨN HOÁ TRƯỚC KHI TRẢ VỀ
-            return CleanJsonString(textResult);
-        }
-
-        // HÀM CHUẨN HOÁ JSON
-        private string CleanJsonString(string text)
-        {
-            // Tìm vị trí của dấu ngoặc vuông mở '[' đầu tiên và đóng ']' cuối cùng
-            int startIndex = text.IndexOf('[');
-            int endIndex = text.LastIndexOf(']');
-
-            // Nếu tìm thấy mảng JSON, chỉ cắt lấy đúng phần đó, bỏ toàn bộ chữ rác
-            if (startIndex >= 0 && endIndex >= startIndex)
-            {
-                return text.Substring(startIndex, endIndex - startIndex + 1);
-            }
-
-            // Nếu không có dấu ngoặc vuông nào, trả về chuỗi gốc đã cắt khoảng trắng
-            return text.Trim();
-        }
 
         public async Task<RoadmapDetailDto> GetRoadmapDetailAsync(string roadmapId)
         {
@@ -295,22 +145,5 @@ namespace CareerSystem.API.Services.Implementations
 
             return result;
         }
-        
-        private string CleanAiJson(string text)
-        {
-            text = text.Trim();
-
-            if (text.StartsWith("```json"))
-                text = text.Substring(7);
-
-            if (text.StartsWith("```"))
-                text = text.Substring(3);
-
-            if (text.EndsWith("```"))
-                text = text.Substring(0, text.Length - 3);
-
-            return text.Trim();
-        }
-
     }
 }

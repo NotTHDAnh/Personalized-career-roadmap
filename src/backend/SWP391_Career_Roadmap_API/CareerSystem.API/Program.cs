@@ -24,6 +24,15 @@ namespace CareerSystem.API
 
             builder.Services.AddHttpClient<GithubService>();
 
+            builder.Services.AddHttpClient<CareerSystem.API.Services.Interfaces.IGeminiService,
+                CareerSystem.API.Services.Implementations.GeminiService>();
+
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IPromptContextService,
+                CareerSystem.API.Services.Implementations.PromptContextService>();
+
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IAiRecommendationService,
+                CareerSystem.API.Services.Implementations.AiRecommendationService>();
+
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IRoadmapService,
                 CareerSystem.API.Services.Implementations.RoadmapService>();
 
@@ -47,6 +56,8 @@ namespace CareerSystem.API
             builder.Services.AddSwaggerGen();
 
             var app = builder.Build();
+
+            app.UseMiddleware<CareerSystem.API.Middlewares.ApiExceptionMiddleware>();
 
             if (app.Environment.IsDevelopment())
             {

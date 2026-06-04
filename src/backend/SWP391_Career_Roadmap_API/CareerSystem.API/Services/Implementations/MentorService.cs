@@ -1,4 +1,4 @@
-﻿using CareerSystem.API.Data;
+using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
@@ -11,14 +11,14 @@ namespace CareerSystem.API.Services.Implementations
     public class MentorService : IMentorService
     {
         private readonly AppDbContext _context;
-        private readonly IConfiguration _configuration;
-        private readonly GithubService _githubService;
+        private readonly IAiRecommendationService _aiRecommendationService;
+        private readonly IPromptContextService _promptContextService;
 
-        public MentorService(AppDbContext context, IConfiguration configuration, GithubService githubService)
+        public MentorService(AppDbContext context, IAiRecommendationService aiRecommendationService, IPromptContextService promptContextService)
         {
-            _configuration = configuration;
             _context = context;
-            _githubService = githubService;
+            _aiRecommendationService = aiRecommendationService;
+            _promptContextService = promptContextService;
         }
 
         public async Task<MentorAskResponseDto> AskAsync(MentorAskRequestDto request)
@@ -38,233 +38,13 @@ namespace CareerSystem.API.Services.Implementations
             {
                 throw new Exception("User not found.");
             }
-            // Get data from Github repo of student from DB
-            string githubContextJson = await _githubService.BuildGithubContextJsonAsync(request.UserId);
+            var (contextJson, githubContextJson) = await _promptContextService.BuildMentorContextAsync(user, request);
 
-            // Get roles that only appear in DB
-            var careerRoles = await _context.CareerRoles
-                .Select(r => new
-                {
-                    targetRoleId = r.RoleId,
-                    roleName = r.RoleName,
-                    description = r.Description
-                }).ToListAsync();
+            var result = await _aiRecommendationService.GetMentorAdviceAsync(contextJson, githubContextJson, request.Question);
 
-            // Get passed course
-            var passedCourse = await _context.AcademicRecords
-                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m)
-                .Include(a => a.Course)
-                .Select(a => new
-                {
-                    courseCode = a.Course.CourseCode,
-                    courseName = a.Course.CourseName,
-                    gpa = a.Gpa
-                }).ToListAsync();
+            string rawJsonResponse = JsonSerializer.Serialize(result);
 
-            // Get Course + Learning OutCome, Skill from DB for contexting the AI
-            var courseCatalog = await _context.Courses
-                .Select(c => new
-                {
-                    courseCode = c.CourseCode,
-                    courseName = c.CourseName,
-                    credit = c.Credits,
-                    totalStudyHours = c.TotalStudyHours,
-
-                    learningOutcomes = _context.CourseLearningOutcomes
-                    .Where(clo => clo.CourseId == c.CourseId)
-                    .Select(clo => new
-                    {
-                        skillID = clo.SkillId,
-                        skillName = clo.Skill.SkillName,
-                        skillCategory = clo.Skill.Category,
-                        outcomeDesc = clo.OutcomeDescription
-                    })
-                    .ToList()
-                }).ToListAsync();
-
-            // Get latest mentor session of this student
-            var latestSession = await _context.MentorSessions
-                .Where(s => s.UserId == request.UserId)
-                .OrderByDescending(s => s.CreatedAt)
-                .FirstOrDefaultAsync();
-
-            // Get recent chat history from DB.
-            // Only take latest 20 messages to avoid sending too much context to AI.
-            var chatHistory = new List<object>();
-
-            if (latestSession != null)
-            {
-                chatHistory = await _context.ChatMessages
-                    .Where(m => m.SessionId == latestSession.SessionId)
-                    .OrderBy(m => m.Timestamp)
-                    .Take(20)
-                    .Select(m => new
-                    {
-                        sender = m.Sender,
-                        content = m.Content,
-                        timestamp = m.Timestamp
-                    })
-                    .Cast<object>()
-                    .ToListAsync();
-            }
-
-            // get context Data, contributing to AI Context
-            var contextData = new
-            {
-                student = new
-                {
-                    user.UserId,
-                    user.FullName,
-                    user.Email,
-                },
-                question = request.Question,
-                selectedTopic = request.SelectedTopic,
-                careerRoles,
-                passedCourse,
-                courseCatalog,
-                chatHistory
-            };
-
-            // convert(Serialize) data string to json
-            string contextJson = JsonSerializer.Serialize(
-                contextData,
-                new JsonSerializerOptions
-                {
-                    WriteIndented = false
-                }
-            );
-
-            // get API key
-            string apiKey = _configuration["AiSettings:ApiKey"]
-                 ?? throw new Exception("Thiếu cấu hình API Key của hệ thống.");
-            string prompt = $@"
-                Bạn là Virtual Mentor cho sinh viên Software Engineering.
-
-                Dữ liệu dưới đây lấy trực tiếp từ database.
-                Bạn CHỈ được chọn targetRoleId có tồn tại trong careerRoles.
-                Không được bịa role, course, skill.
-
-                CONTEXT_JSON:
-                {contextJson}
-
-                Câu hỏi của sinh viên:
-                {request.Question}
-
-                GitHub repositories:
-                {githubContextJson}
-
-                Nhiệm vụ:
-                1. Trả lời câu hỏi tư vấn nghề nghiệp của sinh viên.
-                2. Nếu xác định được nghề phù hợp, chọn đúng targetRoleId từ careerRoles.
-                3. Nếu câu hỏi chưa đủ rõ để chọn nghề, targetRoleId phải là null.
-                4. Nếu targetRoleId là null, hãy hỏi thêm 1 câu để làm rõ định hướng.
-                5. Không tạo roadmap.
-                7. Không bịa repo
-                8. Chỉ dùng GitHub Repo nếu có
-                9. Nếu GitHub Repo trống, trả về GitHub Repo evidence is not available.
-                10. Dùng chatHistory để hiểu ngữ cảnh trước đó, ví dụ target role đã được nhắc tới trước đó.
-
-                Định dạng bắt buộc, chỉ trả JSON:
-                {{
-                  ""answer"": ""câu trả lời tư vấn ngắn gọn"",
-                  ""targetRoleId"": ""role id hoặc null"",
-                  ""targetRoleName"": ""role name hoặc null"",
-                  ""recommendedCareers"": [""career 1"", ""career 2""],
-                  ""missingSkills"": [""skill 1"", ""skill 2""],
-                  ""followUpQuestion"": ""câu hỏi thêm nếu chưa rõ, ngược lại để rỗng""
-                }}";
-
-            string aiJsonResponse;
-            string rawJsonResponse;
-            try
-            {
-                aiJsonResponse = await CallGeminiApiAsync(prompt, apiKey);
-                rawJsonResponse = aiJsonResponse; // Lưu lại phản hồi thô để debug nếu cần
-            }
-            catch (Exception ex)
-            {
-                return new MentorAskResponseDto
-                {
-                    Answer = "AI service is currently busy. Please try again in a few moments.",
-                    TargetRoleId = "",
-                    TargetRoleName = "",
-                    RecommendedCareers = new List<String>(),
-                    MissingSkills = new List<String>(),
-                    FollowUpQuestion = ""
-                };
-            }
-            //Console.WriteLine(aiJsonResponse);
-            aiJsonResponse = CleanAiJson(aiJsonResponse);
-
-            var result = JsonSerializer.Deserialize<MentorAskResponseDto>(
-                aiJsonResponse,
-                new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                }
-                );
-
-            if (result == null)
-            {
-                return new MentorAskResponseDto
-                {
-                    Answer = "AI không trả về dữ liệu hợp lệ."
-                };
-            }
-
-            // 4.Validate targetRoleID to avoid AI return garbage ID
-            if (!string.IsNullOrWhiteSpace(result.TargetRoleId))
-            {
-                bool roleExist = await _context.CareerRoles
-                    .AnyAsync(r => r.RoleId == result.TargetRoleId);
-
-                if (!roleExist)
-                {
-                    result.TargetRoleId = null;
-                    result.TargetRoleName = null;
-                    result.FollowUpQuestion = "Bạn muốn định hướng theo mảng nào hơn: Backend, FrontEnd, FullStack, AI, Data hay Mobile?";
-                }
-            }
-            // 5. Save Q&A to DB for future reference
-            // 1. Get or create session
-            var session = await _context.MentorSessions
-                .FirstOrDefaultAsync(s => s.UserId == request.UserId);
-
-            if (session == null)
-            {
-                session = new MentorSession
-                {
-                    SessionId = Guid.NewGuid().ToString(),
-                    UserId = request.UserId,
-                    CreatedAt = DateTime.Now
-                };
-                _context.MentorSessions.Add(session);
-                await _context.SaveChangesAsync();
-            }
-
-            // 2. Save USER's question
-            var userMessage = new ChatMessage
-            {
-                MessageId = Guid.NewGuid().ToString(),
-                SessionId = session.SessionId,
-                Sender = "USER",
-                Content = request.Question,
-                Timestamp = DateTime.Now
-            };
-            _context.ChatMessages.Add(userMessage);
-
-            // 3. Save AI's answer
-            var aiMessage = new ChatMessage
-            {
-                MessageId = Guid.NewGuid().ToString(),
-                SessionId = session.SessionId,
-                Sender = "AI",
-                Content = rawJsonResponse, // Save as JSON
-                Timestamp = DateTime.Now
-            };
-            _context.ChatMessages.Add(aiMessage);
-
-            await _context.SaveChangesAsync();
+            await SaveChatSessionAsync(request.UserId, request.Question, rawJsonResponse);
 
             return result;
         }
@@ -286,63 +66,49 @@ namespace CareerSystem.API.Services.Implementations
             return messages;
         }
 
-        private async Task<string> CallGeminiApiAsync(string prompt, string apiKey)
+
+
+        private async Task SaveChatSessionAsync(string userId, string userQuestion, string aiRawResponse)
         {
-            using var client = new HttpClient();
+            // 1. Get or create session
+            var session = await _context.MentorSessions
+                .FirstOrDefaultAsync(s => s.UserId == userId);
 
-            apiKey = apiKey.Trim();
-            string geminiUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
-
-            var requestUri = new Uri(geminiUrl);
-
-            var requestBody = new
+            if (session == null)
             {
-                contents = new[]
+                session = new MentorSession
                 {
-                    new
-                    {
-                        parts = new[]
-                        {
-                            new { text = prompt }
-                        }
-                    }
-                }
-            };
-
-            var response = await client.PostAsJsonAsync(requestUri, requestBody);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorMsg = await response.Content.ReadAsStringAsync();
-                throw new Exception($"Lỗi gọi Gemini API: {errorMsg}");
+                    SessionId = Guid.NewGuid().ToString(),
+                    UserId = userId,
+                    CreatedAt = DateTime.Now
+                };
+                _context.MentorSessions.Add(session);
+                await _context.SaveChangesAsync();
             }
 
-            var resonseJson = await response.Content.ReadAsStringAsync();
-            var jsonNode = JsonNode.Parse(resonseJson);
+            // 2. Save USER's question
+            var userMessage = new ChatMessage
+            {
+                MessageId = Guid.NewGuid().ToString(),
+                SessionId = session.SessionId,
+                Sender = "USER",
+                Content = userQuestion,
+                Timestamp = DateTime.Now
+            };
+            _context.ChatMessages.Add(userMessage);
 
-            string textResult =
-                jsonNode?["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.ToString()
-                ?? "{}";
+            // 3. Save AI's answer
+            var aiMessage = new ChatMessage
+            {
+                MessageId = Guid.NewGuid().ToString(),
+                SessionId = session.SessionId,
+                Sender = "AI",
+                Content = aiRawResponse, // Save as JSON
+                Timestamp = DateTime.Now
+            };
+            _context.ChatMessages.Add(aiMessage);
 
-            return CleanAiJson(textResult);
+            await _context.SaveChangesAsync();
         }
-
-        private string CleanAiJson(string text)
-        {
-            text = text.Trim();
-
-            if (text.StartsWith("```json"))
-                text = text.Substring(7);
-
-            if (text.StartsWith("```"))
-                text = text.Substring(3);
-
-            if (text.EndsWith("```"))
-                text = text.Substring(0, text.Length - 3);
-
-            return text.Trim();
-        }
-
-
     }
 }
