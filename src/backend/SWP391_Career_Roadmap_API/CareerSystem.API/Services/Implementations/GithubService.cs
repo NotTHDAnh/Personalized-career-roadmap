@@ -1,4 +1,5 @@
-﻿using CareerSystem.API.Data;
+using System.Collections.Concurrent;
+using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,10 @@ namespace CareerSystem.API.Services.Implementations
     {
         private readonly HttpClient _httpClient;
         private readonly AppDbContext _context;
+
+        // BỘ NHỚ ĐỆM LƯU THỜI GIAN ĐỒNG BỘ GITHUB GẦN NHẤT CỦA MỖI USER
+        // Tránh việc spam gọi GitHub API liên tục trên mỗi tin nhắn chat khi tài khoản chưa có repo nào trong DB.
+        private static readonly ConcurrentDictionary<string, DateTime> _lastSyncTimes = new();
 
         public GithubService(HttpClient httpClient, AppDbContext context)
         {
@@ -129,7 +134,12 @@ namespace CareerSystem.API.Services.Implementations
 
             if (!hasRepos)
             {
-                await SyncGithubReposToDatabaseAsync(userId);
+                // Chỉ đồng bộ lại nếu chưa đồng bộ trong vòng 60 phút qua để tránh treo mạng liên tục
+                if (!_lastSyncTimes.TryGetValue(userId, out var lastSync) || (DateTime.UtcNow - lastSync).TotalMinutes > 60)
+                {
+                    await SyncGithubReposToDatabaseAsync(userId);
+                    _lastSyncTimes[userId] = DateTime.UtcNow; // Ghi lại mốc thời gian đồng bộ gần nhất
+                }
             }
 
             var repos = await _context.Repositories
