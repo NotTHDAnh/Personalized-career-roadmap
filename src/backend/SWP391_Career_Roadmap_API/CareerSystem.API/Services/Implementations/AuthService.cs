@@ -1,4 +1,4 @@
-﻿using CareerSystem.API.Data;
+using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
 using CareerSystem.API.Utilities;
@@ -17,7 +17,7 @@ namespace CareerSystem.API.Services.Implementations
             _context = context;
         }
 
-        public async Task<LoginResponse> LoginAsync(LoginRequest request)
+        public async Task<LoginResponse?> LoginAsync(LoginRequest request)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
             if (user == null)
