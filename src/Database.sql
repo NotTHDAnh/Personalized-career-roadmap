@@ -8,6 +8,11 @@ GO
 USE SE_Career_Roadmap;
 GO
 
+INSERT INTO Users (user_id, email, password_hash, full_name, role, oauth_provider)
+VALUES
+('student-001', 'student@gmail.com', '123456', N'Nguyễn Văn An', 'STUDENT', 'LOCAL'),
+('staff-001', 'staff@gmail.com', '123456', N'Admin Staff', 'STAFF', 'LOCAL');
+
 -- ==========================================
 -- 1. MODULE: QUẢN LÝ NGƯỜI DÙNG
 -- ==========================================

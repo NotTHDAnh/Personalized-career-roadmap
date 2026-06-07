@@ -1,198 +1,298 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { UploadCloud, FileCheck, X } from "lucide-react";
+import { SkillTag } from "./components/SkillTag";
+import { StudentProfileCard } from "./components/StudentProfileCard";
+import { GpaInput } from "./components/GpaInput";
 
-type CourseRecord = {
-  code: string;
-  name: string;
-  grade: string;
-  status: "Completed" | "In Progress";
-};
+const BLUE = "#1B365D";
+const TEAL = "#0D9488";
 
-const initialCourses: CourseRecord[] = [
-  { code: "PRN212", name: "Basic Cross-Platform Application Programming", grade: "8.4", status: "Completed" },
-  { code: "SWP391", name: "Application Development Project", grade: "In progress", status: "In Progress" },
-  { code: "SWR302", name: "Software Requirements", grade: "8.0", status: "Completed" },
+const skills = [
+  "#Logic", "#Syntax", "#HTML", "#CSS", "#OOP",
+  "#Backend", "#SQL", "#Schema", "#DataStructures",
+  "#Algorithms", "#API", "#REST",
 ];
 
-export default function ProfileTab() {
-  const [courses, setCourses] = useState<CourseRecord[]>(initialCourses);
-  const [skillInput, setSkillInput] = useState("");
-  const [skills, setSkills] = useState(["C#", "React", "SQL Server", "Requirement Analysis"]);
-
-  function addSkill() {
-    const value = skillInput.trim();
-
-    if (!value || skills.includes(value)) {
-      return;
-    }
-
-    setSkills((prev) => [...prev, value]);
-    setSkillInput("");
-  }
-
-  function removeSkill(skill: string) {
-    setSkills((prev) => prev.filter((item) => item !== skill));
-  }
-
-  function addDemoCourse() {
-    setCourses((prev) => [
-      ...prev,
-      {
-        code: "EXE101",
-        name: "Startup Project",
-        grade: "In progress",
-        status: "In Progress",
-      },
-    ]);
-  }
-
+export default function ProfileTranscripts() {
   return (
-    <div className="space-y-8">
-      <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm overflow-hidden">
-        <div className="h-32 bg-gradient-to-r from-[#1b365d] to-[#006b5f]" />
+    <div className="p-8 space-y-6 min-h-full" style={{ background: "#F1F5F9" }}>
+      <div>
+        <h2 style={{ color: BLUE, fontWeight: 700, fontSize: "1.2rem" }}>
+          Profile &amp; Transcript Management
+        </h2>
+        <p className="text-sm text-gray-500 mt-0.5">Workspace · Academic Year 2024–2025</p>
+      </div>
 
-        <div className="px-6 pb-6">
-          <div className="flex flex-col md:flex-row md:items-end gap-5 -mt-10">
-            <div className="w-24 h-24 rounded-2xl bg-[#006b5f] text-white border-4 border-white shadow-lg flex items-center justify-center text-3xl font-bold">
-              S
+      {/* ── TOP TIER: 3-column ── */}
+      <div className="grid gap-4" style={{ gridTemplateColumns: "35% 28% 1fr" }}>
+        {/* Left: Student Profile */}
+        <StudentProfileCard />
+
+        {/* Center: 2 stacked metric cards */}
+        <div className="flex flex-col gap-4">
+          {/* Learning Time */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex-1">
+            <p
+              className="text-xs uppercase tracking-wider mb-3"
+              style={{ color: "#94A3B8", fontWeight: 600 }}
+            >
+              Total Learning Time Completed
+            </p>
+            <div className="flex items-baseline gap-2 mb-4">
+              <span style={{ fontSize: "2.4rem", fontWeight: 700, color: BLUE, lineHeight: 1 }}>
+                36
+              </span>
+              <span className="text-sm text-gray-500">Weeks Completed</span>
             </div>
-
-            <div className="flex-1 pt-2 md:pt-10">
-              <h3 className="text-2xl font-bold text-[#002046]">
-                Student Profile
-              </h3>
-              <p className="text-[#44474e]">
-                Software Engineering · Year 2 · FPT University
-              </p>
+            <div className="bg-gray-100 rounded-full h-2">
+              <div
+                className="h-2 rounded-full"
+                style={{ width: "60%", background: TEAL }}
+              />
             </div>
-
-            <button className="px-5 py-3 rounded-xl bg-[#006b5f] text-white text-sm font-semibold hover:opacity-90">
-              Edit Profile
-            </button>
+            <p className="text-xs text-gray-400 mt-2">60 of 100 weeks total programme</p>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-4 mt-8">
-            {[
-              ["Current GPA", "8.2"],
-              ["Completed Courses", "24"],
-              ["Tracked Skills", String(skills.length)],
-              ["Roadmap Progress", "41%"],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-xl bg-[#eff4ff] p-4">
-                <p className="text-xs uppercase tracking-widest text-[#74777f] font-bold">
-                  {label}
-                </p>
-                <p className="text-2xl font-bold text-[#002046] mt-2">
-                  {value}
-                </p>
-              </div>
-            ))}
+          {/* GPA */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex-1">
+            <p
+              className="text-xs uppercase tracking-wider mb-3"
+              style={{ color: "#94A3B8", fontWeight: 600 }}
+            >
+              GPA
+            </p>
+            <div className="flex items-baseline gap-2 mb-4">
+              <span style={{ fontSize: "2.4rem", fontWeight: 700, color: BLUE, lineHeight: 1 }}>
+                3.85
+              </span>
+              <span className="text-sm text-gray-500">out of 4.0</span>
+            </div>
+            <div className="bg-gray-100 rounded-full h-2">
+              <div
+                className="h-2 rounded-full"
+                style={{ width: "96%", background: "#F59E0B" }}
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-2">96.25% of maximum attainable</p>
           </div>
         </div>
-      </section>
 
-      <div className="grid xl:grid-cols-[1.3fr_0.7fr] gap-8">
-        <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm">
-          <div className="p-6 border-b border-[#c4c6cf] flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-[#002046]">
-                Academic Transcript
-              </h3>
-              <p className="text-sm text-[#44474e]">
-                Manage courses and academic records.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={addDemoCourse}
-              className="px-4 py-2 rounded-xl bg-[#006b5f] text-white text-sm font-semibold"
-            >
-              Add Course
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[#eff4ff] text-[#44474e]">
-                <tr>
-                  <th className="text-left px-6 py-4">Code</th>
-                  <th className="text-left px-6 py-4">Course</th>
-                  <th className="text-left px-6 py-4">Grade</th>
-                  <th className="text-left px-6 py-4">Status</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {courses.map((course) => (
-                  <tr key={`${course.code}-${course.name}`} className="border-t border-[#eef2f7]">
-                    <td className="px-6 py-4 font-semibold text-[#002046]">
-                      {course.code}
-                    </td>
-                    <td className="px-6 py-4 text-[#44474e]">
-                      {course.name}
-                    </td>
-                    <td className="px-6 py-4 font-bold text-[#002046]">
-                      {course.grade}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          course.status === "Completed"
-                            ? "bg-green-50 text-green-700"
-                            : "bg-yellow-50 text-yellow-700"
-                        }`}
-                      >
-                        {course.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm p-6">
-          <h3 className="text-lg font-bold text-[#002046]">Current Skills</h3>
-          <p className="text-sm text-[#44474e] mt-1">
-            Add skills manually before generating advisement.
+        {/* Right: Skill Hashtags */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <p
+            className="text-xs uppercase tracking-wider mb-4"
+            style={{ color: "#94A3B8", fontWeight: 600 }}
+          >
+            Acquired Skill Hashtags
           </p>
-
-          <div className="flex gap-2 mt-5">
-            <input
-              value={skillInput}
-              onChange={(e) => setSkillInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  addSkill();
-                }
-              }}
-              placeholder="Add skill"
-              className="flex-1 rounded-xl border border-[#c4c6cf] px-4 py-3 outline-none focus:ring-2 focus:ring-[#006b5f]"
-            />
-
-            <button
-              type="button"
-              onClick={addSkill}
-              className="rounded-xl bg-[#006b5f] text-white px-4 font-semibold"
-            >
-              Add
-            </button>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mt-5">
-            {skills.map((skill) => (
-              <button
-                key={skill}
-                type="button"
-                onClick={() => removeSkill(skill)}
-                className="px-3 py-2 rounded-full bg-[#eff4ff] text-[#002046] text-sm font-semibold hover:bg-red-50 hover:text-red-700"
-              >
-                {skill} ×
-              </button>
+          <div
+            className="flex flex-wrap gap-2"
+            style={{ maxHeight: "200px", overflow: "hidden" }}
+          >
+            {skills.slice(0, 11).map((s) => (
+              <SkillTag key={s} label={s} />
             ))}
+            <span className="text-xs text-gray-400 self-center">...more</span>
           </div>
-        </section>
+          <p className="text-xs text-gray-400 mt-4 border-t border-gray-100 pt-3">
+            {skills.length} skills unlocked from completed courses
+          </p>
+        </div>
+      </div>
+
+      {/* ── MIDDLE TIER: In-Progress Courses ── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div
+          className="px-6 py-4 border-b border-gray-100 flex items-center justify-between"
+        >
+          <div>
+            <h3 className="text-sm text-gray-800" style={{ fontWeight: 600 }}>
+              In-Progress Courses
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">Active Semester · Currently Enrolled</p>
+          </div>
+          <span
+            className="text-xs px-3 py-1 rounded-full"
+            style={{ background: "#EFF6FF", color: "#1D4ED8" }}
+          >
+            2 Active
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr style={{ background: "#F8FAFC" }}>
+                {[
+                  "Course Name",
+                  "Course Code",
+                  "Standard Duration (Weeks)",
+                  "Learning Outcomes (Skill Hashtags)",
+                  "GPA",
+                  "Status",
+                ].map((col) => (
+                  <th
+                    key={col}
+                    className="px-5 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap"
+                    style={{ color: "#64748B", fontWeight: 600 }}
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-gray-100">
+                <td className="px-5 py-4 text-sm text-gray-800">
+                  Advanced Java Programming
+                </td>
+                <td className="px-5 py-4 text-sm font-mono text-gray-600">JA301</td>
+                <td className="px-5 py-4 text-sm text-gray-600">8 Weeks</td>
+                <td className="px-5 py-4">
+                  <div className="flex gap-1.5 flex-wrap">
+                    {["#OOP", "#Backend"].map((t) => (
+                      <SkillTag key={t} label={t} variant="green" />
+                    ))}
+                  </div>
+                </td>
+                <td className="px-5 py-4">
+                  <GpaInput />
+                </td>
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="px-2.5 py-1 rounded-full text-xs whitespace-nowrap"
+                      style={{ background: "#EFF6FF", color: "#1D4ED8", fontWeight: 500 }}
+                    >
+                      In Progress
+                    </span>
+                    <span className="text-xs whitespace-nowrap">
+                      ⚠️ Prerequisite Missing
+                    </span>
+                  </div>
+                </td>
+              </tr>
+              <tr className="border-t border-gray-100">
+                <td className="px-5 py-4 text-sm text-gray-800">
+                  Database Management Systems
+                </td>
+                <td className="px-5 py-4 text-sm font-mono text-gray-600">DB202</td>
+                <td className="px-5 py-4 text-sm text-gray-600">6 Weeks</td>
+                <td className="px-5 py-4">
+                  <div className="flex gap-1.5 flex-wrap">
+                    {["#SQL", "#Schema"].map((t) => (
+                      <SkillTag key={t} label={t} variant="green" />
+                    ))}
+                  </div>
+                </td>
+                <td className="px-5 py-4">
+                  <GpaInput />
+                </td>
+                <td className="px-5 py-4">
+                  <span
+                    className="px-2.5 py-1 rounded-full text-xs"
+                    style={{ background: "#EFF6FF", color: "#1D4ED8", fontWeight: 500 }}
+                  >
+                    In Progress
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── BOTTOM TIER: Completed Courses ── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm text-gray-800" style={{ fontWeight: 600 }}>
+              Completed Courses
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">Historical Academic Record</p>
+          </div>
+          <span
+            className="text-xs px-3 py-1 rounded-full"
+            style={{ background: "#F0FDF4", color: "#16A34A" }}
+          >
+            2 Completed
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr style={{ background: "#F8FAFC" }}>
+                {[
+                  "Course Name",
+                  "Course Code",
+                  "Standard Duration (Weeks)",
+                  "Learning Outcomes (Skill Hashtags)",
+                  "GPA",
+                  "Status",
+                ].map((col) => (
+                  <th
+                    key={col}
+                    className="px-5 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap"
+                    style={{ color: "#64748B", fontWeight: 600 }}
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-gray-100">
+                <td className="px-5 py-4 text-sm text-gray-800">
+                  Introduction to Programming
+                </td>
+                <td className="px-5 py-4 text-sm font-mono text-gray-600">PR101</td>
+                <td className="px-5 py-4 text-sm text-gray-600">8 Weeks</td>
+                <td className="px-5 py-4">
+                  <div className="flex gap-1.5 flex-wrap">
+                    {["#Logic", "#Syntax"].map((t) => (
+                      <SkillTag key={t} label={t} />
+                    ))}
+                  </div>
+                </td>
+                <td className="px-5 py-4">
+                  <GpaInput defaultValue="3.8" />
+                </td>
+                <td className="px-5 py-4">
+                  <span
+                    className="px-2.5 py-1 rounded-full text-xs"
+                    style={{ background: "#F0FDF4", color: "#16A34A", fontWeight: 500 }}
+                  >
+                    Done
+                  </span>
+                </td>
+              </tr>
+              <tr className="border-t border-gray-100">
+                <td className="px-5 py-4 text-sm text-gray-800">
+                  Web Foundations (External)
+                </td>
+                <td className="px-5 py-4 text-sm font-mono text-gray-600">Coursera</td>
+                <td className="px-5 py-4 text-sm text-gray-600">4 Weeks</td>
+                <td className="px-5 py-4">
+                  <div className="flex gap-1.5 flex-wrap">
+                    {["#HTML", "#CSS"].map((t) => (
+                      <SkillTag key={t} label={t} />
+                    ))}
+                  </div>
+                </td>
+                <td className="px-5 py-4">
+                  <GpaInput defaultValue="4.0" />
+                </td>
+                <td className="px-5 py-4">
+                  <span
+                    className="px-2.5 py-1 rounded-full text-xs"
+                    style={{ background: "#F0FDF4", color: "#16A34A", fontWeight: 500 }}
+                  >
+                    Done
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

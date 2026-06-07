@@ -1,615 +1,370 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase } from "lucide-react";
+import { GoalNode } from "./components/GoalNode";
+import { RoadmapNode } from "./components/RoadmapNode";
+import { CourseCard } from "./components/CourseCard";
 
-type CourseStatus = "completed" | "active" | "locked";
+const BLUE = "#1B365D";
+const TEAL = "#0D9488";
 
-type CourseCard = {
-  id: string;
-  type: "University Course" | "External Platform";
-  title: string;
+type NodeState = "done" | "active" | "locked";
+
+interface CourseNode {
+  id: number;
+  name: string;
+  code: string;
+  shortLabel: string;
+  state: NodeState;
+  zone: 1 | 2 | 3 | 4;
+  source: "university" | "external";
   duration: string;
-  subtitle?: string;
-  tags: string[];
-  required?: boolean;
-  status: CourseStatus;
-};
+  prerequisite: string;
+  skills: string[];
+  // SVG coords (viewBox 0 0 1100 200)
+  cx: number;
+  cy: number;
+}
 
-type MonthStack = {
-  id: string;
-  label: string;
-  caption: string;
-  status: CourseStatus;
-  cards: CourseCard[];
-};
-
-const initialMonths: MonthStack[] = [
+const NODES: CourseNode[] = [
+  // ── Zone 1: Foundation (Done) ──
   {
-    id: "month-1",
-    label: "Month 01",
-    caption: "COMPLETED",
-    status: "completed",
-    cards: [
-      {
-        id: "cs101",
-        type: "University Course",
-        title: "Intro to Computer Science (CS101)",
-        duration: "8 Weeks",
-        subtitle: "Core Prerequisite",
-        tags: ["logic", "python"],
-        required: true,
-        status: "completed",
-      },
-      {
-        id: "web-foundations",
-        type: "External Platform",
-        title: "Web Foundations (Coursera)",
-        duration: "4 Weeks",
-        tags: ["html-css", "javascript"],
-        status: "completed",
-      },
-    ],
+    id: 1,
+    name: "Introduction to Computer Science (CS101)",
+    code: "CS101",
+    shortLabel: "CS101",
+    state: "done",
+    zone: 1,
+    source: "university",
+    duration: "8 Weeks",
+    prerequisite: "None",
+    skills: ["#Logic", "#Syntax", "#ComputerScience"],
+    cx: 75,
+    cy: 100,
   },
   {
-    id: "month-2",
-    label: "Month 02",
-    caption: "CURRENT PHASE",
-    status: "active",
-    cards: [
-      {
-        id: "dsa201",
-        type: "University Course",
-        title: "Data Structures (DSA201)",
-        duration: "12 Weeks",
-        subtitle: "In Progress",
-        tags: ["algorithms", "complexity"],
-        required: true,
-        status: "active",
-      },
-      {
-        id: "db202",
-        type: "University Course",
-        title: "DBMS (DB202)",
-        duration: "10 Weeks",
-        tags: ["sql", "normalization"],
-        status: "active",
-      },
-    ],
+    id: 2,
+    name: "Web Foundations (Coursera)",
+    code: "Coursera",
+    shortLabel: "Web\nFound.",
+    state: "done",
+    zone: 1,
+    source: "external",
+    duration: "4 Weeks",
+    prerequisite: "CS101",
+    skills: ["#HTML", "#CSS", "#WebDesign"],
+    cx: 165,
+    cy: 55,
   },
   {
-    id: "month-3",
-    label: "Month 03",
-    caption: "UPCOMING",
-    status: "locked",
-    cards: [
-      {
-        id: "ja301",
-        type: "University Course",
-        title: "Advanced Java (JA301)",
-        duration: "8 Weeks",
-        subtitle: "Requires CS101...",
-        tags: ["oop", "multi-threading"],
-        status: "locked",
-      },
-    ],
+    id: 3,
+    name: "Programming Fundamentals (PR101)",
+    code: "PR101",
+    shortLabel: "PR101",
+    state: "done",
+    zone: 1,
+    source: "university",
+    duration: "8 Weeks",
+    prerequisite: "CS101",
+    skills: ["#Variables", "#ControlFlow", "#Functions"],
+    cx: 248,
+    cy: 118,
+  },
+  // ── Zone 2: Core Skills (Active) ──
+  {
+    id: 4,
+    name: "Data Structures & Algorithms (DSA201)",
+    code: "DSA201",
+    shortLabel: "DSA201",
+    state: "active",
+    zone: 2,
+    source: "university",
+    duration: "10 Weeks",
+    prerequisite: "PR101",
+    skills: ["#DataStructures", "#Algorithms", "#Efficiency"],
+    cx: 365,
+    cy: 78,
+  },
+  {
+    id: 5,
+    name: "Database Management Systems (DB202)",
+    code: "DB202",
+    shortLabel: "DB202",
+    state: "active",
+    zone: 2,
+    source: "university",
+    duration: "6 Weeks",
+    prerequisite: "PR101",
+    skills: ["#SQL", "#Schema", "#Databases"],
+    cx: 488,
+    cy: 128,
+  },
+  // ── Zone 3: Advanced (Locked) ──
+  {
+    id: 6,
+    name: "Advanced Java Programming (JA301)",
+    code: "JA301",
+    shortLabel: "JA301",
+    state: "locked",
+    zone: 3,
+    source: "university",
+    duration: "8 Weeks",
+    prerequisite: "DSA201",
+    skills: ["#OOP", "#Backend", "#Java"],
+    cx: 622,
+    cy: 72,
+  },
+  {
+    id: 7,
+    name: "RESTful API Design (Coursera)",
+    code: "Coursera",
+    shortLabel: "API\nDesign",
+    state: "locked",
+    zone: 3,
+    source: "external",
+    duration: "4 Weeks",
+    prerequisite: "JA301",
+    skills: ["#RESTful_API", "#HTTP", "#JSON"],
+    cx: 742,
+    cy: 128,
+  },
+  // ── Zone 4: Specialisation (Locked) ──
+  {
+    id: 8,
+    name: "Microservices Architecture (MSA401)",
+    code: "MSA401",
+    shortLabel: "MSA401",
+    state: "locked",
+    zone: 4,
+    source: "university",
+    duration: "6 Weeks",
+    prerequisite: "RESTful API Design",
+    skills: ["#Microservices", "#Docker", "#Distributed"],
+    cx: 885,
+    cy: 80,
+  },
+  {
+    id: 9,
+    name: "Cloud Fundamentals — AWS (Coursera)",
+    code: "Coursera",
+    shortLabel: "AWS\nCloud",
+    state: "locked",
+    zone: 4,
+    source: "external",
+    duration: "6 Weeks",
+    prerequisite: "MSA401",
+    skills: ["#AWS_Cloud", "#CloudComputing", "#Serverless"],
+    cx: 1000,
+    cy: 90,   // raised for smoother path to goal
   },
 ];
 
-export default function RoadmapTab() {
-  const [selectedTrack, setSelectedTrack] = useState("Fullstack Developer Track");
-  const [isEditing, setIsEditing] = useState(false);
-  const [months, setMonths] = useState<MonthStack[]>(initialMonths);
+const ROADMAP_GOALS: Record<string, { title: string; subtitle: string }> = {
+  "Backend Developer Path": {
+    title: "Backend Developer",
+    subtitle: "Java · APIs · Cloud",
+  },
+  "Full-Stack Engineer Path": {
+    title: "Full-Stack Engineer",
+    subtitle: "React · Node · DB",
+  },
+  "Data Engineering Path": {
+    title: "Data Engineer",
+    subtitle: "Python · SQL · Cloud",
+  },
+};
 
-  const allCards = useMemo(
-    () => months.flatMap((month) => month.cards),
-    [months]
-  );
+/* ─────────────────────────────────────── */
 
-  const completedCards = useMemo(
-    () => allCards.filter((card) => card.status === "completed").length,
-    [allCards]
-  );
+const ZONES = [
+  { label: "ZONE: MONTH 1", sub: "Foundation · Completed", textColor: "#15803D", bg: "#F0FDF4", border: "#BBF7D0" },
+  { label: "ZONE: MONTH 2", sub: "Core Skills · Active",   textColor: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE" },
+  { label: "ZONE: MONTH 3", sub: "Advanced · Upcoming",    textColor: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
+  { label: "ZONE: MONTH 4", sub: "Specialisation · Upcoming", textColor: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
+];
 
-  function markCardCompleted(cardId: string) {
-    setMonths((prev) =>
-      prev.map((month) => ({
-        ...month,
-        cards: month.cards.map((card) =>
-          card.id === cardId ? { ...card, status: "completed" } : card
-        ),
-      }))
-    );
-  }
+export default function MyRoadmaps() {
+  const [selected, setSelected] = useState("Backend Developer Path");
 
-  function handleSave() {
-    setIsEditing(false);
-  }
+  const roadmaps = Object.keys(ROADMAP_GOALS);
+  const goal = ROADMAP_GOALS[selected];
 
-  function handleDelete() {
-    const confirmed = window.confirm("Delete this roadmap draft?");
-
-    if (!confirmed) {
-      return;
-    }
-
-    setMonths(initialMonths);
-    setIsEditing(false);
-  }
+  const byZone = (z: number) => NODES.filter((n) => n.zone === z);
 
   return (
-    <div className="w-full space-y-6 bg-[#f8f9ff] text-[#0b1c30]">
-      <style>{`
-        .roadmap-track-container {
-          position: relative;
-          width: 100%;
-          height: 60px;
-          overflow: visible;
-        }
+    <div className="p-8 space-y-6 min-h-full" style={{ background: "#F1F5F9" }}>
 
-        .node-glowing {
-          box-shadow: 0 0 15px rgba(0, 107, 95, 0.4);
-          animation: pulse-glow 2s infinite;
-        }
-
-        @keyframes pulse-glow {
-          0% { box-shadow: 0 0 0 0px rgba(0, 107, 95, 0.4); }
-          70% { box-shadow: 0 0 0 10px rgba(0, 107, 95, 0); }
-          100% { box-shadow: 0 0 0 0px rgba(0, 107, 95, 0); }
-        }
-      `}</style>
-
-      <section className="rounded-xl border border-[#c4c6cf] bg-[#f8f9ff] px-6 py-5">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h1 className="text-[14px] font-bold leading-5 text-[#002046]">
-              Staff Administration Panel - Data Entry Only
-            </h1>
-            <p className="mt-1 text-[12px] text-[#44474e]">
-              Review and maintain the generated career learning roadmap.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="relative flex items-center gap-2 rounded-lg border border-[#c4c6cf]/70 bg-[#eff4ff] px-4 py-2">
-              <select
-                value={selectedTrack}
-                onChange={(e) => setSelectedTrack(e.target.value)}
-                className="appearance-none border-0 bg-transparent pr-8 text-[14px] font-semibold leading-5 text-[#0b1c30] outline-none focus:ring-0"
-              >
-                <option>Fullstack Developer Track</option>
-                <option>Backend Developer Track</option>
-                <option>Frontend Developer Track</option>
-                <option>Data Engineer Track</option>
-              </select>
-
-              <span className="material-symbols-outlined pointer-events-none absolute right-3 text-[#44474e]">
-                expand_more
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsEditing((prev) => !prev)}
-              className="flex items-center gap-2 rounded-lg border border-[#c4c6cf] bg-[#eff4ff] px-4 py-2 text-[14px] font-semibold leading-5 text-[#002046] transition-all hover:bg-[#e5eeff]"
+      {/* ── Section 1: Management Header ── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4 flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500 whitespace-nowrap" style={{ fontWeight: 500 }}>
+            Select Active Roadmap
+          </label>
+          <div className="relative">
+            <select
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+              className="appearance-none pr-8 pl-3 py-2 rounded-lg border text-sm text-gray-800 focus:outline-none cursor-pointer"
+              style={{ borderColor: "#E2E8F0", background: "#F8FAFC", fontWeight: 500 }}
             >
-              <span className="material-symbols-outlined text-[20px]">edit</span>
-              {isEditing ? "Editing" : "Edit"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSave}
-              className="flex items-center gap-2 rounded-lg bg-[#006b5f] px-4 py-2 text-[14px] font-semibold leading-5 text-white transition-all hover:opacity-90"
-            >
-              <span className="material-symbols-outlined text-[20px]">save</span>
-              Save
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="rounded-lg p-2 text-[#ba1a1a] transition-all hover:bg-[#ffdad6]/40"
-            >
-              <span className="material-symbols-outlined">delete</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-        <div className="rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] xl:col-span-8">
-          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <h2 className="text-[20px] font-semibold leading-7 text-[#002046]">
-                Learning Velocity
-              </h2>
-              <p className="text-[14px] leading-5 text-[#44474e]">
-                AI Projection vs. Actual Progress (Weeks 1-12)
-              </p>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-[#006b5f]" />
-                <span className="text-[12px] font-bold uppercase text-[#44474e]">
-                  Actual
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-slate-300" />
-                <span className="text-[12px] font-bold uppercase text-[#44474e]">
-                  AI Target
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative h-[200px] w-full pt-4">
-            <svg
-              className="h-full w-full"
-              preserveAspectRatio="none"
-              viewBox="0 0 800 200"
-            >
-              <line stroke="#F1F5F9" strokeWidth="1" x1="0" x2="800" y1="40" y2="40" />
-              <line stroke="#F1F5F9" strokeWidth="1" x1="0" x2="800" y1="80" y2="80" />
-              <line stroke="#F1F5F9" strokeWidth="1" x1="0" x2="800" y1="120" y2="120" />
-              <line stroke="#F1F5F9" strokeWidth="1" x1="0" x2="800" y1="160" y2="160" />
-
-              <path
-                d="M 0 160 L 100 145 L 200 130 L 300 110 L 400 90 L 500 75 L 600 55 L 700 40 L 800 20"
-                fill="none"
-                stroke="#1B365D"
-                strokeDasharray="4 4"
-                strokeOpacity="0.3"
-                strokeWidth="2"
-              />
-
-              <path
-                d="M 0 160 L 100 150 L 200 135 L 300 115 L 400 85 L 450 85"
-                fill="none"
-                stroke="#006B5F"
-                strokeLinecap="round"
-                strokeWidth="3"
-              />
-
-              <circle cx="450" cy="85" fill="#006B5F" r="4" />
-            </svg>
-
-            <div className="mt-2 flex justify-between text-[12px] font-bold leading-4 text-[#44474e]/50">
-              <span>Wk 1</span>
-              <span>Wk 4</span>
-              <span>Wk 8</span>
-              <span>Wk 12</span>
-            </div>
+              {roadmaps.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
         </div>
 
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-xl bg-[#1b365d] p-6 text-white xl:col-span-4">
-          <div className="relative z-10">
-            <h3 className="mb-1 text-[14px] font-semibold uppercase leading-5 tracking-widest text-[#6df5e1]">
-              Remaining Time
-            </h3>
-
-            <div className="flex items-baseline gap-2">
-              <span className="text-[56px] font-bold tracking-tighter">42</span>
-              <span className="text-xl opacity-60">Days Left</span>
-            </div>
-
-            <p className="mt-4 text-[14px] leading-5 text-[#87a0cd]">
-              Accelerate now to reach your Q3 milestone target of "Backend Mastery".
-            </p>
-          </div>
-
-          <div className="relative z-10 mt-6 flex items-center gap-4 rounded-lg bg-white/10 p-4">
-            <div className="rounded-full bg-[#006b5f] p-2">
-              <span className="material-symbols-outlined text-white">timer</span>
-            </div>
-
-            <div>
-              <p className="text-[12px] font-bold">Next Session</p>
-              <p className="text-[14px] font-semibold leading-5">
-                System Design @ 2:00 PM
-              </p>
-            </div>
-          </div>
-
-          <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full border-[16px] border-white/5" />
-        </div>
-      </section>
-
-      <section className="overflow-hidden rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] xl:p-12">
-        <div className="roadmap-track-container mb-16">
-          <svg
-            className="w-full"
-            height="60"
-            preserveAspectRatio="none"
-            viewBox="0 0 1000 60"
-          >
-            <path
-              d="M 50 30 L 950 30"
-              stroke="#F1F5F9"
-              strokeLinecap="round"
-              strokeWidth="4"
-            />
-            <path
-              d="M 50 30 L 500 30"
-              stroke="#006B5F"
-              strokeLinecap="round"
-              strokeWidth="4"
-            />
-            <path
-              d="M 500 30 L 950 30"
-              stroke="#94A3B8"
-              strokeDasharray="8 8"
-              strokeLinecap="round"
-              strokeWidth="4"
-            />
-          </svg>
-
-          <div className="pointer-events-none absolute left-0 top-0 flex h-full w-full justify-between px-[42px]">
-            {months.map((month) => (
-              <MilestoneNode key={month.id} month={month} />
-            ))}
-          </div>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-gray-50 transition-colors" style={{ borderColor: "#E2E8F0", color: "#475569" }}>
+            <Pencil className="w-3.5 h-3.5" /> Edit
+          </button>
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-white hover:opacity-90 transition-opacity" style={{ background: TEAL }}>
+            <Save className="w-3.5 h-3.5" /> Save
+          </button>
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-red-50 transition-colors" style={{ borderColor: "#FCA5A5", color: "#DC2626" }}>
+            <Trash2 className="w-3.5 h-3.5" /> Delete
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 xl:grid-cols-3 xl:gap-16">
-          {months.map((month) => (
-            <div
-              key={month.id}
-              className={`space-y-4 ${month.status === "locked" ? "opacity-50" : ""}`}
-            >
-              {month.cards.map((card) => (
-                <RoadmapCourseCard
-                  key={card.id}
-                  card={card}
-                  editable={isEditing}
-                  onMarkCompleted={markCardCompleted}
-                />
+        <div className="flex-1" />
+
+        <div className="flex items-center gap-3 px-4 py-2 rounded-xl" style={{ background: "#EFF6FF", border: "1px solid #BFDBFE" }}>
+          <span className="text-xs text-blue-700" style={{ fontWeight: 600 }}>⏳ Remaining Study Time</span>
+          <span className="text-xs px-2.5 py-1 rounded-full text-white" style={{ background: BLUE, fontWeight: 600 }}>~24 Weeks</span>
+        </div>
+      </div>
+
+      {/* ── Section 2: Duolingo Map (horizontally scrollable) ── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <div style={{ minWidth: "1280px" }}>
+
+            {/* Zone label header — scrolls with the map */}
+            <div style={{ display: "flex", borderBottom: "1px solid #F1F5F9" }}>
+              {ZONES.map(({ label, textColor, bg, border: bdr }, i) => (
+                <div
+                  key={label}
+                  style={{
+                    flex: 1,
+                    padding: "10px 0",
+                    textAlign: "center",
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    background: bg,
+                    color: textColor,
+                    borderLeft: i > 0 ? `1px solid ${bdr}` : undefined,
+                  }}
+                >
+                  {label}
+                </div>
               ))}
+            </div>
+
+            {/* Map canvas — taller to give goal card room below its circle */}
+            <div className="relative" style={{ height: "280px", background: "#FAFBFC" }}>
+              <svg
+                className="absolute inset-0 w-full h-full"
+                viewBox="0 0 1100 200"
+                preserveAspectRatio="none"
+              >
+                {/* Zone shading */}
+                <rect x="0"   y="0" width="275" height="200" fill="#F0FDF4" opacity="0.55" />
+                <rect x="275" y="0" width="275" height="200" fill="#EFF6FF" opacity="0.45" />
+                <rect x="550" y="0" width="275" height="200" fill="#F8FAFC" opacity="0.7"  />
+                <rect x="825" y="0" width="275" height="200" fill="#F8FAFC" opacity="0.7"  />
+
+                {/* Zone separators */}
+                {[275, 550, 825].map((x) => (
+                  <line key={x} x1={x} y1="0" x2={x} y2="200" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="5,4" />
+                ))}
+
+                {/* Solid teal path — Zones 1–2 (done + active) */}
+                <path
+                  d="M 20 100
+                     C 48 100 62 100 75 100
+                     C 112 100 142 55 165 55
+                     C 196 55 228 118 248 118
+                     C 283 118 330 78 365 78
+                     C 412 78 457 128 488 128
+                     C 522 128 548 108 550 108"
+                  fill="none"
+                  stroke={TEAL}
+                  strokeWidth="4.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                {/* Dashed gray path — Zones 3–4 → goal (node 9 cy adjusted to 90) */}
+                <path
+                  d="M 550 108
+                     C 578 108 600 72 622 72
+                     C 665 72 710 128 742 128
+                     C 790 128 848 80 885 80
+                     C 932 80 968 90 1000 90
+                     C 1025 90 1042 76 1055 76"
+                  fill="none"
+                  stroke="#94A3B8"
+                  strokeWidth="4.5"
+                  strokeLinecap="round"
+                  strokeDasharray="10,6"
+                />
+              </svg>
+
+              {/* Course nodes */}
+              {NODES.map((node) => <RoadmapNode key={node.id} node={node} />)}
+
+              {/* Career target node — anchored to right edge */}
+              <GoalNode goal={goal} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Section 3: Chronological Timeline ── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* Timeline column headers */}
+        <div className="grid grid-cols-4 border-b border-gray-100">
+          {ZONES.map(({ sub, textColor, bg, border: bdr }, i) => (
+            <div
+              key={i}
+              className="px-4 py-3"
+              style={{ background: bg, borderLeft: i > 0 ? `1px solid ${bdr}` : undefined }}
+            >
+              <p className="text-xs uppercase tracking-wider" style={{ color: textColor, fontWeight: 700 }}>
+                Month {i + 1}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">{sub.split(" · ")[1]}</p>
             </div>
           ))}
         </div>
-      </section>
 
-      <footer className="flex flex-col gap-4 border-t border-[#c4c6cf]/30 py-6 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex flex-wrap items-center gap-6">
-          <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full bg-[#006b5f]" />
-            <span className="text-[12px] font-bold leading-4 text-[#44474e]">
-              Completed Path
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full border-2 border-dashed border-slate-400" />
-            <span className="text-[12px] font-bold leading-4 text-[#44474e]">
-              Future Roadmap
-            </span>
-          </div>
+        {/* Course card stacks */}
+        <div className="grid grid-cols-4 divide-x divide-gray-100">
+          {[1, 2, 3, 4].map((z) => (
+            <div key={z} className="p-3">
+              {byZone(z).map((n) => <CourseCard key={n.id} node={n} />)}
+              {/* Career Target card in Month 4 column */}
+              {z === 4 && (
+                <div
+                  className="rounded-xl border p-3.5 mt-1"
+                  style={{ background: "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)", border: "1.5px solid #FDE68A" }}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "#F59E0B" }}>
+                      <Briefcase className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="text-xs uppercase tracking-wider" style={{ color: "#92400E", fontWeight: 700, fontSize: "0.6rem" }}>
+                      Career Target
+                    </span>
+                  </div>
+                  <p className="text-sm" style={{ fontWeight: 700, color: "#78350F" }}>{goal.title}</p>
+                  <p className="text-xs text-amber-600 mt-0.5">{goal.subtitle}</p>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-
-        <p className="text-[12px] font-bold italic leading-4 text-[#44474e]">
-          Roadmap last optimized by AI Virtual Mentor 2 hours ago. Progress:{" "}
-          {completedCards}/{allCards.length} items completed.
-        </p>
-      </footer>
-    </div>
-  );
-}
-
-function MilestoneNode({ month }: { month: MonthStack }) {
-  if (month.status === "completed") {
-    return (
-      <div className="pointer-events-auto flex flex-col items-center">
-        <div className="flex h-14 w-14 transform items-center justify-center rounded-full border-4 border-white bg-[#006b5f] shadow-lg transition hover:scale-110">
-          <span className="material-symbols-outlined font-bold text-white">check</span>
-        </div>
-
-        <span className="mt-4 text-[14px] font-semibold leading-5 text-[#006b5f]">
-          {month.label}
-        </span>
-
-        <span className="text-[10px] font-bold uppercase text-[#44474e]">
-          {month.caption}
-        </span>
       </div>
-    );
-  }
-
-  if (month.status === "active") {
-    return (
-      <div className="pointer-events-auto relative flex flex-col items-center">
-        <div className="node-glowing flex h-14 w-14 transform items-center justify-center rounded-full border-[3px] border-[#006b5f] bg-white shadow-lg transition hover:scale-110">
-          <div className="h-3 w-3 rounded-full bg-[#006b5f]" />
-        </div>
-
-        <span className="mt-4 text-[14px] font-semibold leading-5 text-[#002046]">
-          {month.label}
-        </span>
-
-        <span className="text-[10px] font-bold uppercase text-[#006b5f]">
-          {month.caption}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="pointer-events-auto flex flex-col items-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full border-[3px] border-dashed border-slate-300 bg-white opacity-60 shadow-sm">
-        <span className="material-symbols-outlined text-slate-400">lock</span>
-      </div>
-
-      <span className="mt-4 text-[14px] font-semibold leading-5 text-[#44474e] opacity-60">
-        {month.label}
-      </span>
-
-      <span className="text-[10px] font-bold uppercase text-[#44474e]/40">
-        {month.caption}
-      </span>
-    </div>
-  );
-}
-
-function RoadmapCourseCard({
-  card,
-  editable,
-  onMarkCompleted,
-}: {
-  card: CourseCard;
-  editable: boolean;
-  onMarkCompleted: (id: string) => void;
-}) {
-  const isLocked = card.status === "locked";
-  const isActive = card.status === "active";
-  const isCompleted = card.status === "completed";
-
-  if (isLocked) {
-    return (
-      <div className="group relative rounded-xl border border-dashed border-[#c4c6cf] bg-[#eff4ff] p-5 grayscale">
-        <div className="mb-3 flex items-start justify-between">
-          <span className="rounded bg-[#002046]/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-tighter text-white">
-            {card.type}
-          </span>
-
-          <span className="flex items-center gap-1 text-[12px] font-bold leading-4 text-[#44474e]">
-            <span className="material-symbols-outlined text-sm">lock</span>
-            Locked
-          </span>
-        </div>
-
-        <h4 className="mb-1 text-[14px] font-semibold leading-5 text-[#002046]">
-          {card.title}
-        </h4>
-
-        <div className="mb-3 flex items-center gap-2">
-          <span className="rounded bg-[#dce9ff] px-2 py-0.5 text-[12px] font-bold leading-4 text-[#44474e]">
-            {card.duration}
-          </span>
-
-          {card.subtitle && (
-            <span className="text-[12px] text-[#44474e]/60">
-              {card.subtitle}
-            </span>
-          )}
-        </div>
-
-        <TagList tags={card.tags} locked />
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`group relative overflow-hidden rounded-xl p-5 transition-all duration-300 ${
-        isActive
-          ? "border-2 border-[#006b5f] bg-white shadow-lg"
-          : "border border-[#c4c6cf]/40 bg-[#eff4ff] hover:bg-white hover:shadow-lg"
-      }`}
-    >
-      {isActive && (
-        <div className="absolute right-0 top-0 p-2">
-          <span className="flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#006b5f] opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#006b5f]" />
-          </span>
-        </div>
-      )}
-
-      <div className="mb-3 flex items-start justify-between">
-        <span
-          className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-tighter ${
-            card.type === "University Course"
-              ? "bg-[#002046] text-white"
-              : "border border-[#ffb95f] text-[#dd8d00]"
-          }`}
-        >
-          {card.type}
-        </span>
-
-        {card.required && (
-          <span className="flex items-center gap-1 text-[12px] font-bold leading-4 text-[#4e2f00]">
-            <span
-              className="material-symbols-outlined text-sm"
-              style={{
-                fontVariationSettings:
-                  "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24",
-              }}
-            >
-              star
-            </span>
-            Required
-          </span>
-        )}
-
-        {isCompleted && !card.required && (
-          <span className="flex items-center gap-1 text-[12px] font-bold leading-4 text-[#006b5f]">
-            <span className="material-symbols-outlined text-sm">check</span>
-            Done
-          </span>
-        )}
-      </div>
-
-      <h4 className="mb-1 truncate text-[14px] font-semibold leading-5 text-[#002046]">
-        {card.title}
-      </h4>
-
-      <div className="mb-3 flex items-center gap-2">
-        <span
-          className={`rounded px-2 py-0.5 text-[12px] font-bold leading-4 ${
-            isActive
-              ? "bg-[#6df5e1] text-[#006f64]"
-              : "bg-[#dce9ff] text-[#44474e]"
-          }`}
-        >
-          {card.duration}
-        </span>
-
-        {card.subtitle && (
-          <span
-            className={`text-[12px] ${
-              isActive ? "font-bold text-[#006b5f]" : "text-[#44474e]/60"
-            }`}
-          >
-            {card.subtitle}
-          </span>
-        )}
-      </div>
-
-      <TagList tags={card.tags} />
-
-      {editable && !isCompleted && (
-        <button
-          type="button"
-          onClick={() => onMarkCompleted(card.id)}
-          className="mt-4 rounded-lg border border-[#006b5f] px-3 py-2 text-[12px] font-bold text-[#006b5f] transition hover:bg-[#006b5f] hover:text-white"
-        >
-          Mark Completed
-        </button>
-      )}
-    </div>
-  );
-}
-
-function TagList({
-  tags,
-  locked = false,
-}: {
-  tags: string[];
-  locked?: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          className={`text-[11px] font-bold ${
-            locked ? "text-[#44474e]/40" : "text-[#005048]"
-          }`}
-        >
-          #{tag}
-        </span>
-      ))}
     </div>
   );
 }
