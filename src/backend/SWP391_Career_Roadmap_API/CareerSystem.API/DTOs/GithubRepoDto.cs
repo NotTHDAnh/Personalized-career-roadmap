@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace CareerSystem.API.DTOs
 {
@@ -25,5 +25,8 @@ namespace CareerSystem.API.DTOs
 
         [JsonPropertyName("updated_at")]
         public DateTime UpdatedAt { get; set; }
+
+        [JsonPropertyName("size")]
+        public int Size { get; set; }
     }
 }

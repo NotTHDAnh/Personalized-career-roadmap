@@ -1,4 +1,4 @@
-﻿using CareerSystem.API.DTOs;
+using CareerSystem.API.DTOs;
 
 namespace CareerSystem.API.Services.Interfaces
 {
@@ -6,6 +6,6 @@ namespace CareerSystem.API.Services.Interfaces
     {
         // Nhận vào khay LoginRequest, trả về một chuỗi thông báo (tạm thời)
         string Login(LoginRequest request);
-        Task<LoginResponse> LoginAsync(LoginRequest request);
+        Task<LoginResponse?> LoginAsync(LoginRequest request);
     }
 }

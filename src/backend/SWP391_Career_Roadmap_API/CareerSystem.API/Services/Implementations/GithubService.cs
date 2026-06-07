@@ -1,9 +1,12 @@
-﻿using CareerSystem.API.Data;
+using System.Collections.Concurrent;
+using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Text.Json;
+
+using CareerSystem.API.Services.Interfaces;
 
 namespace CareerSystem.API.Services.Implementations
 {
@@ -11,11 +14,17 @@ namespace CareerSystem.API.Services.Implementations
     {
         private readonly HttpClient _httpClient;
         private readonly AppDbContext _context;
+        private readonly IGeminiService _geminiService;
 
-        public GithubService(HttpClient httpClient, AppDbContext context)
+        // BỘ NHỚ ĐỆM LƯU THỜI GIAN ĐỒNG BỘ GITHUB GẦN NHẤT CỦA MỖI USER
+        // Tránh việc spam gọi GitHub API liên tục trên mỗi tin nhắn chat khi tài khoản chưa có repo nào trong DB.
+        private static readonly ConcurrentDictionary<string, DateTime> _lastSyncTimes = new();
+
+        public GithubService(HttpClient httpClient, AppDbContext context, IGeminiService geminiService)
         {
             _httpClient = httpClient;
             _context = context;
+            _geminiService = geminiService;
         }
 
         // Lấy danh sách repo public từ GitHub API bằng github username.
@@ -55,17 +64,121 @@ namespace CareerSystem.API.Services.Implementations
         }
 
         // Lọc repo tốt nhất để phân tích.
-        // Không lấy fork, không lấy archive, ưu tiên repo update gần đây.
+        // Không lấy fork, không lấy archive, dung lượng >= 10KB, ưu tiên repo mới cập nhật.
         public async Task<List<GithubRepoDto>> GetTopReposFromGithubAsync(string username)
         {
             var repos = await GetUserReposFromGithubAsync(username);
 
             return repos
-                .Where(r => !r.Fork && !r.Archived)
+                .Where(r => !r.Fork && !r.Archived && r.Size >= 10)
                 .OrderByDescending(r => r.UpdatedAt)
                 .ThenByDescending(r => r.StargazersCount)
                 .Take(5)
                 .ToList();
+        }
+
+        // Tải file README.md của repo từ GitHub API và giải mã Base64.
+        public async Task<string?> GetRepoReadmeAsync(string owner, string repoName)
+        {
+            try
+            {
+                var request = new HttpRequestMessage(
+                    HttpMethod.Get,
+                    $"https://api.github.com/repos/{owner}/{repoName}/readme"
+                );
+
+                request.Headers.UserAgent.Add(
+                    new ProductInfoHeaderValue("CareerRoadmapApp", "1.0")
+                );
+
+                request.Headers.Accept.Add(
+                    new MediaTypeWithQualityHeaderValue("application/vnd.github+json")
+                );
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return null;
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("content", out var contentProp) &&
+                    doc.RootElement.TryGetProperty("encoding", out var encodingProp) &&
+                    encodingProp.GetString() == "base64")
+                {
+                    var base64Content = contentProp.GetString()?.Replace("\n", "").Replace("\r", "") ?? "";
+                    var bytes = Convert.FromBase64String(base64Content);
+                    var readmeText = System.Text.Encoding.UTF8.GetString(bytes);
+
+                    // Giới hạn 2000 ký tự đầu tiên để tiết kiệm token gửi AI
+                    if (readmeText.Length > 2000)
+                    {
+                        readmeText = readmeText.Substring(0, 2000);
+                    }
+                    return readmeText;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[GithubService] Lỗi khi tải README cho {repoName}: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        // Gọi Gemini API để phân tích README và bóc tách dữ liệu JSON
+        public async Task<(string AiSummary, string TechStack)> AnalyzeReadmeWithAiAsync(string repoName, string readmeContent, string defaultLanguage, string defaultDescription)
+        {
+            try
+            {
+                string prompt = $@"
+                    Bạn là một chuyên gia phân tích mã nguồn. Hãy phân tích nội dung file README của dự án GitHub sau:
+                    ---
+                    Dự án: {repoName}
+                    Nội dung README:
+                    {readmeContent}
+                    ---
+                    Nhiệm vụ của bạn là trả về một chuỗi JSON chứa 2 trường:
+                    1. ""aiSummary"": Tóm tắt ngắn gọn bằng tiếng Việt (1-2 câu) về mục đích và tính năng chính của dự án này.
+                    2. ""techStack"": Chuỗi các công nghệ/ngôn ngữ/framework/thư viện chính được sử dụng (ngăn cách bởi dấu phẩy, ví dụ: ""C#, .NET Core, SQL Server"").
+
+                    Yêu cầu:
+                    - Nếu nội dung README quá ngắn hoặc không có thông tin hữu ích, hãy dựa trên tên dự án để tóm tắt và ghi nhận ngôn ngữ chính là: {defaultLanguage}.
+                    - Chỉ trả về định dạng JSON chính xác như sau, không được chứa các ký tự định dạng markdown như ```json hay bất kỳ văn bản giải thích nào khác:
+                    {{
+                      ""aiSummary"": ""nội dung tóm tắt tiếng Việt ở đây"",
+                      ""techStack"": ""các công nghệ cách nhau bằng dấu phẩy ở đây""
+                    }}";
+
+                var aiResponse = await _geminiService.CallGeminiApiAsync(prompt);
+                
+                // Parse kết quả trả về
+                var doc = JsonDocument.Parse(aiResponse);
+                if (doc.RootElement.TryGetProperty("aiSummary", out var summaryProp) &&
+                    doc.RootElement.TryGetProperty("techStack", out var techProp))
+                {
+                    var summary = summaryProp.GetString()?.Trim() ?? "";
+                    var tech = techProp.GetString()?.Trim() ?? "";
+
+                    if (!string.IsNullOrWhiteSpace(summary) && !string.IsNullOrWhiteSpace(tech))
+                    {
+                        return (summary, tech);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[GithubService] Lỗi khi AI phân tích README cho {repoName}: {ex.Message}");
+            }
+
+            // Fallback nếu có lỗi hoặc dữ liệu rỗng
+            var fallbackSummary = !string.IsNullOrWhiteSpace(defaultDescription) && defaultDescription != "No repository description."
+                ? defaultDescription
+                : $"Dự án mã nguồn mở viết bằng {defaultLanguage}.";
+
+            return (fallbackSummary, defaultLanguage);
         }
 
         // Sync repo từ GitHub vào DB.
@@ -95,17 +208,35 @@ namespace CareerSystem.API.Services.Implementations
                     continue;
                 }
 
+                // Lấy README và tóm tắt qua AI
+                string aiSummary = "";
+                string techStack = "";
+
+                var readme = await GetRepoReadmeAsync(githubProfile.GithubUsername, repo.Name);
+                if (!string.IsNullOrWhiteSpace(readme))
+                {
+                    var (summary, tech) = await AnalyzeReadmeWithAiAsync(repo.Name, readme, repo.Language ?? "Unknown", repo.Description);
+                    aiSummary = summary;
+                    techStack = tech;
+                }
+                else
+                {
+                    // Fallback thông minh nếu không có README
+                    aiSummary = !string.IsNullOrWhiteSpace(repo.Description) && repo.Description != "No repository description."
+                        ? repo.Description
+                        : $"Dự án mã nguồn mở viết bằng {repo.Language ?? "Unknown"}.";
+                    techStack = repo.Language ?? "Unknown";
+                }
+
                 // Lưu repo vào DB.
-                // Hiện tại ai_summary lấy description tạm.
-                // tech_stack lấy language tạm.
                 _context.Repositories.Add(new Repository
                 {
                     RepoId = Guid.NewGuid().ToString(),
                     ProfileId = githubProfile.ProfileId,
                     RepoName = repo.Name,
                     RepoUrl = repo.HtmlUrl,
-                    AiSummary = repo.Description ?? "No repository description.",
-                    TechStack = repo.Language ?? "Unknown"
+                    AiSummary = aiSummary,
+                    TechStack = techStack
                 });
             }
 
@@ -129,7 +260,12 @@ namespace CareerSystem.API.Services.Implementations
 
             if (!hasRepos)
             {
-                await SyncGithubReposToDatabaseAsync(userId);
+                // Chỉ đồng bộ lại nếu chưa đồng bộ trong vòng 60 phút qua để tránh treo mạng liên tục
+                if (!_lastSyncTimes.TryGetValue(userId, out var lastSync) || (DateTime.UtcNow - lastSync).TotalMinutes > 60)
+                {
+                    await SyncGithubReposToDatabaseAsync(userId);
+                    _lastSyncTimes[userId] = DateTime.UtcNow; // Ghi lại mốc thời gian đồng bộ gần nhất
+                }
             }
 
             var repos = await _context.Repositories

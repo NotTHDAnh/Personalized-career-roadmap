@@ -120,9 +120,8 @@ namespace CareerSystem.API.Services.Implementations
                     3. Nếu câu hỏi chưa đủ rõ để chọn nghề, targetRoleId phải là null.
                     4. Nếu targetRoleId là null, hãy hỏi thêm 1 câu để làm rõ định hướng.
                     5. Không tạo roadmap.
-                    7. Không bịa repo
-                    8. Chỉ dùng GitHub Repo nếu có
-                    9. Nếu GitHub Repo trống, trả về GitHub Repo evidence is not available.
+                    8. Chỉ dùng GitHub Repo nếu có.
+                    9. Nếu GitHub Repo trống hoặc là [], hãy bỏ qua hoàn toàn phần phân tích GitHub và tuyệt đối không nhắc đến việc thiếu GitHub trong câu trả lời.
                     10. Dùng chatHistory để hiểu ngữ cảnh trước đó, ví dụ target role đã được nhắc tới trước đó.
 
                     Định dạng bắt buộc, chỉ trả JSON:

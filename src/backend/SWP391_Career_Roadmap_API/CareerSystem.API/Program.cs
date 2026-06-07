@@ -24,6 +24,7 @@ namespace CareerSystem.API
 
             builder.Services.AddHttpClient<GithubService>();
 
+            // Sử dụng HttpClient mặc định của .NET
             builder.Services.AddHttpClient<CareerSystem.API.Services.Interfaces.IGeminiService,
                 CareerSystem.API.Services.Implementations.GeminiService>();
 
