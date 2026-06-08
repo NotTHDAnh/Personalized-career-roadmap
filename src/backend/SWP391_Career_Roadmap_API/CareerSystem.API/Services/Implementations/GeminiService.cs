@@ -70,9 +70,9 @@ namespace CareerSystem.API.Services.Implementations
                 try
                 {
                     // Ghi prompt ra file phục vụ mục đích gỡ lỗi và kiểm tra dung lượng token
-                    System.IO.File.WriteAllText(@"d:\Code\swp-project\last_prompt.txt", prompt);
+                    // System.IO.File.WriteAllText(@"d:\Code\swp-project\last_prompt.txt", prompt);
                     Console.WriteLine($"[GeminiService] Attempt {i + 1} - Sending HTTP request. Prompt length: {prompt.Length} chars.");
-                    
+
                     var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                     response = await _httpClient.PostAsJsonAsync(requestUri, requestBody);
                     stopwatch.Stop();
