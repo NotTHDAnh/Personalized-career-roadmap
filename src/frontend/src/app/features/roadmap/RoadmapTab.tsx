@@ -9,138 +9,7 @@ import { ErrorAlert } from "@/app/components/common/ErrorAlert";
 import { COLORS } from "@/shared/constants/colors";
 import type { NodeState, CourseNode } from "@/app/types";
 
-const NODES: CourseNode[] = [
-  // ── Zone 1: Foundation (Done) ──
-  {
-    id: 1,
-    name: "Introduction to Computer Science (CS101)",
-    code: "CS101",
-    shortLabel: "CS101",
-    state: "done",
-    zone: 1,
-    source: "university",
-    duration: "8 Weeks",
-    prerequisite: "None",
-    skills: ["#Logic", "#Syntax", "#ComputerScience"],
-    cx: 75,
-    cy: 100,
-  },
-  {
-    id: 2,
-    name: "Web Foundations (Coursera)",
-    code: "Coursera",
-    shortLabel: "Web\nFound.",
-    state: "done",
-    zone: 1,
-    source: "external",
-    duration: "4 Weeks",
-    prerequisite: "CS101",
-    skills: ["#HTML", "#CSS", "#WebDesign"],
-    cx: 165,
-    cy: 55,
-  },
-  {
-    id: 3,
-    name: "Programming Fundamentals (PR101)",
-    code: "PR101",
-    shortLabel: "PR101",
-    state: "done",
-    zone: 1,
-    source: "university",
-    duration: "8 Weeks",
-    prerequisite: "CS101",
-    skills: ["#Variables", "#ControlFlow", "#Functions"],
-    cx: 248,
-    cy: 118,
-  },
-  // ── Zone 2: Core Skills (Active) ──
-  {
-    id: 4,
-    name: "Data Structures & Algorithms (DSA201)",
-    code: "DSA201",
-    shortLabel: "DSA201",
-    state: "active",
-    zone: 2,
-    source: "university",
-    duration: "10 Weeks",
-    prerequisite: "PR101",
-    skills: ["#DataStructures", "#Algorithms", "#Efficiency"],
-    cx: 365,
-    cy: 78,
-  },
-  {
-    id: 5,
-    name: "Database Management Systems (DB202)",
-    code: "DB202",
-    shortLabel: "DB202",
-    state: "active",
-    zone: 2,
-    source: "university",
-    duration: "6 Weeks",
-    prerequisite: "PR101",
-    skills: ["#SQL", "#Schema", "#Databases"],
-    cx: 488,
-    cy: 128,
-  },
-  // ── Zone 3: Advanced (Locked) ──
-  {
-    id: 6,
-    name: "Advanced Java Programming (JA301)",
-    code: "JA301",
-    shortLabel: "JA301",
-    state: "locked",
-    zone: 3,
-    source: "university",
-    duration: "8 Weeks",
-    prerequisite: "DSA201",
-    skills: ["#OOP", "#Backend", "#Java"],
-    cx: 622,
-    cy: 72,
-  },
-  {
-    id: 7,
-    name: "RESTful API Design (Coursera)",
-    code: "Coursera",
-    shortLabel: "API\nDesign",
-    state: "locked",
-    zone: 3,
-    source: "external",
-    duration: "4 Weeks",
-    prerequisite: "JA301",
-    skills: ["#RESTful_API", "#HTTP", "#JSON"],
-    cx: 742,
-    cy: 128,
-  },
-  // ── Zone 4: Specialisation (Locked) ──
-  {
-    id: 8,
-    name: "Microservices Architecture (MSA401)",
-    code: "MSA401",
-    shortLabel: "MSA401",
-    state: "locked",
-    zone: 4,
-    source: "university",
-    duration: "6 Weeks",
-    prerequisite: "RESTful API Design",
-    skills: ["#Microservices", "#Docker", "#Distributed"],
-    cx: 885,
-    cy: 80,
-  },
-  {
-    id: 9,
-    name: "Cloud Fundamentals — AWS (Coursera)",
-    code: "Coursera",
-    shortLabel: "AWS\nCloud",
-    state: "locked",
-    zone: 4,
-    source: "external",
-    duration: "6 Weeks",
-    prerequisite: "MSA401",
-    skills: ["#AWS_Cloud", "#CloudComputing", "#Serverless"],
-    cx: 1000,
-    cy: 90,   // raised for smoother path to goal
-  },
-];
+import { useCourseContext } from "@/app/data/CourseContext";
 
 const ROADMAP_GOALS: Record<string, { title: string; subtitle: string }> = {
   "Backend Developer Path": {
@@ -170,6 +39,8 @@ export default function MyRoadmaps() {
   const [selected, setSelected] = useState("Backend Developer Path");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const { nodes } = useCourseContext();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -187,7 +58,7 @@ export default function MyRoadmaps() {
   const roadmaps = Object.keys(ROADMAP_GOALS);
   const goal = ROADMAP_GOALS[selected];
 
-  const byZone = (z: number) => NODES.filter((n) => n.zone === z);
+  const byZone = (z: number) => nodes.filter((n) => n.zone === z);
 
   if (error) {
     return (
@@ -343,7 +214,7 @@ export default function MyRoadmaps() {
                   </svg>
 
                   {/* Course nodes */}
-                  {NODES.map((node) => <RoadmapNode key={node.id} node={node} />)}
+                  {nodes.map((node) => <RoadmapNode key={node.id} node={node} />)}
 
                   {/* Career target node — anchored to right edge */}
                   <GoalNode goal={goal} />
@@ -354,28 +225,32 @@ export default function MyRoadmaps() {
         </div>
       </div>
 
-      {/* ── Section 3: Chronological Timeline ── */}
+      {/* ── Section 3: Course Status Tracker ── */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {/* Timeline column headers */}
-        <div className="grid grid-cols-4 border-b border-gray-100">
-          {ZONES.map(({ sub, textColor, bg, border: bdr }, i) => (
+        <div className="grid grid-cols-3 border-b border-gray-100">
+          {[
+            { id: "done", title: "Completed Courses", sub: "Finished", textColor: "#15803D", bg: "#F0FDF4", border: "#BBF7D0" },
+            { id: "active", title: "In-Progress Courses", sub: "Currently studying", textColor: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE" },
+            { id: "locked", title: "Locked Courses", sub: "Needs prerequisites", textColor: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
+          ].map(({ title, sub, textColor, bg, border: bdr }, i) => (
             <div
               key={i}
               className="px-4 py-3"
               style={{ background: bg, borderLeft: i > 0 ? `1px solid ${bdr}` : undefined }}
             >
               <p className="text-xs uppercase tracking-wider" style={{ color: textColor, fontWeight: 700 }}>
-                Month {i + 1}
+                {title}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">{sub.split(" · ")[1]}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
             </div>
           ))}
         </div>
 
         {/* Course card stacks */}
-        <div className="grid grid-cols-4 divide-x divide-gray-100">
-          {[1, 2, 3, 4].map((z) => (
-            <div key={z} className="p-3">
+        <div className="grid grid-cols-3 divide-x divide-gray-100">
+          {["done", "active", "locked"].map((status) => (
+            <div key={status} className="p-3">
               {loading ? (
                 <div className="space-y-3">
                   <Skeleton className="h-28 w-full rounded-xl" />
@@ -383,9 +258,9 @@ export default function MyRoadmaps() {
                 </div>
               ) : (
                 <>
-                  {byZone(z).map((n) => <CourseCard key={n.id} node={n} />)}
-                  {/* Career Target card in Month 4 column */}
-                  {z === 4 && (
+                  {nodes.filter((n) => n.state === status).map((n) => <CourseCard key={n.id} node={n} />)}
+                  {/* Career Target card in Completed column (just for show) */}
+                  {status === "locked" && (
                     <div
                       className="rounded-xl border p-3.5 mt-1"
                       style={{ background: "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)", border: "1.5px solid #FDE68A" }}

@@ -18,6 +18,7 @@ export interface CourseNode {
   cx: number;
   /** SVG coords (viewBox 0 0 1100 200) */
   cy: number;
+  gpa?: string;
 }
 
 export interface RoadmapGoal {

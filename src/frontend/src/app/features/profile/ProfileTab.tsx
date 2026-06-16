@@ -9,6 +9,7 @@ import { SkillTag } from "./components/SkillTag";
 import { StudentProfileCard } from "./components/StudentProfileCard";
 import { GpaInput } from "./components/GpaInput";
 import { ErrorAlert } from "@/app/components/common/ErrorAlert";
+import { useCourseContext } from "@/app/data/CourseContext";
 
 const skills = [
   "#Logic", "#Syntax", "#HTML", "#CSS", "#OOP",
@@ -19,6 +20,10 @@ const skills = [
 export default function ProfileTranscripts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { nodes, updateNodeGpa } = useCourseContext();
+
+  const inProgressNodes = nodes.filter(n => n.state === 'active');
+  const completedNodes = nodes.filter(n => n.state === 'done');
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -164,7 +169,7 @@ export default function ProfileTranscripts() {
             <Skeleton className="h-6 w-16 rounded-full" />
           ) : (
             <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-200 rounded-full px-3 py-1 text-xs">
-              2 Active
+              {inProgressNodes.length} Active
             </Badge>
           )}
         </div>
@@ -206,57 +211,43 @@ export default function ProfileTranscripts() {
                     <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
                   </TableRow>
                 ))
+              ) : inProgressNodes.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-6 text-gray-500">No active courses.</TableCell>
+                </TableRow>
               ) : (
                 <>
-                  <TableRow className="border-t border-gray-100 hover:bg-gray-50/50">
-                    <TableCell className="px-5 py-4 text-sm text-gray-800 font-medium">
-                      Advanced Java Programming
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-sm font-mono text-gray-600">JA301</TableCell>
-                    <TableCell className="px-5 py-4 text-sm text-gray-600">8 Weeks</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {["#OOP", "#Backend"].map((t) => (
-                          <SkillTag key={t} label={t} variant="green" />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <GpaInput />
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 rounded-full px-2.5 py-1 text-xs font-medium">
-                          In Progress
-                        </Badge>
-                        <span className="text-xs whitespace-nowrap text-amber-600 font-medium">
-                          ⚠️ Prerequisite Missing
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className="border-t border-gray-100 hover:bg-gray-50/50">
-                    <TableCell className="px-5 py-4 text-sm text-gray-800 font-medium">
-                      Database Management Systems
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-sm font-mono text-gray-600">DB202</TableCell>
-                    <TableCell className="px-5 py-4 text-sm text-gray-600">6 Weeks</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {["#SQL", "#Schema"].map((t) => (
-                          <SkillTag key={t} label={t} variant="green" />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <GpaInput />
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 rounded-full px-2.5 py-1 text-xs font-medium">
-                        In Progress
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+                  {inProgressNodes.map((node) => (
+                    <TableRow key={node.id} className="border-t border-gray-100 hover:bg-gray-50/50">
+                      <TableCell className="px-5 py-4 text-sm text-gray-800 font-medium">
+                        {node.name}
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-sm font-mono text-gray-600">{node.code}</TableCell>
+                      <TableCell className="px-5 py-4 text-sm text-gray-600">{node.duration}</TableCell>
+                      <TableCell className="px-5 py-4">
+                        <div className="flex gap-1.5 flex-wrap">
+                          {node.skills.map((t) => (
+                            <SkillTag key={t} label={t} variant="green" />
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <GpaInput value={node.gpa} onChange={(val) => updateNodeGpa(node.id, val)} />
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 rounded-full px-2.5 py-1 text-xs font-medium">
+                            In Progress
+                          </Badge>
+                          {node.prerequisite !== "None" && (
+                            <span className="text-xs whitespace-nowrap text-gray-400 font-medium">
+                              Prereq: {node.prerequisite}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </>
               )}
             </TableBody>
@@ -277,7 +268,7 @@ export default function ProfileTranscripts() {
             <Skeleton className="h-6 w-16 rounded-full" />
           ) : (
             <Badge variant="secondary" className="bg-green-50 text-green-600 border-green-200 rounded-full px-3 py-1 text-xs">
-              2 Completed
+              {completedNodes.length} Completed
             </Badge>
           )}
         </div>
@@ -319,52 +310,36 @@ export default function ProfileTranscripts() {
                     <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                   </TableRow>
                 ))
+              ) : completedNodes.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-6 text-gray-500">No completed courses.</TableCell>
+                </TableRow>
               ) : (
                 <>
-                  <TableRow className="border-t border-gray-100 hover:bg-gray-50/50">
-                    <TableCell className="px-5 py-4 text-sm text-gray-800 font-medium">
-                      Introduction to Programming
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-sm font-mono text-gray-600">PR101</TableCell>
-                    <TableCell className="px-5 py-4 text-sm text-gray-600">8 Weeks</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {["#Logic", "#Syntax"].map((t) => (
-                          <SkillTag key={t} label={t} />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <GpaInput defaultValue="3.8" />
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 rounded-full px-2.5 py-1 text-xs font-medium">
-                        Done
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className="border-t border-gray-100 hover:bg-gray-50/50">
-                    <TableCell className="px-5 py-4 text-sm text-gray-800 font-medium">
-                      Web Foundations (External)
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-sm font-mono text-gray-600">Coursera</TableCell>
-                    <TableCell className="px-5 py-4 text-sm text-gray-600">4 Weeks</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {["#HTML", "#CSS"].map((t) => (
-                          <SkillTag key={t} label={t} />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <GpaInput defaultValue="4.0" />
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 rounded-full px-2.5 py-1 text-xs font-medium">
-                        Done
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+                  {completedNodes.map((node) => (
+                    <TableRow key={node.id} className="border-t border-gray-100 hover:bg-gray-50/50">
+                      <TableCell className="px-5 py-4 text-sm text-gray-800 font-medium">
+                        {node.name}
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-sm font-mono text-gray-600">{node.code}</TableCell>
+                      <TableCell className="px-5 py-4 text-sm text-gray-600">{node.duration}</TableCell>
+                      <TableCell className="px-5 py-4">
+                        <div className="flex gap-1.5 flex-wrap">
+                          {node.skills.map((t) => (
+                            <SkillTag key={t} label={t} />
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <GpaInput value={node.gpa} onChange={(val) => updateNodeGpa(node.id, val)} />
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 rounded-full px-2.5 py-1 text-xs font-medium">
+                          Done
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </>
               )}
             </TableBody>
