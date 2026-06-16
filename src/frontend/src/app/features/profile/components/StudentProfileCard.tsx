@@ -1,8 +1,7 @@
 import { FileCheck, UploadCloud, X } from "lucide-react";
 import { useRef, useState } from "react";
 
-const BLUE = "#1B365D";
-const TEAL = "#0D9488";
+import { COLORS } from "@/shared/constants/colors";
 
 interface CertFile {
   id: number;
@@ -60,7 +59,7 @@ export function StudentProfileCard() {
         <div
           className="rounded-xl p-5 flex flex-col items-center gap-2 cursor-pointer transition-colors"
           style={{
-            border: `2px dashed ${isDragging ? TEAL : "#CBD5E1"}`,
+            border: `2px dashed ${isDragging ? COLORS.TEAL_ACCENT : "#CBD5E1"}`,
             background: isDragging ? "#F0FDFA" : "#F8FAFC",
           }}
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -68,10 +67,10 @@ export function StudentProfileCard() {
           onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
           onClick={() => fileInputRef.current?.click()}
         >
-          <UploadCloud className="w-7 h-7" style={{ color: isDragging ? TEAL : "#94A3B8" }} />
+          <UploadCloud className="w-7 h-7" style={{ color: isDragging ? COLORS.TEAL_ACCENT : "#94A3B8" }} />
           <p className="text-xs text-gray-600" style={{ fontWeight: 500 }}>
             Drop certificate here or{" "}
-            <span style={{ color: TEAL }}>browse</span>
+            <span style={{ color: COLORS.TEAL_ACCENT }}>browse</span>
           </p>
           <p className="text-xs text-gray-400">PDF, JPG, PNG supported</p>
           <input

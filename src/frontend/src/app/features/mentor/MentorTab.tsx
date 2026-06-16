@@ -12,46 +12,12 @@
 import ReactMarkdown from "react-markdown";
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import type { Message } from "../../types";
-import { apiClient } from "../../../shared/api/apiClient";
-
-type CurrentUser = {
-  userId?: string;
-  email?: string;
-  fullName?: string;
-  role?: string;
-};
-
-type MentorAskResponse = {
-  targetRoleId?: string;
-  targetRoleName?: string;
-  followUpQuestion?: string;
-  answer?: string;
-  recommendedCareers?: string[];
-  missingSkills?: string[];
-
-};
-
-type GenerateRoadmapResponse = {
-  message?: string;
-  roadmapId?: string;
-};
-
-type RoadmapPreview = Record<string, unknown>; //type cho roadmap review
-
-function getCurrentUser(): CurrentUser | null {
-  try {
-    const rawUser = localStorage.getItem("currentUser");
-
-    if (!rawUser) {
-      return null;
-    }
-
-    return JSON.parse(rawUser) as CurrentUser;
-  } catch {
-    return null;
-  }
-}
+import type { Message, MentorAskResponse, GenerateRoadmapResponse, RoadmapPreview } from "@/app/types";
+import { apiClient } from "@/shared/api/apiClient";
+import { useAuth } from "@/shared/contexts/AuthContext";
+import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import { Loader2 } from "lucide-react";
 
 function formatMentorResponse(response: MentorAskResponse) {
   return [
@@ -98,9 +64,9 @@ async function askMentor(message: string, userId: string): Promise<MentorAskResp
 //   ]);
 
 export function MentorTab() {
-  const currentUser = getCurrentUser();
-  const studentName = currentUser?.fullName || "student";
-  const userId = currentUser?.userId || "student-001";
+  const { user } = useAuth();
+  const studentName = user?.fullName || "student";
+  const userId = user?.userId || "student-001";
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -183,13 +149,6 @@ export function MentorTab() {
 
       if (mentorResponse.recommendedCareers?.length) {
         setRecommendedCareers(mentorResponse.recommendedCareers);
-      }
-
-      if (mentorResponse.targetRoleName) {
-        setTargetRole({
-          id: mentorResponse.targetRoleId,
-          name: mentorResponse.targetRoleName,
-        });
       }
 
       const aiMsg: Message = {
@@ -417,18 +376,19 @@ export function MentorTab() {
             </div>
           )}
           <div className="flex gap-3">
-            <input
+            <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 handleKeyDown(e);
               }}
               placeholder="Ask about career direction..."
-              className="flex-1 rounded-xl border border-[#c4c6cf] px-4 py-3 outline-none focus:ring-2 focus:ring-[#006b5f]"
+              className="flex-1 rounded-xl"
             />
 
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => void handleCreateRoadmapClick()}
               disabled={!targetRole || typing || creatingRoadmap}
               title={
@@ -436,19 +396,20 @@ export function MentorTab() {
                   ? `Create roadmap for ${targetRole.name}`
                   : "Ask AI Mentor about a target career role first"
               }
-              className="rounded-xl border border-[#006b5f] px-5 font-semibold text-[#006b5f] transition hover:bg-[#f0fffb] disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-xl border-[#006b5f] text-[#006b5f] hover:bg-[#f0fffb] hover:text-[#00544b]"
             >
-              {creatingRoadmap ? "Creating..." : "Create Roadmap"}
-            </button>
+              {creatingRoadmap && <Loader2 className="w-4 h-4 animate-spin" />}
+              Create Roadmap
+            </Button>
 
-            <button
+            <Button
               type="button"
               onClick={() => void send(input)}
               disabled={!input.trim() || typing}
-              className="rounded-xl bg-[#006b5f] text-white px-5 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-xl bg-[#006b5f] text-white px-5 hover:bg-[#00544b]"
             >
               Send
-            </button>
+            </Button>
           </div>
 
           {/* {showRoadmapPreview && roadmapPreview && (
