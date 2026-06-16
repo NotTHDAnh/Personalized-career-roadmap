@@ -51,6 +51,7 @@ export type {
   MentorAskResponse,
   GenerateRoadmapResponse,
   RoadmapPreview,
+  SkillNodeDetail,
 } from "./mentor";
 
 export type {

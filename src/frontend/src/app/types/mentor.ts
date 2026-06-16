@@ -15,4 +15,21 @@ export type GenerateRoadmapResponse = {
   roadmapId?: string;
 };
 
-export type RoadmapPreview = Record<string, unknown>;
+// export type RoadmapPreview = Record<string, unknown>;
+
+export type SkillNodeDetail = {
+  nodeId: string;
+  courseCode?: string | null;
+  courseName?: string | null;
+  status: string;
+  deadline?: string | null;
+  parentNodeId?: string | null;
+};
+
+export type RoadmapPreview = {
+  roadmapId: string;
+  targetRoleName: string;
+  dailyStudyHours: number;
+  progressPercent: number;
+  nodes: SkillNodeDetail[];
+};

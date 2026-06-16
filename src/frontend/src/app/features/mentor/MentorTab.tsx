@@ -9,6 +9,7 @@
 // import type { Message } from "../../types";
 // import { AI_PROMPTS } from "../../data/mockData";
 // import { getAIResponse } from "../../services/mockAi";
+
 import ReactMarkdown from "react-markdown";
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
@@ -18,6 +19,7 @@ import { useAuth } from "@/shared/contexts/AuthContext";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Loader2 } from "lucide-react";
+import RoadmapTimeline from "./RoadmapTimeline";
 
 function formatMentorResponse(response: MentorAskResponse) {
   return [
@@ -502,10 +504,11 @@ export function MentorTab() {
             {showRoadmapPreview && roadmapPreview ? (
               <>
                 {!previewCollapsed && (
-                  <div className="mt-5 max-h-[420px] overflow-y-auto rounded-xl bg-[#f8fafc] p-4 text-sm text-[#0b1c30]">
-                    <pre className="whitespace-pre-wrap break-words font-sans">
+                  <div className="mt-5 h-[420px] overflow-y-auto overflow-x-hidden rounded-xl bg-[#f8fafc] p-4 pr-3 text-sm text-[#0b1c30] overscroll-contain [scrollbar-gutter:stable]">
+                    {/* <pre className="whitespace-pre-wrap break-words font-sans">
                       {JSON.stringify(roadmapPreview, null, 2)}
-                    </pre>
+                    </pre> */}
+                    <RoadmapTimeline roadmap={roadmapPreview} />
                   </div>
                 )}
 
@@ -533,7 +536,10 @@ export function MentorTab() {
               </div>
             )}
           </div>
-          <h4 className="font-bold text-[#002046]">Suggested Prompts</h4>
+
+          <h4 className="mt-6 font-bold text-[#002046]">
+            Suggested Prompts
+          </h4>
 
           <div className="mt-4 space-y-3">
             {[
@@ -546,7 +552,7 @@ export function MentorTab() {
                 type="button"
                 onClick={() => setInput(prompt)}
                 disabled={typing}
-                className="w-full text-left rounded-xl bg-[#eff4ff] p-4 text-sm text-[#44474e] hover:bg-[#dce9ff]"
+                className="w-full rounded-xl bg-[#eff4ff] p-4 text-left text-sm text-[#44474e] hover:bg-[#dce9ff]"
               >
                 {prompt}
               </button>
