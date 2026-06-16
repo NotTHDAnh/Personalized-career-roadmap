@@ -1,34 +1,16 @@
 import { Check, Lock } from "lucide-react"
 
-const BLUE = "#1B365D";
-const TEAL = "#0D9488";
-
-type NodeState = "done" | "active" | "locked";
-
-interface CourseNode {
-  id: number;
-  name: string;
-  code: string;
-  shortLabel: string;
-  state: NodeState;
-  zone: 1 | 2 | 3 | 4;
-  source: "university" | "external";
-  duration: string;
-  prerequisite: string;
-  skills: string[];
-  // SVG coords (viewBox 0 0 1100 200)
-  cx: number;
-  cy: number;
-}
+import { COLORS } from "@/shared/constants/colors";
+import type { CourseNode } from "@/app/types";
 
 export function RoadmapNode({ node }: { node: CourseNode }) {
   const pctX = (node.cx / 1100) * 100;
   const pctY = (node.cy / 200) * 100;
 
   const bg =
-    node.state === "done" ? "#22C55E" : node.state === "active" ? BLUE : "#CBD5E1";
+    node.state === "done" ? COLORS.GREEN_DONE : node.state === "active" ? COLORS.BLUE_PRIMARY : COLORS.LOCKED_BG;
   const border =
-    node.state === "done" ? "#16A34A" : node.state === "active" ? TEAL : "#94A3B8";
+    node.state === "done" ? COLORS.GREEN_DONE_BORDER : node.state === "active" ? COLORS.TEAL_ACCENT : COLORS.LOCKED_BORDER;
 
   return (
     <div
@@ -38,7 +20,7 @@ export function RoadmapNode({ node }: { node: CourseNode }) {
       {node.state === "active" && (
         <div
           className="absolute rounded-full animate-ping"
-          style={{ width: 56, height: 56, top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: TEAL, opacity: 0.22 }}
+          style={{ width: 56, height: 56, top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: COLORS.TEAL_ACCENT, opacity: 0.22 }}
         />
       )}
       <div
@@ -47,7 +29,7 @@ export function RoadmapNode({ node }: { node: CourseNode }) {
       >
         {node.state === "done" && <Check className="w-5 h-5 text-white" strokeWidth={3} />}
         {node.state === "active" && (
-          <span style={{ color: TEAL, fontSize: "0.6rem", fontWeight: 700, textAlign: "center", lineHeight: 1.1 }}>
+          <span style={{ color: COLORS.TEAL_ACCENT, fontSize: "0.6rem", fontWeight: 700, textAlign: "center", lineHeight: 1.1 }}>
             {node.shortLabel.split("\n")[0]}
           </span>
         )}
@@ -55,7 +37,7 @@ export function RoadmapNode({ node }: { node: CourseNode }) {
       </div>
       <div
         className="mt-1 whitespace-nowrap text-center"
-        style={{ fontSize: "0.58rem", fontWeight: 600, color: node.state === "locked" ? "#94A3B8" : "#1E293B" }}
+        style={{ fontSize: "0.58rem", fontWeight: 600, color: node.state === "locked" ? COLORS.LOCKED_BORDER : "#1E293B" }}
       >
         {node.shortLabel.split("\n")[0]}
       </div>

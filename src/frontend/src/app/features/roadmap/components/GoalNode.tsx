@@ -1,6 +1,8 @@
 import { Briefcase } from "lucide-react";
+import { COLORS } from "@/shared/constants/colors";
+import type { RoadmapGoal } from "@/app/types";
 
-export function GoalNode({ goal }: { goal: { title: string; subtitle: string } }) {
+export function GoalNode({ goal }: { goal: RoadmapGoal }) {
   /* Anchored to right edge of canvas so the card always has breathing room */
   return (
     <div
