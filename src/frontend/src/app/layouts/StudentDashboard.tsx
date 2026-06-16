@@ -11,9 +11,60 @@ import type { DashTab } from "../types";
 import ProfileTab from "../features/profile/ProfileTab";
 import RoadmapTab from "../features/roadmap/RoadmapTab";
 import { MentorTab } from "../features/mentor/MentorTab";
+import { INITIAL_NODES, CourseNode } from "../data/sharedNodes";
 
 export function StudentDashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<DashTab>("profile");
+  const [courseNodes, setCourseNodes] = useState<CourseNode[]>(INITIAL_NODES);
+
+  function updateCourseNode(id: number, updates: Partial<CourseNode>) {
+    setCourseNodes(prevNodes => {
+      let nextNodes = [...prevNodes];
+      
+      const targetIndex = nextNodes.findIndex(n => n.id === id);
+      if (targetIndex === -1) return prevNodes;
+      
+      const oldState = nextNodes[targetIndex].state;
+      nextNodes[targetIndex] = { ...nextNodes[targetIndex], ...updates };
+      const newState = nextNodes[targetIndex].state;
+      
+      if (oldState !== newState) {
+        if (newState === "done") {
+          const node = nextNodes[targetIndex];
+          const prereqKeys = [node.code, node.name, node.shortLabel.replace("\n", " ")];
+          
+          nextNodes = nextNodes.map(n => {
+            if (n.state === "locked" && prereqKeys.some(key => n.prerequisite.includes(key))) {
+              return { ...n, state: "active" };
+            }
+            return n;
+          });
+        } else if (newState === "active" || newState === "locked") {
+          let changed = true;
+          const lockedKeys = new Set([
+            nextNodes[targetIndex].code, 
+            nextNodes[targetIndex].name, 
+            nextNodes[targetIndex].shortLabel.replace("\n", " ")
+          ]);
+          
+          while (changed) {
+            changed = false;
+            nextNodes = nextNodes.map(n => {
+              if (n.state !== "locked" && Array.from(lockedKeys).some(key => n.prerequisite.includes(key))) {
+                lockedKeys.add(n.code);
+                lockedKeys.add(n.name);
+                lockedKeys.add(n.shortLabel.replace("\n", " "));
+                changed = true;
+                return { ...n, state: "locked", gpa: "" };
+              }
+              return n;
+            });
+          }
+        }
+      }
+      return nextNodes;
+    });
+  }
   const currentUser = localStorage.getItem("currentUser");
   const student = currentUser?JSON.parse(currentUser):"Student";
 
@@ -131,8 +182,8 @@ export function StudentDashboard({ onLogout }: { onLogout: () => void }) {
         </header>
 
         <div className="p-6 md:p-10">
-          {tab === "profile" && <ProfileTab />}
-          {tab === "roadmap" && <RoadmapTab />}
+          {tab === "profile" && <ProfileTab courseNodes={courseNodes} updateCourseNode={updateCourseNode} />}
+          {tab === "roadmap" && <RoadmapTab courseNodes={courseNodes} updateCourseNode={updateCourseNode} />}
           {tab === "mentor" && <MentorTab />}
           {/* {activeTab === "market" && <StitchMarketTrendsTab />} */}
         </div>

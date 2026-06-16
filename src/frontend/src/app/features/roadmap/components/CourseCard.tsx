@@ -16,9 +16,12 @@ interface CourseNode {
   cy: number;
 }
 
-export function CourseCard({ node }: { node: CourseNode }) {
+export function CourseCard({ node, onClick }: { node: CourseNode; onClick?: () => void }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 relative mb-3">
+    <div 
+      className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 relative mb-3 cursor-pointer hover:shadow-md transition-shadow"
+      onClick={onClick}
+    >
       <div className="absolute top-2.5 right-2.5">
         <span
           className="text-xs px-2 py-0.5 rounded-full"

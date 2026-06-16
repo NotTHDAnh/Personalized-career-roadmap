@@ -21,7 +21,7 @@ interface CourseNode {
   cy: number;
 }
 
-export function RoadmapNode({ node }: { node: CourseNode }) {
+export function RoadmapNode({ node, onClick }: { node: CourseNode; onClick?: () => void }) {
   const pctX = (node.cx / 1100) * 100;
   const pctY = (node.cy / 200) * 100;
 
@@ -32,8 +32,9 @@ export function RoadmapNode({ node }: { node: CourseNode }) {
 
   return (
     <div
-      className="absolute flex flex-col items-center"
+      className="absolute flex flex-col items-center cursor-pointer hover:scale-110 transition-transform"
       style={{ left: `${pctX}%`, top: `${pctY}%`, transform: "translate(-50%,-50%)", zIndex: 10 }}
+      onClick={onClick}
     >
       {node.state === "active" && (
         <div

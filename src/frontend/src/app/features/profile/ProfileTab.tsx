@@ -3,6 +3,7 @@ import { UploadCloud, FileCheck, X } from "lucide-react";
 import { SkillTag } from "./components/SkillTag";
 import { StudentProfileCard } from "./components/StudentProfileCard";
 import { GpaInput } from "./components/GpaInput";
+import { CourseNode } from "../data/sharedNodes";
 
 const BLUE = "#1B365D";
 const TEAL = "#0D9488";
@@ -13,7 +14,16 @@ const skills = [
   "#Algorithms", "#API", "#REST",
 ];
 
-export default function ProfileTranscripts() {
+export default function ProfileTranscripts({ 
+  courseNodes, 
+  updateCourseNode 
+}: { 
+  courseNodes: CourseNode[]; 
+  updateCourseNode: (id: number, updates: Partial<CourseNode>) => void 
+}) {
+  const inProgressCourses = courseNodes.filter(n => n.state === "active");
+  const completedCourses = courseNodes.filter(n => n.state === "done");
+
   return (
     <div className="p-8 space-y-6 min-h-full" style={{ background: "#F1F5F9" }}>
       <div>
@@ -115,7 +125,7 @@ export default function ProfileTranscripts() {
             className="text-xs px-3 py-1 rounded-full"
             style={{ background: "#EFF6FF", color: "#1D4ED8" }}
           >
-            2 Active
+            {inProgressCourses.length} Active
           </span>
         </div>
         <div className="overflow-x-auto">
@@ -141,61 +151,58 @@ export default function ProfileTranscripts() {
               </tr>
             </thead>
             <tbody>
-              <tr className="border-t border-gray-100">
-                <td className="px-5 py-4 text-sm text-gray-800">
-                  Advanced Java Programming
-                </td>
-                <td className="px-5 py-4 text-sm font-mono text-gray-600">JA301</td>
-                <td className="px-5 py-4 text-sm text-gray-600">8 Weeks</td>
-                <td className="px-5 py-4">
-                  <div className="flex gap-1.5 flex-wrap">
-                    {["#OOP", "#Backend"].map((t) => (
-                      <SkillTag key={t} label={t} variant="green" />
-                    ))}
-                  </div>
-                </td>
-                <td className="px-5 py-4">
-                  <GpaInput />
-                </td>
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className="px-2.5 py-1 rounded-full text-xs whitespace-nowrap"
-                      style={{ background: "#EFF6FF", color: "#1D4ED8", fontWeight: 500 }}
-                    >
-                      In Progress
-                    </span>
-                    <span className="text-xs whitespace-nowrap">
-                      ⚠️ Prerequisite Missing
-                    </span>
-                  </div>
-                </td>
-              </tr>
-              <tr className="border-t border-gray-100">
-                <td className="px-5 py-4 text-sm text-gray-800">
-                  Database Management Systems
-                </td>
-                <td className="px-5 py-4 text-sm font-mono text-gray-600">DB202</td>
-                <td className="px-5 py-4 text-sm text-gray-600">6 Weeks</td>
-                <td className="px-5 py-4">
-                  <div className="flex gap-1.5 flex-wrap">
-                    {["#SQL", "#Schema"].map((t) => (
-                      <SkillTag key={t} label={t} variant="green" />
-                    ))}
-                  </div>
-                </td>
-                <td className="px-5 py-4">
-                  <GpaInput />
-                </td>
-                <td className="px-5 py-4">
-                  <span
-                    className="px-2.5 py-1 rounded-full text-xs"
-                    style={{ background: "#EFF6FF", color: "#1D4ED8", fontWeight: 500 }}
-                  >
-                    In Progress
-                  </span>
-                </td>
-              </tr>
+              {inProgressCourses.map((course) => (
+                <tr key={course.id} className="border-t border-gray-100">
+                  <td className="px-5 py-4 text-sm text-gray-800">
+                    {course.name}
+                  </td>
+                  <td className="px-5 py-4 text-sm font-mono text-gray-600">{course.code}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{course.duration}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {course.skills.map((t) => (
+                        <SkillTag key={t} label={t} variant="green" />
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <GpaInput 
+                      value={course.gpa} 
+                      onChange={(val) => {
+                        const isDone = val.trim().length > 0;
+                        updateCourseNode(course.id, { 
+                          gpa: val,
+                          state: isDone ? "done" : "active"
+                        });
+                      }} 
+                    />
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {course.gpa ? (
+                        <span
+                          className="px-2.5 py-1 rounded-full text-xs"
+                          style={{ background: "#F0FDF4", color: "#16A34A", fontWeight: 500 }}
+                        >
+                          Done
+                        </span>
+                      ) : (
+                        <span
+                          className="px-2.5 py-1 rounded-full text-xs whitespace-nowrap"
+                          style={{ background: "#EFF6FF", color: "#1D4ED8", fontWeight: 500 }}
+                        >
+                          In Progress
+                        </span>
+                      )}
+                      {!course.gpa && course.warning && (
+                        <span className="text-xs whitespace-nowrap">
+                          {course.warning}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -214,7 +221,7 @@ export default function ProfileTranscripts() {
             className="text-xs px-3 py-1 rounded-full"
             style={{ background: "#F0FDF4", color: "#16A34A" }}
           >
-            2 Completed
+            {completedCourses.length} Completed
           </span>
         </div>
         <div className="overflow-x-auto">
@@ -240,56 +247,42 @@ export default function ProfileTranscripts() {
               </tr>
             </thead>
             <tbody>
-              <tr className="border-t border-gray-100">
-                <td className="px-5 py-4 text-sm text-gray-800">
-                  Introduction to Programming
-                </td>
-                <td className="px-5 py-4 text-sm font-mono text-gray-600">PR101</td>
-                <td className="px-5 py-4 text-sm text-gray-600">8 Weeks</td>
-                <td className="px-5 py-4">
-                  <div className="flex gap-1.5 flex-wrap">
-                    {["#Logic", "#Syntax"].map((t) => (
-                      <SkillTag key={t} label={t} />
-                    ))}
-                  </div>
-                </td>
-                <td className="px-5 py-4">
-                  <GpaInput defaultValue="3.8" />
-                </td>
-                <td className="px-5 py-4">
-                  <span
-                    className="px-2.5 py-1 rounded-full text-xs"
-                    style={{ background: "#F0FDF4", color: "#16A34A", fontWeight: 500 }}
-                  >
-                    Done
-                  </span>
-                </td>
-              </tr>
-              <tr className="border-t border-gray-100">
-                <td className="px-5 py-4 text-sm text-gray-800">
-                  Web Foundations (External)
-                </td>
-                <td className="px-5 py-4 text-sm font-mono text-gray-600">Coursera</td>
-                <td className="px-5 py-4 text-sm text-gray-600">4 Weeks</td>
-                <td className="px-5 py-4">
-                  <div className="flex gap-1.5 flex-wrap">
-                    {["#HTML", "#CSS"].map((t) => (
-                      <SkillTag key={t} label={t} />
-                    ))}
-                  </div>
-                </td>
-                <td className="px-5 py-4">
-                  <GpaInput defaultValue="4.0" />
-                </td>
-                <td className="px-5 py-4">
-                  <span
-                    className="px-2.5 py-1 rounded-full text-xs"
-                    style={{ background: "#F0FDF4", color: "#16A34A", fontWeight: 500 }}
-                  >
-                    Done
-                  </span>
-                </td>
-              </tr>
+              {completedCourses.map((course) => (
+                <tr key={course.id} className="border-t border-gray-100">
+                  <td className="px-5 py-4 text-sm text-gray-800">
+                    {course.name}
+                  </td>
+                  <td className="px-5 py-4 text-sm font-mono text-gray-600">{course.code}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{course.duration}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {course.skills.map((t) => (
+                        <SkillTag key={t} label={t} />
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <GpaInput 
+                      value={course.gpa}
+                      onChange={(val) => {
+                        const isDone = val.trim().length > 0;
+                        updateCourseNode(course.id, { 
+                          gpa: val,
+                          state: isDone ? "done" : "active"
+                        });
+                      }}
+                    />
+                  </td>
+                  <td className="px-5 py-4">
+                    <span
+                      className="px-2.5 py-1 rounded-full text-xs"
+                      style={{ background: "#F0FDF4", color: "#16A34A", fontWeight: 500 }}
+                    >
+                      Done
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

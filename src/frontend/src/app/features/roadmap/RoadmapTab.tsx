@@ -1,162 +1,12 @@
 import { useState } from "react";
-import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase } from "lucide-react";
+import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase, X } from "lucide-react";
 import { GoalNode } from "./components/GoalNode";
 import { RoadmapNode } from "./components/RoadmapNode";
 import { CourseCard } from "./components/CourseCard";
+import { CourseNode } from "../data/sharedNodes";
 
 const BLUE = "#1B365D";
 const TEAL = "#0D9488";
-
-type NodeState = "done" | "active" | "locked";
-
-interface CourseNode {
-  id: number;
-  name: string;
-  code: string;
-  shortLabel: string;
-  state: NodeState;
-  zone: 1 | 2 | 3 | 4;
-  source: "university" | "external";
-  duration: string;
-  prerequisite: string;
-  skills: string[];
-  // SVG coords (viewBox 0 0 1100 200)
-  cx: number;
-  cy: number;
-}
-
-const NODES: CourseNode[] = [
-  // ── Zone 1: Foundation (Done) ──
-  {
-    id: 1,
-    name: "Introduction to Computer Science (CS101)",
-    code: "CS101",
-    shortLabel: "CS101",
-    state: "done",
-    zone: 1,
-    source: "university",
-    duration: "8 Weeks",
-    prerequisite: "None",
-    skills: ["#Logic", "#Syntax", "#ComputerScience"],
-    cx: 75,
-    cy: 100,
-  },
-  {
-    id: 2,
-    name: "Web Foundations (Coursera)",
-    code: "Coursera",
-    shortLabel: "Web\nFound.",
-    state: "done",
-    zone: 1,
-    source: "external",
-    duration: "4 Weeks",
-    prerequisite: "CS101",
-    skills: ["#HTML", "#CSS", "#WebDesign"],
-    cx: 165,
-    cy: 55,
-  },
-  {
-    id: 3,
-    name: "Programming Fundamentals (PR101)",
-    code: "PR101",
-    shortLabel: "PR101",
-    state: "done",
-    zone: 1,
-    source: "university",
-    duration: "8 Weeks",
-    prerequisite: "CS101",
-    skills: ["#Variables", "#ControlFlow", "#Functions"],
-    cx: 248,
-    cy: 118,
-  },
-  // ── Zone 2: Core Skills (Active) ──
-  {
-    id: 4,
-    name: "Data Structures & Algorithms (DSA201)",
-    code: "DSA201",
-    shortLabel: "DSA201",
-    state: "active",
-    zone: 2,
-    source: "university",
-    duration: "10 Weeks",
-    prerequisite: "PR101",
-    skills: ["#DataStructures", "#Algorithms", "#Efficiency"],
-    cx: 365,
-    cy: 78,
-  },
-  {
-    id: 5,
-    name: "Database Management Systems (DB202)",
-    code: "DB202",
-    shortLabel: "DB202",
-    state: "active",
-    zone: 2,
-    source: "university",
-    duration: "6 Weeks",
-    prerequisite: "PR101",
-    skills: ["#SQL", "#Schema", "#Databases"],
-    cx: 488,
-    cy: 128,
-  },
-  // ── Zone 3: Advanced (Locked) ──
-  {
-    id: 6,
-    name: "Advanced Java Programming (JA301)",
-    code: "JA301",
-    shortLabel: "JA301",
-    state: "locked",
-    zone: 3,
-    source: "university",
-    duration: "8 Weeks",
-    prerequisite: "DSA201",
-    skills: ["#OOP", "#Backend", "#Java"],
-    cx: 622,
-    cy: 72,
-  },
-  {
-    id: 7,
-    name: "RESTful API Design (Coursera)",
-    code: "Coursera",
-    shortLabel: "API\nDesign",
-    state: "locked",
-    zone: 3,
-    source: "external",
-    duration: "4 Weeks",
-    prerequisite: "JA301",
-    skills: ["#RESTful_API", "#HTTP", "#JSON"],
-    cx: 742,
-    cy: 128,
-  },
-  // ── Zone 4: Specialisation (Locked) ──
-  {
-    id: 8,
-    name: "Microservices Architecture (MSA401)",
-    code: "MSA401",
-    shortLabel: "MSA401",
-    state: "locked",
-    zone: 4,
-    source: "university",
-    duration: "6 Weeks",
-    prerequisite: "RESTful API Design",
-    skills: ["#Microservices", "#Docker", "#Distributed"],
-    cx: 885,
-    cy: 80,
-  },
-  {
-    id: 9,
-    name: "Cloud Fundamentals — AWS (Coursera)",
-    code: "Coursera",
-    shortLabel: "AWS\nCloud",
-    state: "locked",
-    zone: 4,
-    source: "external",
-    duration: "6 Weeks",
-    prerequisite: "MSA401",
-    skills: ["#AWS_Cloud", "#CloudComputing", "#Serverless"],
-    cx: 1000,
-    cy: 90,   // raised for smoother path to goal
-  },
-];
 
 const ROADMAP_GOALS: Record<string, { title: string; subtitle: string }> = {
   "Backend Developer Path": {
@@ -182,13 +32,22 @@ const ZONES = [
   { label: "ZONE: MONTH 4", sub: "Specialisation · Upcoming", textColor: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
 ];
 
-export default function MyRoadmaps() {
+export default function MyRoadmaps({ 
+  courseNodes, 
+  updateCourseNode 
+}: { 
+  courseNodes: CourseNode[]; 
+  updateCourseNode: (id: number, updates: Partial<CourseNode>) => void 
+}) {
   const [selected, setSelected] = useState("Backend Developer Path");
+  // Find selected node in courseNodes to keep state synced
+  const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+  const selectedNode = courseNodes.find(n => n.id === selectedNodeId) || null;
 
   const roadmaps = Object.keys(ROADMAP_GOALS);
   const goal = ROADMAP_GOALS[selected];
 
-  const byZone = (z: number) => NODES.filter((n) => n.zone === z);
+  const byZone = (z: number) => courseNodes.filter((n) => n.zone === z);
 
   return (
     <div className="p-8 space-y-6 min-h-full" style={{ background: "#F1F5F9" }}>
@@ -261,7 +120,7 @@ export default function MyRoadmaps() {
             </div>
 
             {/* Map canvas — taller to give goal card room below its circle */}
-            <div className="relative" style={{ height: "280px", background: "#FAFBFC" }}>
+            <div className="relative" style={{ height: "320px", background: "#FAFBFC" }}>
               <svg
                 className="absolute inset-0 w-full h-full"
                 viewBox="0 0 1100 200"
@@ -311,10 +170,91 @@ export default function MyRoadmaps() {
               </svg>
 
               {/* Course nodes */}
-              {NODES.map((node) => <RoadmapNode key={node.id} node={node} />)}
+              {courseNodes.map((node) => <RoadmapNode key={node.id} node={node} onClick={() => setSelectedNodeId(selectedNode?.id === node.id ? null : node.id)} />)}
 
               {/* Career target node — anchored to right edge */}
               <GoalNode goal={goal} />
+
+              {/* Info Tooltip */}
+              {selectedNode && (
+                <div 
+                  className="absolute z-50 bg-white rounded-xl shadow-lg border border-gray-200 p-3 w-64 animate-in fade-in zoom-in-95 duration-200"
+                  style={{ 
+                    left: `${(selectedNode.cx / 1100) * 100}%`, 
+                    ...(selectedNode.cy > 100 
+                        ? { bottom: `calc(${100 - (selectedNode.cy / 200) * 100}% + 35px)` }
+                        : { top: `calc(${(selectedNode.cy / 200) * 100}% + 35px)` }
+                    ),
+                    transform: selectedNode.cx < 200 ? "translateX(-15%)" : selectedNode.cx > 900 ? "translateX(-85%)" : "translateX(-50%)" 
+                  }}
+                >
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setSelectedNodeId(null); }}
+                    className="absolute -top-2 -right-2 text-gray-400 hover:text-gray-600 bg-white rounded-full p-1 shadow-sm border border-gray-100"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  {/* Arrow */}
+                  <div 
+                    className="absolute w-3 h-3 bg-white transform rotate-45"
+                    style={{
+                      left: selectedNode.cx < 200 ? "15%" : selectedNode.cx > 900 ? "85%" : "50%",
+                      marginLeft: "-6px",
+                      ...(selectedNode.cy > 100 
+                          ? { bottom: "-6.5px", borderBottomWidth: "1px", borderRightWidth: "1px", borderColor: "#E5E7EB" } 
+                          : { top: "-6.5px", borderTopWidth: "1px", borderLeftWidth: "1px", borderColor: "#E5E7EB" }
+                      )
+                    }}
+                  />
+                  <div className="relative">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ background: selectedNode.state === 'done' ? '#22C55E' : selectedNode.state === 'active' ? TEAL : '#94A3B8' }} />
+                      <span className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider">{selectedNode.code}</span>
+                    </div>
+                    <h4 className="font-bold text-gray-900 text-[0.85rem] leading-tight mb-2 pr-2">{selectedNode.name}</h4>
+                    
+                    <div className="space-y-1.5 text-[0.7rem] text-gray-600 mb-2.5">
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1"><span className="text-[0.65rem]">⏱️</span> {selectedNode.duration}</span>
+                        <span className="flex items-center gap-1"><span className="text-[0.65rem]">🏫</span> {selectedNode.source === "university" ? "University" : "External"}</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <span className="font-medium text-gray-400">Prereq:</span>
+                        <span className="truncate text-gray-700 font-medium">{selectedNode.prerequisite}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {selectedNode.skills.map((s) => (
+                        <span key={s} className="px-1.5 py-0.5 rounded-md text-[0.6rem] font-semibold" style={{ background: "#F1F5F9", color: "#475569" }}>
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const isDone = selectedNode.state === "done";
+                        const newState = isDone ? "active" : "done";
+                        
+                        updateCourseNode(selectedNode.id, { 
+                          state: newState, 
+                          gpa: newState === "done" ? "4.0" : "" 
+                        });
+                      }}
+                      className="w-full py-1.5 rounded-lg text-xs font-bold transition-colors border"
+                      style={
+                        selectedNode.state === "done" 
+                          ? { background: "white", color: "#DC2626", borderColor: "#FECACA" } // Unfinished style (red)
+                          : { background: "#22C55E", color: "white", borderColor: "#16A34A" }  // Finished style (green)
+                      }
+                    >
+                      {selectedNode.state === "done" ? "Mark as Unfinished" : "Mark as Finished"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -342,7 +282,7 @@ export default function MyRoadmaps() {
         <div className="grid grid-cols-4 divide-x divide-gray-100">
           {[1, 2, 3, 4].map((z) => (
             <div key={z} className="p-3">
-              {byZone(z).map((n) => <CourseCard key={n.id} node={n} />)}
+              {byZone(z).map((n) => <CourseCard key={n.id} node={n} onClick={() => setSelectedNodeId(selectedNode?.id === n.id ? null : n.id)} />)}
               {/* Career Target card in Month 4 column */}
               {z === 4 && (
                 <div
@@ -365,6 +305,7 @@ export default function MyRoadmaps() {
           ))}
         </div>
       </div>
+
     </div>
   );
 }
