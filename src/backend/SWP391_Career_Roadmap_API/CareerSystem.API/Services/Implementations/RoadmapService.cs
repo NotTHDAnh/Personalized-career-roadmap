@@ -91,7 +91,8 @@ namespace CareerSystem.API.Services.Implementations
                         CourseId = courseDb.CourseId,          // Nối với môn học chuẩn
                         ParentNodeId = previousNodeId,         // Nối tiếp với môn học trước đó (A -> B -> C)
                         Status = "PENDING",
-                        Deadline = currentDeadline
+                        Deadline = currentDeadline,
+                        AcademicLevel = rec.Level ?? "Beginner"
                     };
 
                     _context.SkillNodes.Add(node);
@@ -124,6 +125,50 @@ namespace CareerSystem.API.Services.Implementations
                 throw new Exception("Không tìm thấy lộ trình yêu cầu.");
             }
 
+            // Sắp xếp các môn học theo thứ tự Deadline tăng dần để FE vẽ từ trái sang phải
+            var orderedNodes = roadmap.SkillNodes.OrderBy(sn => sn.Deadline).Select(sn => new SkillNodeDetailDto
+            {
+                NodeId = sn.NodeId,
+                CourseCode = sn.Course?.CourseCode,
+                CourseName = sn.Course?.CourseName,
+                Status = sn.Status ?? "PENDING",
+                Deadline = sn.Deadline,
+                ParentNodeId = sn.ParentNodeId,
+                AcademicLevel = sn.AcademicLevel
+            }).ToList();
+
+            // Nhóm các node theo level (Beginner, Intermediate, Advanced)
+            var phases = new List<RoadmapPhaseDto>();
+            var groupedByLevel = orderedNodes.GroupBy(n => n.AcademicLevel ?? "Beginner");
+
+            var phaseOrder = new List<string> { "Beginner", "Intermediate", "Advanced" };
+
+            foreach (var phaseName in phaseOrder)
+            {
+                var group = groupedByLevel.FirstOrDefault(g => g.Key.Equals(phaseName, StringComparison.OrdinalIgnoreCase));
+                if (group != null)
+                {
+                    phases.Add(new RoadmapPhaseDto
+                    {
+                        PhaseName = phaseName,
+                        Nodes = group.ToList()
+                    });
+                }
+            }
+
+            // Catch-all for any other levels not in the standard order
+            foreach (var group in groupedByLevel)
+            {
+                if (!phaseOrder.Contains(group.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    phases.Add(new RoadmapPhaseDto
+                    {
+                        PhaseName = group.Key,
+                        Nodes = group.ToList()
+                    });
+                }
+            }
+
             // Ánh xạ dữ liệu từ Entity (Database) sang DTO (gửi cho FE)
             var result = new RoadmapDetailDto
             {
@@ -131,16 +176,7 @@ namespace CareerSystem.API.Services.Implementations
                 TargetRoleName = roadmap.TargetRole.RoleName,
                 DailyStudyHours = roadmap.DailyStudyHours ?? 0,
                 ProgressPercent = roadmap.ProgressPercent ?? 0,
-                // Sắp xếp các môn học theo thứ tự Deadline tăng dần để FE vẽ từ trái sang phải
-                Nodes = roadmap.SkillNodes.OrderBy(sn => sn.Deadline).Select(sn => new SkillNodeDetailDto
-                {
-                    NodeId = sn.NodeId,
-                    CourseCode = sn.Course?.CourseCode,
-                    CourseName = sn.Course?.CourseName,
-                    Status = sn.Status,
-                    Deadline = sn.Deadline,
-                    ParentNodeId = sn.ParentNodeId
-                }).ToList()
+                Phases = phases
             };
 
             return result;

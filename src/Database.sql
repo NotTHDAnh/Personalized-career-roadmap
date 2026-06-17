@@ -1,4 +1,4 @@
-﻿-- Kiểm tra và tạo Database trong SQL Server
+-- Kiểm tra và tạo Database trong SQL Server
 IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'SE_Career_Roadmap')
 BEGIN
     CREATE DATABASE SE_Career_Roadmap;
@@ -211,10 +211,11 @@ ALTER TABLE Roadmaps
 ADD daily_study_hours DECIMAL(4,2) DEFAULT 2.00;
 GO
 
--- Thêm "Deadline" và link "Môn học" vào từng Node trên Lộ trình
+-- Thêm "Deadline", "Môn học" và "Trình độ học tập" vào từng Node trên Lộ trình
 ALTER TABLE Skill_Nodes 
 ADD deadline DATE,
-    course_id VARCHAR(50) NULL;
+    course_id VARCHAR(50) NULL,
+    academic_level VARCHAR(50) NULL;
 GO
 
 -- Cài đặt khóa ngoại cho course_id trong Skill_Nodes
