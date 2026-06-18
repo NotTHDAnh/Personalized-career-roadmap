@@ -19,14 +19,19 @@ namespace CareerSystem.API.Services.Implementations
 
         public async Task<LoginResponse?> LoginAsync(LoginRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+            if (request == null || string.IsNullOrWhiteSpace(request.Email))
+            {
+                return null;
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
             if (user == null)
             {
                 return null;
             }
 
             // If stored password hash is missing or verification fails, deny access
-            if (string.IsNullOrWhiteSpace(user.PasswordHash) || !PassHashValidation.VerifyPassword(request.Password, user.PasswordHash))
+            if (string.IsNullOrWhiteSpace(user.PasswordHash) || string.IsNullOrEmpty(request.Password) || !PassHashValidation.VerifyPassword(request.Password, user.PasswordHash))
             {
                 return null;
             }
@@ -44,8 +49,17 @@ namespace CareerSystem.API.Services.Implementations
         }
         public string Login(LoginRequest request)
         {
+            if (request == null || string.IsNullOrWhiteSpace(request.Email))
+            {
+                return "Tài khoản không tồn tại!";
+            }
+            if (string.IsNullOrEmpty(request.Password))
+            {
+                return "Mật khẩu không chính xác!";
+            }
+
             // 1. Tìm user trong bảng Users có Email khớp với dữ liệu gửi lên
-            var user = _context.Users.FirstOrDefault(u => u.Email == request.Email);
+            var user = _context.Users.FirstOrDefault(u => u.Email.ToLower() == request.Email.ToLower());
 
             // 2. Nếu không tìm thấy
             if (user == null)

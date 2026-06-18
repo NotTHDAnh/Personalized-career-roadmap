@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using CareerSystem.API.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -431,6 +431,10 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false)
                 .HasColumnName("course_id");
+            entity.Property(e => e.AcademicLevel)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("academic_level");
             entity.Property(e => e.Deadline).HasColumnName("deadline");
             entity.Property(e => e.ParentNodeId)
                 .HasMaxLength(50)

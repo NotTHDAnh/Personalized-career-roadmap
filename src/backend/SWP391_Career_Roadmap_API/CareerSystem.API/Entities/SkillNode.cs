@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace CareerSystem.API.Entities;
@@ -18,6 +18,8 @@ public partial class SkillNode
     public DateOnly? Deadline { get; set; }
 
     public string? CourseId { get; set; }
+
+    public string? AcademicLevel { get; set; }
 
     public virtual Course? Course { get; set; }
 
