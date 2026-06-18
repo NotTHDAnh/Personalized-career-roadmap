@@ -143,8 +143,6 @@ export function MentorTab() {
     //   }, 1100);
     // }
 
-    // THÊM: Hiện thông báo loading ngắn gọn khi chat
-    openNotification("info", "Checking progress...");
 
     try {
       const mentorResponse = await askMentor(trimmedText, userId);
@@ -211,9 +209,6 @@ export function MentorTab() {
 
     setCreatingRoadmap(true);
 
-    // THÊM: Hiện thông báo tiến trình loading như trong ảnh mẫu bạn gửi
-    openNotification("info", "Loading course materials...");
-
     try {
       const generatedResult = await apiClient.post<GenerateRoadmapResponse>(
         "/Roadmap/generate-personalized",
@@ -239,7 +234,7 @@ export function MentorTab() {
       setPreviewCollapsed(false);
 
       // THÊM: Hiện thông báo thành công ngắn gọn như trong ảnh mẫu bạn gửi
-      openNotification("success", "All items already completed!");
+      openNotification("success", "Roadmap generated successfully!");
     } catch {
       openNotification(
         "error",
