@@ -1,4 +1,4 @@
-import { Check, Lock } from "lucide-react"
+import { Check, Lock } from "lucide-react";
 
 import { COLORS } from "@/shared/constants/colors";
 import type { CourseNode } from "@/app/types";
@@ -12,9 +12,18 @@ export function RoadmapNode({ node }: { node: CourseNode }) {
   const pctY = (node.cy / 200) * 100;
 
   const bg =
-    node.state === "done" ? COLORS.GREEN_DONE : node.state === "active" ? COLORS.BLUE_PRIMARY : COLORS.LOCKED_BG;
+    node.state === "done"
+      ? COLORS.GREEN_DONE
+      : node.state === "active"
+        ? COLORS.BLUE_PRIMARY
+        : COLORS.LOCKED_BG;
+
   const border =
-    node.state === "done" ? COLORS.GREEN_DONE_BORDER : node.state === "active" ? COLORS.TEAL_ACCENT : COLORS.LOCKED_BORDER;
+    node.state === "done"
+      ? COLORS.GREEN_DONE_BORDER
+      : node.state === "active"
+        ? COLORS.TEAL_ACCENT
+        : COLORS.LOCKED_BORDER;
 
   return (
     <Popover>
