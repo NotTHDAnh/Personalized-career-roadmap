@@ -74,7 +74,7 @@ export function MentorTab() {
     {
       id: 0,
       role: "ai",
-      content: `Hello, ${studentName} 👋 I am your AI Academic Mentor. I can help you analyze career direction, skill gaps, and personalized learning roadmap based on your academic profile.`,
+      content: `Xin chào, ${studentName} 👋 Tôi là Cố vấn Học tập AI của bạn. Tôi có thể giúp bạn phân tích định hướng nghề nghiệp, xác định những kỹ năng còn thiếu và xây dựng lộ trình học tập cá nhân hóa dựa trên hồ sơ học tập của bạn.`,
     },
   ]);
 
