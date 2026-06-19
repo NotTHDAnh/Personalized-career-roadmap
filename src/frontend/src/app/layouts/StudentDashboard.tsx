@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router";
 import { useAuth } from "../../shared/contexts/AuthContext";
 import { COLORS } from "../../shared/constants/colors";
@@ -8,6 +9,8 @@ import {
   LogOut,
   Bell,
   GraduationCap,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 
@@ -42,25 +45,45 @@ const navItems: NavItem[] = [
 export function StudentDashboard() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const displayName = user?.fullName || "Student";
   const initial = displayName.trim().split(/\s+/).at(-1)?.[0]?.toUpperCase() ?? "S";
 
-  // Find current nav label for header
   const currentNav = navItems.find((item) =>
     location.pathname.startsWith(item.to),
   );
 
   return (
     <div
-      className="ml-[280px] w-[calc(100vw-280px)] min-h-screen"
+      className={`min-h-screen transition-all duration-300 ${
+        isSidebarOpen ? "ml-[280px] w-[calc(100vw-280px)]" : "ml-0 w-full"
+      }`}
       style={{ fontFamily: "'Inter', sans-serif" }}
     >
       {/* ── Sidebar ── */}
       <aside
-        className="fixed left-0 top-0 h-screen w-[280px] text-white flex flex-col"
+        className={`fixed left-0 top-0 h-screen w-[280px] text-white flex flex-col z-40 transition-transform duration-300 ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
         style={{ background: COLORS.BLUE_PRIMARY }}
       >
+        {/* ── CHI TIẾT THAY ĐỔI: Cái "Bookmark" handle nằm ở đây ── */}
+        <button
+          type="button"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="absolute top-1/2 -translate-y-1/2 flex items-center justify-center rounded-r-xl transition-all duration-300 shadow-md text-white hover:brightness-110"
+          style={{
+            right: "-24px",         // Đẩy nó thò ra ngoài sidebar 24px
+            width: "24px",          // Chiều rộng hình chữ nhật đứng (bookmark)
+            height: "50px",         // Chiều dài dọc theo sidebar
+            background: COLORS.BLUE_PRIMARY, // Trùng màu nền để nhìn liền mạch với sidebar
+          }}
+          title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+        >
+          {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+        </button>
+
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
             <GraduationCap size={28} style={{ color: COLORS.MINT_ACCENT }} />

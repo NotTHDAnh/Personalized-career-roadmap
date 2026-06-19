@@ -7,7 +7,7 @@ import {
 import type {
     RoadmapPreview,
     SkillNodeDetail,
-} from "../../types";
+} from "../../../types";
 
 type RoadmapTimelineProps = {
     roadmap: RoadmapPreview;
