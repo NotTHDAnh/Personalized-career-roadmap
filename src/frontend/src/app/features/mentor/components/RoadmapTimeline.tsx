@@ -2,6 +2,7 @@ import {
     CheckCircle2,
     Clock3,
     LockKeyhole,
+    Star,
 } from "lucide-react";
 
 import type {
@@ -13,10 +14,16 @@ type RoadmapTimelineProps = {
     roadmap: RoadmapPreview;
 };
 
+const PHASE_COLORS = ["#2EA98C", "#15876E", "#065543", "#094538", "#032F2B"];
+
 export default function RoadmapTimeline({
     roadmap,
 }: RoadmapTimelineProps) {
-    const orderedNodes = orderNodesByParent(roadmap.nodes ?? []);
+    const allNodes = roadmap.phases?.flatMap((phase) => phase.nodes) ?? [];
+
+    const prerequisiteNodeIds = new Set(
+        allNodes.filter((n) => n.parentNodeId).map((n) => n.parentNodeId)
+    );
 
     const progress = Math.min(
         Math.max(Number(roadmap.progressPercent) || 0, 0),
@@ -46,67 +53,104 @@ export default function RoadmapTimeline({
                 </div>
             </div>
 
-            {orderedNodes.length === 0 ? (
+            {allNodes.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-gray-300 p-5 text-sm text-gray-500">
                     This roadmap does not contain any learning nodes.
                 </div>
             ) : (
-                <div className="relative overflow-x-hidden">
-                    {/* Line nằm chính giữa cột rộng 24px */}
-                    <div className="absolute bottom-0 left-3 top-0 w-[2px] -translate-x-1/2 bg-teal-200" />
+                <div className="space-y-8">
+                    {roadmap.phases?.map((phase, phaseIndex) => {
+                        const phaseColor = PHASE_COLORS[phaseIndex % PHASE_COLORS.length];
+                        const phaseNodes = orderNodesByParent(phase.nodes);
 
-                    <div className="space-y-5">
-                        {orderedNodes.map((node, index) => (
-                            <div
-                                key={node.nodeId}
-                                className="relative grid grid-cols-[24px_minmax(0,1fr)] gap-4"
-                            >
-                                {/* Cột riêng dành cho vòng tròn */}
-                                <div className="relative z-10 flex justify-center pt-5">
-                                    <StatusIcon status={node.status} />
-                                </div>
+                        if (phaseNodes.length === 0) return null;
 
-                                {/* Card node */}
-                                <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
-                                                Step {index + 1}
-                                            </p>
+                        return (
+                            <div key={phase.phaseName} className="relative">
+                                <h4
+                                    className="mb-4 text-base font-bold uppercase tracking-wide"
+                                    style={{ color: phaseColor }}
+                                >
+                                    {phase.phaseName}
+                                </h4>
 
-                                            <h4 className="mt-1 break-words font-semibold text-[#002046]">
-                                                {node.courseName ||
-                                                    node.courseCode ||
-                                                    "Unnamed course"}
-                                            </h4>
+                                <div className="relative overflow-x-hidden">
+                                    <div
+                                        className="absolute bottom-0 left-3 top-0 w-[2px] -translate-x-1/2"
+                                        style={{ backgroundColor: phaseColor, opacity: 0.3 }}
+                                    />
 
-                                            {node.courseCode && node.courseName && (
-                                                <p className="mt-1 text-sm text-gray-500">
-                                                    {node.courseCode}
-                                                </p>
-                                            )}
-                                        </div>
+                                    <div className="space-y-5">
+                                        {phaseNodes.map((node, index) => {
+                                            const isPrereq = prerequisiteNodeIds.has(node.nodeId);
 
-                                        <StatusBadge status={node.status} />
+                                            return (
+                                                <div
+                                                    key={node.nodeId}
+                                                    className="relative grid grid-cols-[24px_minmax(0,1fr)] gap-4"
+                                                >
+                                                    <div className="relative z-10 flex justify-center pt-5">
+                                                        <StatusIcon status={node.status} color={phaseColor} />
+                                                    </div>
+
+                                                    <div
+                                                        className="min-w-0 rounded-xl border border-gray-200 border-l-[6px] bg-white p-4 shadow-sm"
+                                                        style={{ borderLeftColor: phaseColor }}
+                                                    >
+                                                        <div>
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <p
+                                                                    className="text-xs font-semibold uppercase tracking-wide"
+                                                                    style={{ color: phaseColor }}
+                                                                >
+                                                                    Course {index + 1}
+                                                                </p>
+
+                                                                <div className="flex shrink-0 items-center gap-2">
+                                                                    {isPrereq && (
+                                                                        <span title="Prerequisite Course" className="flex shrink-0 items-center">
+                                                                            <Star className="h-4 w-4 shrink-0 fill-amber-400 text-amber-400" />
+                                                                        </span>
+                                                                    )}
+                                                                    <StatusBadge status={node.status} />
+                                                                </div>
+                                                            </div>
+
+                                                            <h4 className="mt-1 font-semibold text-[#002046]">
+                                                                {node.courseName ||
+                                                                    node.courseCode ||
+                                                                    "Unnamed course"}
+                                                            </h4>
+
+                                                            {node.courseCode && node.courseName && (
+                                                                <p className="mt-1 text-sm text-gray-500">
+                                                                    {node.courseCode}
+                                                                </p>
+                                                            )}
+                                                        </div>
+
+                                                        {node.deadline && (
+                                                            <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                                                                <Clock3 className="h-4 w-4 shrink-0" />
+                                                                <span>Deadline: {node.deadline}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-
-                                    {node.deadline && (
-                                        <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-                                            <Clock3 className="h-4 w-4 shrink-0" />
-                                            <span>Deadline: {node.deadline}</span>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })}
                 </div>
             )}
         </div>
     );
 }
 
-function StatusIcon({ status }: { status: string }) {
+function StatusIcon({ status, color }: { status: string; color: string }) {
     const normalizedStatus = status.toLowerCase();
 
     if (normalizedStatus === "done") {
@@ -122,7 +166,10 @@ function StatusIcon({ status }: { status: string }) {
     }
 
     return (
-        <span className="block h-4 w-4 rounded-full bg-teal-600 ring-4 ring-white" />
+        <span
+            className="block h-4 w-4 rounded-full ring-4 ring-white"
+            style={{ backgroundColor: color }}
+        />
     );
 }
 
