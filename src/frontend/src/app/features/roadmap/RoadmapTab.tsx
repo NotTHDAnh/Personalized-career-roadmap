@@ -1,29 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase } from "lucide-react";
 import { GoalNode } from "./components/GoalNode";
 import { RoadmapNode } from "./components/RoadmapNode";
 import { CourseCard } from "./components/CourseCard";
+import { Skeleton } from "@/app/components/ui/skeleton";
+import { ErrorAlert } from "@/app/components/common/ErrorAlert";
 
-const BLUE = "#1B365D";
-const TEAL = "#0D9488";
-
-type NodeState = "done" | "active" | "locked";
-
-interface CourseNode {
-  id: number;
-  name: string;
-  code: string;
-  shortLabel: string;
-  state: NodeState;
-  zone: 1 | 2 | 3 | 4;
-  source: "university" | "external";
-  duration: string;
-  prerequisite: string;
-  skills: string[];
-  // SVG coords (viewBox 0 0 1100 200)
-  cx: number;
-  cy: number;
-}
+import { COLORS } from "@/shared/constants/colors";
+import type { NodeState, CourseNode } from "@/app/types";
 
 const NODES: CourseNode[] = [
   // ── Zone 1: Foundation (Done) ──
@@ -184,11 +168,34 @@ const ZONES = [
 
 export default function MyRoadmaps() {
   const [selected, setSelected] = useState("Backend Developer Path");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    setTimeout(() => setLoading(false), 500);
+  };
 
   const roadmaps = Object.keys(ROADMAP_GOALS);
   const goal = ROADMAP_GOALS[selected];
 
   const byZone = (z: number) => NODES.filter((n) => n.zone === z);
+
+  if (error) {
+    return (
+      <div className="p-8 min-h-full" style={{ background: "#F1F5F9" }}>
+        <ErrorAlert title="Roadmap Load Error" message={error} onRetry={handleRetry} />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-6 min-h-full" style={{ background: "#F1F5F9" }}>
@@ -200,15 +207,21 @@ export default function MyRoadmaps() {
             Select Active Roadmap
           </label>
           <div className="relative">
-            <select
-              value={selected}
-              onChange={(e) => setSelected(e.target.value)}
-              className="appearance-none pr-8 pl-3 py-2 rounded-lg border text-sm text-gray-800 focus:outline-none cursor-pointer"
-              style={{ borderColor: "#E2E8F0", background: "#F8FAFC", fontWeight: 500 }}
-            >
-              {roadmaps.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            {loading ? (
+              <Skeleton className="h-9 w-44 rounded-lg" />
+            ) : (
+              <>
+                <select
+                  value={selected}
+                  onChange={(e) => setSelected(e.target.value)}
+                  className="appearance-none pr-8 pl-3 py-2 rounded-lg border text-sm text-gray-800 focus:outline-none cursor-pointer"
+                  style={{ borderColor: "#E2E8F0", background: "#F8FAFC", fontWeight: 500 }}
+                >
+                  {roadmaps.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </>
+            )}
           </div>
         </div>
 
@@ -216,7 +229,7 @@ export default function MyRoadmaps() {
           <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-gray-50 transition-colors" style={{ borderColor: "#E2E8F0", color: "#475569" }}>
             <Pencil className="w-3.5 h-3.5" /> Edit
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-white hover:opacity-90 transition-opacity" style={{ background: TEAL }}>
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-white hover:opacity-90 transition-opacity" style={{ background: COLORS.TEAL_ACCENT }}>
             <Save className="w-3.5 h-3.5" /> Save
           </button>
           <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-red-50 transition-colors" style={{ borderColor: "#FCA5A5", color: "#DC2626" }}>
@@ -228,7 +241,11 @@ export default function MyRoadmaps() {
 
         <div className="flex items-center gap-3 px-4 py-2 rounded-xl" style={{ background: "#EFF6FF", border: "1px solid #BFDBFE" }}>
           <span className="text-xs text-blue-700" style={{ fontWeight: 600 }}>⏳ Remaining Study Time</span>
-          <span className="text-xs px-2.5 py-1 rounded-full text-white" style={{ background: BLUE, fontWeight: 600 }}>~24 Weeks</span>
+          {loading ? (
+            <Skeleton className="h-5 w-20 rounded-full" />
+          ) : (
+            <span className="text-xs px-2.5 py-1 rounded-full text-white" style={{ background: COLORS.BLUE_PRIMARY, fontWeight: 600 }}>~24 Weeks</span>
+          )}
         </div>
       </div>
 
@@ -262,59 +279,76 @@ export default function MyRoadmaps() {
 
             {/* Map canvas — taller to give goal card room below its circle */}
             <div className="relative" style={{ height: "280px", background: "#FAFBFC" }}>
-              <svg
-                className="absolute inset-0 w-full h-full"
-                viewBox="0 0 1100 200"
-                preserveAspectRatio="none"
-              >
-                {/* Zone shading */}
-                <rect x="0"   y="0" width="275" height="200" fill="#F0FDF4" opacity="0.55" />
-                <rect x="275" y="0" width="275" height="200" fill="#EFF6FF" opacity="0.45" />
-                <rect x="550" y="0" width="275" height="200" fill="#F8FAFC" opacity="0.7"  />
-                <rect x="825" y="0" width="275" height="200" fill="#F8FAFC" opacity="0.7"  />
+              {loading ? (
+                <div className="absolute inset-0 flex items-center justify-around px-12">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-3">
+                      <Skeleton className="w-12 h-12 rounded-full" />
+                      <Skeleton className="w-16 h-3 rounded" />
+                    </div>
+                  ))}
+                  <div className="flex flex-col items-center gap-3 ml-auto pr-10">
+                    <Skeleton className="w-16 h-16 rounded-full" />
+                    <Skeleton className="w-24 h-12 rounded-xl" />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <svg
+                    className="absolute inset-0 w-full h-full"
+                    viewBox="0 0 1100 200"
+                    preserveAspectRatio="none"
+                  >
+                    {/* Zone shading */}
+                    <rect x="0"   y="0" width="275" height="200" fill="#F0FDF4" opacity="0.55" />
+                    <rect x="275" y="0" width="275" height="200" fill="#EFF6FF" opacity="0.45" />
+                    <rect x="550" y="0" width="275" height="200" fill="#F8FAFC" opacity="0.7"  />
+                    <rect x="825" y="0" width="275" height="200" fill="#F8FAFC" opacity="0.7"  />
 
-                {/* Zone separators */}
-                {[275, 550, 825].map((x) => (
-                  <line key={x} x1={x} y1="0" x2={x} y2="200" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="5,4" />
-                ))}
+                    {/* Zone separators */}
+                    {[275, 550, 825].map((x) => (
+                      <line key={x} x1={x} y1="0" x2={x} y2="200" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="5,4" />
+                    ))}
 
-                {/* Solid teal path — Zones 1–2 (done + active) */}
-                <path
-                  d="M 20 100
-                     C 48 100 62 100 75 100
-                     C 112 100 142 55 165 55
-                     C 196 55 228 118 248 118
-                     C 283 118 330 78 365 78
-                     C 412 78 457 128 488 128
-                     C 522 128 548 108 550 108"
-                  fill="none"
-                  stroke={TEAL}
-                  strokeWidth="4.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                    {/* Solid teal path — Zones 1–2 (done + active) */}
+                    <path
+                      d="M 20 100
+                         C 48 100 62 100 75 100
+                         C 112 100 142 55 165 55
+                         C 196 55 228 118 248 118
+                         C 283 118 330 78 365 78
+                         C 412 78 457 128 488 128
+                         C 522 128 548 108 550 108"
+                      fill="none"
+                      stroke={COLORS.TEAL_ACCENT}
+                      strokeWidth="4.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
 
-                {/* Dashed gray path — Zones 3–4 → goal (node 9 cy adjusted to 90) */}
-                <path
-                  d="M 550 108
-                     C 578 108 600 72 622 72
-                     C 665 72 710 128 742 128
-                     C 790 128 848 80 885 80
-                     C 932 80 968 90 1000 90
-                     C 1025 90 1042 76 1055 76"
-                  fill="none"
-                  stroke="#94A3B8"
-                  strokeWidth="4.5"
-                  strokeLinecap="round"
-                  strokeDasharray="10,6"
-                />
-              </svg>
+                    {/* Dashed gray path — Zones 3–4 → goal (node 9 cy adjusted to 90) */}
+                    <path
+                      d="M 550 108
+                         C 578 108 600 72 622 72
+                         C 665 72 710 128 742 128
+                         C 790 128 848 80 885 80
+                         C 932 80 968 90 1000 90
+                         C 1025 90 1042 76 1055 76"
+                      fill="none"
+                      stroke="#94A3B8"
+                      strokeWidth="4.5"
+                      strokeLinecap="round"
+                      strokeDasharray="10,6"
+                    />
+                  </svg>
 
-              {/* Course nodes */}
-              {NODES.map((node) => <RoadmapNode key={node.id} node={node} />)}
+                  {/* Course nodes */}
+                  {NODES.map((node) => <RoadmapNode key={node.id} node={node} />)}
 
-              {/* Career target node — anchored to right edge */}
-              <GoalNode goal={goal} />
+                  {/* Career target node — anchored to right edge */}
+                  <GoalNode goal={goal} />
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -342,24 +376,33 @@ export default function MyRoadmaps() {
         <div className="grid grid-cols-4 divide-x divide-gray-100">
           {[1, 2, 3, 4].map((z) => (
             <div key={z} className="p-3">
-              {byZone(z).map((n) => <CourseCard key={n.id} node={n} />)}
-              {/* Career Target card in Month 4 column */}
-              {z === 4 && (
-                <div
-                  className="rounded-xl border p-3.5 mt-1"
-                  style={{ background: "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)", border: "1.5px solid #FDE68A" }}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "#F59E0B" }}>
-                      <Briefcase className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <span className="text-xs uppercase tracking-wider" style={{ color: "#92400E", fontWeight: 700, fontSize: "0.6rem" }}>
-                      Career Target
-                    </span>
-                  </div>
-                  <p className="text-sm" style={{ fontWeight: 700, color: "#78350F" }}>{goal.title}</p>
-                  <p className="text-xs text-amber-600 mt-0.5">{goal.subtitle}</p>
+              {loading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-28 w-full rounded-xl" />
+                  <Skeleton className="h-28 w-full rounded-xl" />
                 </div>
+              ) : (
+                <>
+                  {byZone(z).map((n) => <CourseCard key={n.id} node={n} />)}
+                  {/* Career Target card in Month 4 column */}
+                  {z === 4 && (
+                    <div
+                      className="rounded-xl border p-3.5 mt-1"
+                      style={{ background: "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)", border: "1.5px solid #FDE68A" }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "#F59E0B" }}>
+                          <Briefcase className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <span className="text-xs uppercase tracking-wider" style={{ color: "#92400E", fontWeight: 700, fontSize: "0.6rem" }}>
+                          Career Target
+                        </span>
+                      </div>
+                      <p className="text-sm" style={{ fontWeight: 700, color: "#78350F" }}>{goal.title}</p>
+                      <p className="text-xs text-amber-600 mt-0.5">{goal.subtitle}</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}

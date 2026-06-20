@@ -1,21 +1,7 @@
 import { apiClient } from "../../../shared/api/apiClient";
+import type { LoginRequest, LoginResponse } from "../../types/auth";
 
-export type LoginRequest = {
-  email: string;
-  password: string;
-};
-
-export type LoginUser = {
-  userId: string;
-  email: string;
-  fullName: string;
-  role: string;
-};
-
-export type LoginResponse = {
-  accessToken: string;
-  user: LoginUser;
-};
+export type { LoginUser, LoginRequest, LoginResponse } from "../../types/auth";
 
 export const authApi = {
   login: (data: LoginRequest) =>
