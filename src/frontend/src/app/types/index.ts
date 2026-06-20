@@ -1,3 +1,6 @@
+// ─── Shared Types ──────────────────────────────────────────────────────────
+// Central barrel file — re-exports all type modules
+
 export type Screen = "login" | "dashboard" | "staff";
 export type DashTab = "profile" | "roadmap" | "mentor";
 
@@ -27,3 +30,31 @@ export type RoadmapPhase = {
     status: "completed" | "in-progress" | "pending";
   }[];
 };
+
+// Re-exports
+export type {
+  LoginMode,
+  LoginRequest,
+  LoginUser,
+  LoginResponse,
+  AppSession,
+} from "./auth";
+
+export type {
+  NodeState,
+  CourseNode,
+  RoadmapGoal,
+  ZoneConfig,
+} from "./roadmap";
+
+export type {
+  MentorAskResponse,
+  GenerateRoadmapResponse,
+  RoadmapPreview,
+  SkillNodeDetail,
+} from "./mentor";
+
+export type {
+  CourseFormData,
+  StaffCourse,
+} from "./staff";
