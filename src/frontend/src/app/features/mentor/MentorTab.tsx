@@ -15,6 +15,9 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { Message, MentorAskResponse, GenerateRoadmapResponse, RoadmapPreview } from "@/app/types";
 import { apiClient } from "@/shared/api/apiClient";
+import { ApiKeyModal } from "@/app/components/common/ApiKeyModal";
+import { deleteApiKey, getApiKeyStatus } from "@/app/services/apiKeyApi";
+import type { ApiKeyStatus } from "@/app/services/apiKeyApi";
 import { useAuth } from "@/shared/contexts/AuthContext";
 import { useNotification } from "@/shared/contexts/NotificationContext";
 import { Button } from "@/app/components/ui/button";
@@ -125,6 +128,28 @@ export function MentorTab() {
     }
   }
 
+  async function fetchKeyStatus() {
+    try {
+      const status = await getApiKeyStatus(userId);
+      setApiKeyStatus(status);
+    } catch {
+      setApiKeyStatus({ hasKey: false });
+    }
+  }
+
+  useEffect(() => {
+    void fetchKeyStatus();
+  }, [userId]);
+
+  async function handleDeleteKey() {
+    try {
+      await deleteApiKey(userId);
+      await fetchKeyStatus();
+    } catch {
+      // handle error silently for now
+    }
+  }
+
   // useEffect(() => {
   //   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   // }, [messages, typing]);
@@ -180,11 +205,16 @@ export function MentorTab() {
       };
 
       setMessages((prev) => [...prev, aiMsg]);
-    } catch {
-      openNotification(
-        "error",
-        "AI Mentor is currently unavailable."
-      );
+    } catch (error: any) {
+      if (error.message?.includes("Gemini API Key")) {
+        setPendingAction(() => () => void performAskMentor(text));
+        setIsApiKeyModalOpen(true);
+      } else {
+        openNotification(
+          "error",
+          "AI Mentor is currently unavailable."
+        );
+      }
     } finally {
       setTyping(false);
     }
@@ -259,11 +289,16 @@ export function MentorTab() {
 
       // THÊM: Hiện thông báo thành công ngắn gọn như trong ảnh mẫu bạn gửi
       openNotification("success", "Roadmap generated successfully!");
-    } catch {
-      openNotification(
-        "error",
-        "Failed to create roadmap."
-      );
+    } catch (error: any) {
+      if (error.message?.includes("Gemini API Key")) {
+        setPendingAction(() => () => void performCreateRoadmap());
+        setIsApiKeyModalOpen(true);
+      } else {
+        openNotification(
+          "error",
+          "Failed to create roadmap."
+        );
+      }
     } finally {
       setCreatingRoadmap(false);
     }
@@ -320,6 +355,25 @@ export function MentorTab() {
         setInput={setInput}
         onCancelRoadmap={handleCancelRoadmapClick}
         onSaveRoadmap={handleSaveRoadmapClick}
+        apiKeyStatus={apiKeyStatus}
+        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+        onDeleteApiKey={() => void handleDeleteKey()}
+      />
+
+      <ApiKeyModal
+        userId={userId}
+        isOpen={isApiKeyModalOpen}
+        onClose={() => {
+          setIsApiKeyModalOpen(false);
+          setPendingAction(null);
+        }}
+        onSuccess={() => {
+          void fetchKeyStatus();
+          if (pendingAction) {
+            void pendingAction();
+            setPendingAction(null);
+          }
+        }}
       />
     </div>
   );
