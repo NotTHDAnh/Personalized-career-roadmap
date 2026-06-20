@@ -1,11 +1,13 @@
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CareerSystem.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class RoadmapController : ControllerBase
     {
         private readonly IRoadmapService _roadmapService;

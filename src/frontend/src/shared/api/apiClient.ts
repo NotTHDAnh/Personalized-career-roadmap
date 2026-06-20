@@ -34,8 +34,12 @@ async function request<T>(
     );
   }
 
-  // 401 Unauthorized → auto logout
-  if (response.status === 401) {
+  // 401 Unauthorized → auto logout (except for auth endpoints to show actual login errors)
+  const isAuthEndpoint =
+    endpoint.toLowerCase().includes("/auth/login") ||
+    endpoint.toLowerCase().includes("/auth/google-login");
+
+  if (response.status === 401 && !isAuthEndpoint) {
     onUnauthorized?.();
     throw new Error("Session expired. Please log in again.");
   }

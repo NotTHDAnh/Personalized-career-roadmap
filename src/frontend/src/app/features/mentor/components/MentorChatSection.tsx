@@ -77,13 +77,20 @@ export default function MentorChatSection({
             className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${
+              className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-normal ${
                 message.role === "user"
                   ? "bg-[#006b5f] text-white rounded-br-sm"
                   : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
               }`}
             >
-              <ReactMarkdown>
+              <ReactMarkdown
+                components={{
+                  p: ({ node, ...props }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
+                  ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 last:mb-0" {...props} />,
+                  ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 last:mb-0" {...props} />,
+                  li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                }}
+              >
                 {message.content}
               </ReactMarkdown>
             </div>

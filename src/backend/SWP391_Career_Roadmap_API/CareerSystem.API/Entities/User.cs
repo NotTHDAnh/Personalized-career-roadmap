@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace CareerSystem.API.Entities;
@@ -30,4 +30,5 @@ public partial class User
     public virtual ICollection<Roadmap> Roadmaps { get; set; } = new List<Roadmap>();
 
     public virtual ICollection<StudentSkill> StudentSkills { get; set; } = new List<StudentSkill>();
+    public virtual ICollection<UserRefreshToken> UserRefreshTokens { get; set; } = new List<UserRefreshToken>();
 }

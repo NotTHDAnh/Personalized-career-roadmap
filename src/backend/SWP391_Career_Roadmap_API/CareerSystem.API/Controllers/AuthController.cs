@@ -1,4 +1,4 @@
-﻿using CareerSystem.API.DTOs;
+using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,6 +26,36 @@ namespace CareerSystem.API.Controllers
             if(res == null)
             {
                 return Unauthorized("Invalid email or password.");
+            }
+            return Ok(res);
+        }
+
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            if (string.IsNullOrEmpty(request.IdToken))
+            {
+                return BadRequest("IdToken is required.");
+            }
+            var res = await _authService.LoginWithGoogleAsync(request);
+            if (res == null)
+            {
+                return Unauthorized("Tài khoản Google không tồn tại hoặc không được cấp quyền truy cập hệ thống.");
+            }
+            return Ok(res);
+        }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.RefreshToken))
+            {
+                return BadRequest("RefreshToken is required.");
+            }
+            var res = await _authService.RefreshTokenAsync(request);
+            if (res == null)
+            {
+                return Unauthorized("Phiên làm việc đã hết hạn hoặc refresh token không hợp lệ.");
             }
             return Ok(res);
         }
