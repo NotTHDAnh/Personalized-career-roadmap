@@ -92,8 +92,9 @@ namespace CareerSystem.API.Services.Implementations
         /// <param name="contextJson">Chuỗi JSON chứa thông tin sinh viên, lịch sử chat, định hướng và danh mục môn học.</param>
         /// <param name="githubContextJson">Chuỗi JSON thông tin các repository GitHub của sinh viên (nếu có).</param>
         /// <param name="question">Câu hỏi cần tư vấn của sinh viên.</param>
+        /// <param name="apiKey">API Key Gemini của người dùng.</param>
         /// <returns>Đối tượng <see cref="MentorAskResponseDto"/> chứa câu trả lời tư vấn ngắn gọn và các đề xuất nghề nghiệp/kỹ năng.</returns>
-        public async Task<MentorAskResponseDto> GetMentorAdviceAsync(string contextJson, string githubContextJson, string question)
+        public async Task<MentorAskResponseDto> GetMentorAdviceAsync(string contextJson, string githubContextJson, string question, string apiKey)
         {
             return await ExecuteAiActionWithFallbackAsync(async () =>
             {
@@ -122,7 +123,7 @@ namespace CareerSystem.API.Services.Implementations
                     5. Không tạo roadmap.
                     8. Chỉ dùng GitHub Repo nếu có.
                     9. Nếu GitHub Repo trống hoặc là [], hãy bỏ qua hoàn toàn phần phân tích GitHub và tuyệt đối không nhắc đến việc thiếu GitHub trong câu trả lời.
-                    10. Dùng chatHistory để hiểu ngữ cảnh trước đó, ví dụ target role đã được nhắc tới trước đó.
+                    10. Dùng chatHistory để hiểu ngữ cảnh trước đó, vị dụ target role đã được nhắc tới trước đó.
 
                     Định dạng bắt buộc, chỉ trả JSON:
                     {{
@@ -135,7 +136,7 @@ namespace CareerSystem.API.Services.Implementations
                     }}";
 
                 // Gọi Gemini API thông qua GeminiService
-                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt);
+                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
                 
                 // Parse kết quả trả về thành dạng DTO và validate sự tồn tại của targetRoleId trong database
                 return await ProcessAndValidateAiResponseAsync(aiJsonResponse);
@@ -160,8 +161,9 @@ namespace CareerSystem.API.Services.Implementations
         /// <param name="targetRole">Đối tượng CareerRole thể hiện vị trí công việc sinh viên hướng tới.</param>
         /// <param name="passedCoursesText">Chuỗi mô tả danh sách các mã môn học sinh viên đã hoàn thành.</param>
         /// <param name="courseCatalogJson">Chuỗi JSON danh mục tất cả môn học cùng kết quả học tập kỳ vọng từ cơ sở dữ liệu.</param>
+        /// <param name="apiKey">API Key Gemini của người dùng.</param>
         /// <returns>Danh sách các đối tượng <see cref="AiCourseRecommendationDto"/> chứa các mã môn và kỹ năng đề xuất tương ứng.</returns>
-        public async Task<List<AiCourseRecommendationDto>> GetRoadmapCoursesAsync(CareerRole targetRole, string passedCoursesText, string courseCatalogJson)
+        public async Task<List<AiCourseRecommendationDto>> GetRoadmapCoursesAsync(CareerRole targetRole, string passedCoursesText, string courseCatalogJson, string apiKey)
         {
             return await ExecuteAiActionWithFallbackAsync(async () =>
             {
@@ -219,6 +221,7 @@ namespace CareerSystem.API.Services.Implementations
                        - ""Beginner"": Các môn nền tảng/cơ bản đại cương (ví dụ: CSI106, PRF192, PRO192, MAD101, DBI202, CSD201, SSL101c, SSG104, ITE302c).
                        - ""Intermediate"": Các môn học core/cơ sở ngành, lập trình chuyên sâu, cơ sở mạng/hệ điều hành hoặc thiết kế web/di động (ví dụ: PRJ301, FER202, HSF302, PRM393, SDN302).
                        - ""Advanced"": Các môn chuyên ngành nâng cao, khai phá dữ liệu, AI/Machine Learning nâng cao hoặc dự án thực hành lớn (ví dụ: AIL303m, DSC302, SWP391).
+                    7. Tuyệt đối không được đề xuất trùng lặp bất kỳ môn học nào (mỗi courseCode chỉ xuất hiện tối đa một lần trong toàn bộ lộ trình). Một môn học chỉ được gán cho duy nhất 1 trình độ (level) phù hợp nhất.
 
                    Định dạng bắt buộc, chỉ trả JSON:
                     [
@@ -230,7 +233,7 @@ namespace CareerSystem.API.Services.Implementations
                     ]";
 
                 // Gọi Gemini API thông qua GeminiService
-                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt);
+                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
                 
                 // Trích xuất phần nội dung JSON nằm trong cặp dấu ngoặc vuông [ ]
                 aiJsonResponse = _geminiService.CleanJsonString(aiJsonResponse);

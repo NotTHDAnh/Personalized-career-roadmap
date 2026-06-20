@@ -544,6 +544,10 @@ public partial class AppDbContext : DbContext
                 .IsUnicode(false)
                 .HasDefaultValue("STUDENT")
                 .HasColumnName("role");
+            entity.Property(e => e.GeminiApiKey)
+                .HasMaxLength(255)
+                .IsUnicode(false)
+                .HasColumnName("gemini_api_key");
         });
 
         OnModelCreatingPartial(modelBuilder);

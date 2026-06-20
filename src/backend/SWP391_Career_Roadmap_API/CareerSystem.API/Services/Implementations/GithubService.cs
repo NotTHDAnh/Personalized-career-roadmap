@@ -129,7 +129,7 @@ namespace CareerSystem.API.Services.Implementations
         }
 
         // Gọi Gemini API để phân tích README và bóc tách dữ liệu JSON
-        public async Task<(string AiSummary, string TechStack)> AnalyzeReadmeWithAiAsync(string repoName, string readmeContent, string defaultLanguage, string defaultDescription)
+        public async Task<(string AiSummary, string TechStack)> AnalyzeReadmeWithAiAsync(string repoName, string readmeContent, string defaultLanguage, string defaultDescription, string apiKey)
         {
             try
             {
@@ -152,7 +152,7 @@ namespace CareerSystem.API.Services.Implementations
                       ""techStack"": ""các công nghệ cách nhau bằng dấu phẩy ở đây""
                     }}";
 
-                var aiResponse = await _geminiService.CallGeminiApiAsync(prompt);
+                var aiResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
                 
                 // Parse kết quả trả về
                 var doc = JsonDocument.Parse(aiResponse);
@@ -185,6 +185,17 @@ namespace CareerSystem.API.Services.Implementations
         // Nếu repo đã có trong DB thì bỏ qua, không insert trùng.
         public async Task SyncGithubReposToDatabaseAsync(string userId)
         {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (user == null)
+            {
+                throw new Exception("Không tìm thấy người dùng.");
+            }
+
+            if (string.IsNullOrWhiteSpace(user.GeminiApiKey))
+            {
+                throw new Exception("Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để sử dụng tính năng này.");
+            }
+
             var githubProfile = await _context.GithubProfiles
                 .FirstOrDefaultAsync(g => g.UserId == userId);
 
@@ -215,7 +226,7 @@ namespace CareerSystem.API.Services.Implementations
                 var readme = await GetRepoReadmeAsync(githubProfile.GithubUsername, repo.Name);
                 if (!string.IsNullOrWhiteSpace(readme))
                 {
-                    var (summary, tech) = await AnalyzeReadmeWithAiAsync(repo.Name, readme, repo.Language ?? "Unknown", repo.Description);
+                    var (summary, tech) = await AnalyzeReadmeWithAiAsync(repo.Name, readme, repo.Language ?? "Unknown", repo.Description, user.GeminiApiKey);
                     aiSummary = summary;
                     techStack = tech;
                 }

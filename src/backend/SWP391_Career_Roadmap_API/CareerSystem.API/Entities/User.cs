@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace CareerSystem.API.Entities;
@@ -20,6 +20,8 @@ public partial class User
     public string? OauthId { get; set; }
 
     public DateTime? CreatedAt { get; set; }
+
+    public string? GeminiApiKey { get; set; }
 
     public virtual ICollection<AcademicRecord> AcademicRecords { get; set; } = new List<AcademicRecord>();
 
