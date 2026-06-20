@@ -3,8 +3,8 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using CareerSystem.API.Services.Interfaces;
 using Microsoft.Extensions.Configuration;
+using CareerSystem.API.Services.Interfaces;
 
 namespace CareerSystem.API.Services.Implementations
 {
@@ -170,6 +170,26 @@ namespace CareerSystem.API.Services.Implementations
 
             // Nếu không có dấu ngoặc vuông nào, trả về chuỗi gốc đã cắt khoảng trắng
             return text.Trim();
+        }
+
+        public async Task<bool> ValidateApiKeyAsync(string apiKey)
+        {
+            if (string.IsNullOrWhiteSpace(apiKey)) return false;
+            try
+            {
+                string testUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey.Trim()}";
+                var testBody = new
+                {
+                    contents = new[] { new { parts = new[] { new { text = "ping" } } } }
+                };
+
+                var response = await _httpClient.PostAsJsonAsync(testUrl, testBody);
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

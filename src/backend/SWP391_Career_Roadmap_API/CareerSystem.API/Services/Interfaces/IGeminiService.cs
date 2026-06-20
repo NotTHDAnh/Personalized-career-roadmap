@@ -7,5 +7,6 @@ namespace CareerSystem.API.Services.Interfaces
         Task<string> CallGeminiApiAsync(string prompt, string apiKey);
         string CleanAiJson(string text);
         string CleanJsonString(string text);
+        Task<bool> ValidateApiKeyAsync(string apiKey);
     }
 }

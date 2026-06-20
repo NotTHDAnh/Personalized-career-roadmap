@@ -1,5 +1,6 @@
 using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
+using CareerSystem.API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
@@ -11,10 +12,12 @@ namespace CareerSystem.API.Controllers
     public class ApiKeyController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IGeminiService _geminiService;
 
-        public ApiKeyController(AppDbContext context)
+        public ApiKeyController(AppDbContext context, IGeminiService geminiService)
         {
             _context = context;
+            _geminiService = geminiService;
         }
 
         [HttpGet]
@@ -65,6 +68,13 @@ namespace CareerSystem.API.Controllers
             if (user == null)
             {
                 return NotFound("Không tìm thấy người dùng.");
+            }
+
+            // Gọi thử API Gemini để xác thực tính hợp lệ của Key
+            var isValid = await _geminiService.ValidateApiKeyAsync(request.GeminiApiKey);
+            if (!isValid)
+            {
+                return BadRequest("Gemini API Key không hợp lệ hoặc không hoạt động. Vui lòng kiểm tra lại.");
             }
 
             user.GeminiApiKey = request.GeminiApiKey.Trim();
