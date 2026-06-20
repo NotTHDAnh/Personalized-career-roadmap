@@ -128,28 +128,6 @@ export function MentorTab() {
     }
   }
 
-  async function fetchKeyStatus() {
-    try {
-      const status = await getApiKeyStatus(userId);
-      setApiKeyStatus(status);
-    } catch {
-      setApiKeyStatus({ hasKey: false });
-    }
-  }
-
-  useEffect(() => {
-    void fetchKeyStatus();
-  }, [userId]);
-
-  async function handleDeleteKey() {
-    try {
-      await deleteApiKey(userId);
-      await fetchKeyStatus();
-    } catch {
-      // handle error silently for now
-    }
-  }
-
   // useEffect(() => {
   //   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   // }, [messages, typing]);

@@ -98,6 +98,10 @@ namespace CareerSystem.API.Services.Implementations
 
                     // Nếu là lỗi khác hoặc đã hết số lần thử lại, ném Exception
                     var errorMsg = await response.Content.ReadAsStringAsync();
+                    if (statusCode == 400 || statusCode == 403)
+                    {
+                        throw new Exception("Gemini API Key của bạn đã hết hạn, không hợp lệ hoặc hết hạn mức sử dụng. Vui lòng cấu hình lại.");
+                    }
                     throw new Exception($"Lỗi gọi Gemini API: HTTP {(int)response.StatusCode} - {errorMsg}");
                 }
                 catch (HttpRequestException ex) when (i < maxRetries - 1)
