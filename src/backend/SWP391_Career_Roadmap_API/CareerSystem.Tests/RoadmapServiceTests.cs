@@ -143,11 +143,13 @@ namespace CareerSystem.Tests
             Assert.Equal(25.0m, result.ProgressPercent);
             
             // Assert sorting order (n2 has 5 days deadline, n1 has 10 days)
-            Assert.Equal(2, result.Nodes.Count);
-            Assert.Equal("n2", result.Nodes[0].NodeId);
-            Assert.Equal("CS102", result.Nodes[0].CourseCode);
-            Assert.Equal("n1", result.Nodes[1].NodeId);
-            Assert.Equal("CS101", result.Nodes[1].CourseCode);
+            var beginnerPhase = result.Phases.FirstOrDefault(p => p.PhaseName.Equals("Beginner", StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(beginnerPhase);
+            Assert.Equal(2, beginnerPhase.Nodes.Count);
+            Assert.Equal("n2", beginnerPhase.Nodes[0].NodeId);
+            Assert.Equal("CS102", beginnerPhase.Nodes[0].CourseCode);
+            Assert.Equal("n1", beginnerPhase.Nodes[1].NodeId);
+            Assert.Equal("CS101", beginnerPhase.Nodes[1].CourseCode);
         }
 
         // UTCID04: Abnormal Get - Non-existent roadmapId
@@ -171,7 +173,7 @@ namespace CareerSystem.Tests
         public async Task GetRoadmapDetailAsync_ZeroNodes_ReturnsEmptyList()
         {
             var result = await _service.GetRoadmapDetailAsync("roadmap-zero-nodes");
-            Assert.Empty(result.Nodes);
+            Assert.Empty(result.Phases);
         }
 
         // UTCID07: Normal Get - Null Course properties
@@ -179,9 +181,11 @@ namespace CareerSystem.Tests
         public async Task GetRoadmapDetailAsync_NullCourse_ReturnsNullCourseDetails()
         {
             var result = await _service.GetRoadmapDetailAsync("roadmap-null-courses");
-            Assert.Single(result.Nodes);
-            Assert.Null(result.Nodes[0].CourseCode);
-            Assert.Null(result.Nodes[0].CourseName);
+            var beginnerPhase = result.Phases.FirstOrDefault(p => p.PhaseName.Equals("Beginner", StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(beginnerPhase);
+            Assert.Single(beginnerPhase.Nodes);
+            Assert.Null(beginnerPhase.Nodes[0].CourseCode);
+            Assert.Null(beginnerPhase.Nodes[0].CourseName);
         }
 
         // UTCID08: Abnormal Get - Null TargetRole throws Exception

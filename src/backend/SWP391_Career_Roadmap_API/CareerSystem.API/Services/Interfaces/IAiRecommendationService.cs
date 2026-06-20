@@ -7,7 +7,7 @@ namespace CareerSystem.API.Services.Interfaces
 {
     public interface IAiRecommendationService
     {
-        Task<MentorAskResponseDto> GetMentorAdviceAsync(string contextJson, string githubContextJson, string question);
-        Task<List<AiCourseRecommendationDto>> GetRoadmapCoursesAsync(CareerRole targetRole, string passedCoursesText, string courseCatalogJson);
+        Task<MentorAskResponseDto> GetMentorAdviceAsync(string contextJson, string githubContextJson, string question, string apiKey);
+        Task<List<AiCourseRecommendationDto>> GetRoadmapCoursesAsync(CareerRole targetRole, string passedCoursesText, string courseCatalogJson, string apiKey);
     }
 }

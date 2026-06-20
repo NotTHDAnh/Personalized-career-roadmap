@@ -22,11 +22,12 @@ namespace CareerSystem.API.Services.Implementations
         /// <summary>
         /// Gửi Prompt đến Gemini API và nhận phản hồi văn bản từ AI với cơ chế thử lại tự động khi gặp lỗi tạm thời.
         /// </summary>
-        public async Task<string> CallGeminiApiAsync(string prompt)
+        public async Task<string> CallGeminiApiAsync(string prompt, string apiKey)
         {
-            // 1. Lấy API Key từ file cấu hình hệ thống (appsettings.json)
-            string apiKey = _configuration["AiSettings:ApiKey"]
-                 ?? throw new Exception("Thiếu cấu hình API Key của hệ thống.");
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new Exception("Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để sử dụng tính năng này.");
+            }
 
             apiKey = apiKey.Trim();
             // 2. Thiết lập endpoint gọi tới mô hình Gemini 2.5 Flash
