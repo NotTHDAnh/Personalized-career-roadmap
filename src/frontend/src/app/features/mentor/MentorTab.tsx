@@ -14,6 +14,9 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { Message } from "../../types";
 import { apiClient } from "../../../shared/api/apiClient";
+import { ApiKeyModal } from "../../components/common/ApiKeyModal";
+import { deleteApiKey, getApiKeyStatus } from "../../services/apiKeyApi";
+import type { ApiKeyStatus } from "../../services/apiKeyApi";
 
 type CurrentUser = {
   userId?: string;
@@ -100,7 +103,7 @@ async function askMentor(message: string, userId: string): Promise<MentorAskResp
 export function MentorTab() {
   const currentUser = getCurrentUser();
   const studentName = currentUser?.fullName || "student";
-  const userId = currentUser?.userId || "student-001";
+  const userId = currentUser?.userId || "USR_0001";
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -127,6 +130,32 @@ export function MentorTab() {
   const [typing, setTyping] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus | null>(null);
+
+  async function fetchKeyStatus() {
+    try {
+      const status = await getApiKeyStatus(userId);
+      setApiKeyStatus(status);
+    } catch {
+      setApiKeyStatus({ hasKey: false });
+    }
+  }
+
+  useEffect(() => {
+    void fetchKeyStatus();
+  }, [userId]);
+
+  async function handleDeleteKey() {
+    try {
+      await deleteApiKey(userId);
+      await fetchKeyStatus();
+    } catch {
+      // handle error silently for now
+    }
+  }
+
   // useEffect(() => {
   //   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   // }, [messages, typing]);
@@ -139,40 +168,10 @@ export function MentorTab() {
     container.scrollTop = container.scrollHeight;
   }, [messages, typing]);
 
-  // function send(text: string) {
-  async function send(text: string) {
-    // if (!text.trim()) return;
-    // const userMsg: Message = { id: Date.now(), role: "user", content: text.trim() };
-    // setMessages((prev) => [...prev, userMsg]);
-    // setInput("");
-    // setTyping(true);
-    const trimmedText = text.trim();
-
-    if (!trimmedText || typing) return;
-
-    const userMsg: Message = {
-      id: Date.now(),
-      role: "user",
-      content: trimmedText,
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
+  async function performAskMentor(text: string) {
     setTyping(true);
-
-    //   setTimeout(() => {
-    //     const aiMsg: Message = {
-    //       id: Date.now() + 1,
-    //       role: "ai",
-    //       content: getAIResponse(text),
-    //     };
-    //     setMessages((prev) => [...prev, aiMsg]);
-    //     setTyping(false);
-    //   }, 1100);
-    // }
-
     try {
-      const mentorResponse = await askMentor(trimmedText, userId);
+      const mentorResponse = await askMentor(text, userId);
 
       if (mentorResponse.targetRoleName) {
         setTargetRole({
@@ -185,13 +184,6 @@ export function MentorTab() {
         setRecommendedCareers(mentorResponse.recommendedCareers);
       }
 
-      if (mentorResponse.targetRoleName) {
-        setTargetRole({
-          id: mentorResponse.targetRoleId,
-          name: mentorResponse.targetRoleName,
-        });
-      }
-
       const aiMsg: Message = {
         id: Date.now() + 1,
         role: "ai",
@@ -199,18 +191,40 @@ export function MentorTab() {
       };
 
       setMessages((prev) => [...prev, aiMsg]);
-    } catch {
-      const errorMsg: Message = {
-        id: Date.now() + 1,
-        role: "ai",
-        content:
-          "AI Mentor is currently unavailable. Please make sure the backend service is running, then try again.",
-      };
+    } catch (error: any) {
+      if (error.message?.includes("Gemini API Key")) {
+        setPendingAction(() => () => void performAskMentor(text));
+        setIsApiKeyModalOpen(true);
+      } else {
+        const errorMsg: Message = {
+          id: Date.now() + 1,
+          role: "ai",
+          content:
+            "AI Mentor is currently unavailable. Please make sure the backend service is running, then try again.",
+        };
 
-      setMessages((prev) => [...prev, errorMsg]);
+        setMessages((prev) => [...prev, errorMsg]);
+      }
     } finally {
       setTyping(false);
     }
+  }
+
+  async function send(text: string) {
+    const trimmedText = text.trim();
+
+    if (!trimmedText || typing) return;
+
+    const userMsg: Message = {
+      id: Date.now(),
+      role: "user",
+      content: trimmedText,
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+
+    await performAskMentor(trimmedText);
   }
 
   // function handleKeyDown(e: React.KeyboardEvent) {
@@ -227,7 +241,7 @@ export function MentorTab() {
     }
   }
 
-  async function handleCreateRoadmapClick() {
+  async function performCreateRoadmap() {
     if (!targetRole || creatingRoadmap) return;
 
     if (!targetRole.id) {
@@ -264,7 +278,6 @@ export function MentorTab() {
 
       setRoadmapPreview(roadmapDetail);
 
-      // setRoadmapPreview(generatedRoadmap);
       setShowRoadmapPreview(true);
       setPreviewCollapsed(false);
 
@@ -275,18 +288,27 @@ export function MentorTab() {
       };
 
       setMessages((prev) => [...prev, successMsg]);
-    } catch {
-      const errorMsg: Message = {
-        id: Date.now(),
-        role: "ai",
-        content:
-          "Failed to create roadmap. Please make sure the backend service is running, then try again.",
-      };
+    } catch (error: any) {
+      if (error.message?.includes("Gemini API Key")) {
+        setPendingAction(() => () => void performCreateRoadmap());
+        setIsApiKeyModalOpen(true);
+      } else {
+        const errorMsg: Message = {
+          id: Date.now(),
+          role: "ai",
+          content:
+            "Failed to create roadmap. Please make sure the backend service is running, then try again.",
+        };
 
-      setMessages((prev) => [...prev, errorMsg]);
+        setMessages((prev) => [...prev, errorMsg]);
+      }
     } finally {
       setCreatingRoadmap(false);
     }
+  }
+
+  async function handleCreateRoadmapClick() {
+    await performCreateRoadmap();
   }
 
   function handleSaveRoadmapClick() {
@@ -593,16 +615,67 @@ export function MentorTab() {
           </div>
         </div>
 
-        <div className="bg-[#1b365d] rounded-2xl shadow-sm p-6 text-white">
+        <div className={`rounded-2xl shadow-sm p-6 text-white ${apiKeyStatus?.hasKey ? 'bg-[#006b5f]' : 'bg-[#1b365d]'}`}>
           <p className="text-xs uppercase tracking-widest text-white/60 font-bold">
             Advisement Status
           </p>
-          <h4 className="text-xl font-bold mt-2">Profile Ready</h4>
-          <p className="text-sm text-white/70 mt-2">
-            Your academic profile is ready for basic AI advisement.
-          </p>
+
+          {!apiKeyStatus?.hasKey ? (
+            <>
+              <h4 className="text-xl font-bold mt-2">AI Setup Required</h4>
+              <p className="text-sm text-white/70 mt-2 mb-4">
+                Your academic profile is ready, but you need to connect your Gemini API Key to enable the AI Mentor.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsApiKeyModalOpen(true)}
+                className="w-full rounded-xl bg-white text-[#1b365d] px-4 py-2 font-semibold hover:bg-gray-100 transition"
+              >
+                Connect Gemini API
+              </button>
+            </>
+          ) : (
+            <>
+              <h4 className="text-xl font-bold mt-2">AI Ready</h4>
+              <div className="mt-3 rounded-lg bg-black/20 p-3">
+                <p className="text-xs text-white/60 font-medium">Connected Key</p>
+                <p className="text-sm font-mono mt-1">{apiKeyStatus.maskedKey}</p>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsApiKeyModalOpen(true)}
+                  className="flex-1 rounded-xl border border-white/30 px-3 py-2 text-sm font-semibold hover:bg-white/10 transition"
+                >
+                  Update
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteKey()}
+                  className="flex-1 rounded-xl bg-red-500/20 text-red-100 border border-red-500/30 px-3 py-2 text-sm font-semibold hover:bg-red-500/40 transition"
+                >
+                  Delete
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </aside>
+      <ApiKeyModal
+        userId={userId}
+        isOpen={isApiKeyModalOpen}
+        onClose={() => {
+          setIsApiKeyModalOpen(false);
+          setPendingAction(null);
+        }}
+        onSuccess={() => {
+          void fetchKeyStatus();
+          if (pendingAction) {
+            void pendingAction();
+            setPendingAction(null);
+          }
+        }}
+      />
     </div>
   );
 }
