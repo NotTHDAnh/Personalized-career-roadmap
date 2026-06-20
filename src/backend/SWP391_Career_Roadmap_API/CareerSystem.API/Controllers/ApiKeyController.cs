@@ -27,6 +27,10 @@ namespace CareerSystem.API.Controllers
             }
 
             var hasKey = !string.IsNullOrWhiteSpace(user.GeminiApiKey);
+            if (!hasKey)
+            {
+                return NotFound("không tìm thấy cấu hình API key");
+            }
             string? maskedKey = null;
 
             if (hasKey)
