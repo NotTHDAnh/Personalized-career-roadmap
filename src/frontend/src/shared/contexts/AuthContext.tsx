@@ -5,6 +5,7 @@ import type { LoginUser, LoginMode } from "../../app/types/auth";
 // ─── Storage Keys ──────────────────────────────────────────────────────────
 const STORAGE_KEYS = {
   TOKEN: "accessToken",
+  REFRESH_TOKEN: "refreshToken",
   USER: "currentUser",
   MODE: "loginMode",
 } as const;
@@ -15,7 +16,7 @@ interface AuthContextValue {
   token: string | null;
   mode: LoginMode | null;
   isAuthenticated: boolean;
-  login: (token: string, user: LoginUser, mode: LoginMode) => void;
+  login: (token: string, refreshToken: string, user: LoginUser, mode: LoginMode) => void;
   logout: () => void;
 }
 
@@ -54,8 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<LoginMode | null>(initial.mode);
 
   const login = useCallback(
-    (newToken: string, newUser: LoginUser, newMode: LoginMode) => {
+    (newToken: string, newRefreshToken: string, newUser: LoginUser, newMode: LoginMode) => {
       localStorage.setItem(STORAGE_KEYS.TOKEN, newToken);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
       localStorage.setItem(STORAGE_KEYS.MODE, newMode);
       setToken(newToken);
@@ -67,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.MODE);
     setToken(null);

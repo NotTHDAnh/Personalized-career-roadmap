@@ -95,7 +95,7 @@ export default function LoginScreen() {
         return;
       }
 
-      login(result.accessToken, result.user, currentMode);
+      login(result.accessToken, result.refreshToken, result.user, currentMode);
       navigate(currentMode === "staff" ? "/staff" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đăng nhập Google thất bại.");
@@ -133,7 +133,7 @@ export default function LoginScreen() {
         return;
       }
 
-      login(result.accessToken, result.user, mode);
+      login(result.accessToken, result.refreshToken, result.user, mode);
       navigate(mode === "staff" ? "/staff" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");

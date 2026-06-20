@@ -34,12 +34,52 @@ async function request<T>(
     );
   }
 
-  // 401 Unauthorized → auto logout (except for auth endpoints to show actual login errors)
+  // 401 Unauthorized → auto logout or refresh (except for auth endpoints)
   const isAuthEndpoint =
     endpoint.toLowerCase().includes("/auth/login") ||
-    endpoint.toLowerCase().includes("/auth/google-login");
+    endpoint.toLowerCase().includes("/auth/google-login") ||
+    endpoint.toLowerCase().includes("/auth/refresh");
 
   if (response.status === 401 && !isAuthEndpoint) {
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (refreshToken) {
+      try {
+        const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json();
+          localStorage.setItem("accessToken", data.accessToken);
+          localStorage.setItem("refreshToken", data.refreshToken);
+          if (data.user) {
+            localStorage.setItem("currentUser", JSON.stringify(data.user));
+          }
+
+          // Retry the request with the new access token
+          const retryOptions = {
+            ...options,
+            headers: {
+              ...options.headers,
+              Authorization: `Bearer ${data.accessToken}`,
+            },
+          };
+          return request<T>(endpoint, retryOptions);
+        }
+      } catch (refreshErr) {
+        console.error("Silent refresh failed:", refreshErr);
+      }
+    }
+
+    // If refresh token is missing or refresh failed, perform logout
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("loginMode");
     onUnauthorized?.();
     throw new Error("Session expired. Please log in again.");
   }
