@@ -390,13 +390,13 @@ namespace CareerSystem.API.Services.Implementations
 
             // Fetch all associated SkillNodes
             var skillNodes = await _context.SkillNodes.Where(sn => sn.RoadmapId == roadmapId).ToListAsync();
-
+            
             // Remove self-referencing foreign keys to avoid constraint violations during deletion
             foreach (var node in skillNodes)
             {
                 node.ParentNodeId = null;
             }
-
+            
             if (skillNodes.Any())
             {
                 await _context.SaveChangesAsync(); // Apply ParentNodeId = null
