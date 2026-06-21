@@ -387,7 +387,22 @@ namespace CareerSystem.API.Services.Implementations
         {
             var roadmap = await _context.Roadmaps.FindAsync(roadmapId);
             if (roadmap == null) return false;
-            
+
+            // Fetch all associated SkillNodes
+            var skillNodes = await _context.SkillNodes.Where(sn => sn.RoadmapId == roadmapId).ToListAsync();
+
+            // Remove self-referencing foreign keys to avoid constraint violations during deletion
+            foreach (var node in skillNodes)
+            {
+                node.ParentNodeId = null;
+            }
+
+            if (skillNodes.Any())
+            {
+                await _context.SaveChangesAsync(); // Apply ParentNodeId = null
+                _context.SkillNodes.RemoveRange(skillNodes); // Remove the skill nodes
+            }
+
             _context.Roadmaps.Remove(roadmap);
             await _context.SaveChangesAsync();
             return true;
