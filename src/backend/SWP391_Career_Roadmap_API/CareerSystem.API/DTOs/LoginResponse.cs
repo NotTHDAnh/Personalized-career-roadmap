@@ -6,5 +6,6 @@ namespace CareerSystem.API.DTOs
     {
         public string AccessToken { get; set; } = string.Empty;
         public User User { get; set; } = new User();
+        public SessionInitializationDto? MentorSessionData { get; set; }
     }
 }
