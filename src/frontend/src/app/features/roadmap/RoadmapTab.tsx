@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router";
+import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase, Loader2, Map, Plus } from "lucide-react";
 import { GoalNode } from "./components/GoalNode";
 import { RoadmapNode } from "./components/RoadmapNode";
 import { CourseCard } from "./components/CourseCard";
@@ -186,6 +187,7 @@ const ZONES = [
 ];
 
 export default function MyRoadmaps() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const userId = user?.userId || "student-001";
 
@@ -198,10 +200,12 @@ export default function MyRoadmaps() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteRoadmap = async () => {
-    if (!selectedRoadmapId || selectedRoadmapId.startsWith("mock-")) return;
+    if (!selectedRoadmapId) return;
     setIsDeleting(true);
     try {
-      await apiClient.delete(`/Roadmap/${selectedRoadmapId}`);
+      if (!selectedRoadmapId.startsWith("mock-")) {
+        await apiClient.delete(`/Roadmap/${selectedRoadmapId}`);
+      }
       const updatedList = roadmaps.filter((r) => r.roadmapId !== selectedRoadmapId);
       setRoadmaps(updatedList);
       if (updatedList.length > 0) {
@@ -370,6 +374,24 @@ export default function MyRoadmaps() {
     <CourseContext.Provider value={{ updateNodeState: handleUpdateNodeState }}>
       <div className="p-8 space-y-6 min-h-full" style={{ background: "#F1F5F9" }}>
 
+      {(!loading && roadmaps.length === 0) ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 flex flex-col items-center justify-center text-center h-[60vh]">
+          <Map className="w-20 h-20 text-gray-300 mb-6" />
+          <h3 className="text-2xl font-bold text-gray-800 mb-3">No roadmap available</h3>
+          <p className="text-gray-500 mb-8 max-w-md text-sm">
+            You haven't created any career roadmaps yet. Let our AI Virtual Mentor guide you to build a personalized path for your dream career.
+          </p>
+          <button
+            onClick={() => navigate("/dashboard/mentor")}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold transition-opacity hover:opacity-90 shadow-sm"
+            style={{ background: COLORS.TEAL_ACCENT }}
+          >
+            <Plus className="w-5 h-5" />
+            Create Roadmap
+          </button>
+        </div>
+      ) : (
+        <>
       {/* ── Section 1: Management Header ── */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4 flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
@@ -406,7 +428,7 @@ export default function MyRoadmaps() {
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
             style={{ borderColor: "#FCA5A5", color: "#DC2626" }}
             onClick={() => setIsDeleteDialogOpen(true)}
-            disabled={!selectedRoadmapId || selectedRoadmapId.startsWith("mock-") || isDeleting}
+            disabled={!selectedRoadmapId || isDeleting}
           >
             {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} 
             Delete
@@ -531,6 +553,8 @@ export default function MyRoadmaps() {
           ))}
         </div>
       </div>
+        </>
+      )}
       
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
