@@ -382,5 +382,15 @@ namespace CareerSystem.API.Services.Implementations
                 })
                 .ToListAsync();
         }
+
+        public async Task<bool> DeleteRoadmapAsync(string roadmapId)
+        {
+            var roadmap = await _context.Roadmaps.FindAsync(roadmapId);
+            if (roadmap == null) return false;
+            
+            _context.Roadmaps.Remove(roadmap);
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
 }

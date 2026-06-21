@@ -12,5 +12,6 @@ namespace CareerSystem.API.Services.Interfaces
         Task<RoadmapDetailDto> GenerateRoadmapPreviewAsync(PersonalizedRoadmapRequest request);
         Task<string> SaveRoadmapAsync(SaveRoadmapRequestDto request);
         Task<List<UserRoadmapDto>> GetUserRoadmapsAsync(string userId);
+        Task<bool> DeleteRoadmapAsync(string roadmapId);
     }
 }

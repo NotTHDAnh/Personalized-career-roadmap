@@ -51,5 +51,14 @@ namespace CareerSystem.API.Controllers
             var roadmap = await _roadmapService.GetRoadmapDetailAsync(roadmapId);
             return Ok(roadmap);
         }
+
+        //API xóa roadmap
+        [HttpDelete("{roadmapId}")]
+        public async Task<IActionResult> DeleteRoadmap(string roadmapId)
+        {
+            var result = await _roadmapService.DeleteRoadmapAsync(roadmapId);
+            if (!result) return NotFound(new { message = "Không tìm thấy lộ trình để xóa." });
+            return Ok(new { message = "Đã xóa lộ trình thành công." });
+        }
     }
 }
