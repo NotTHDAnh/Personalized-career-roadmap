@@ -6,5 +6,6 @@ namespace CareerSystem.API.Services.Interfaces
     {
         Task<MentorAskResponseDto> AskAsync(MentorAskRequestDto request);
         Task<List<ChatMessageDto>> GetSessionHistoryAsync(string userId);
+        Task<SessionInitializationDto> InitializeChatSessionAsync(string userId);
     }
 }

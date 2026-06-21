@@ -10,11 +10,12 @@ namespace CareerSystem.API.Services.Implementations
     public class AuthService : IAuthService
     {
         private readonly AppDbContext _context;
+        private readonly IMentorService _mentorService;
 
-        // Constructor: Nhúng AppDbContext vào để gọi Database
-        public AuthService(AppDbContext context)
+        public AuthService(AppDbContext context, IMentorService mentorService)
         {
             _context = context;
+            _mentorService = mentorService;
         }
 
         public async Task<LoginResponse?> LoginAsync(LoginRequest request)
@@ -30,12 +31,12 @@ namespace CareerSystem.API.Services.Implementations
                 return null;
             }
 
-            // If stored password hash is missing or verification fails, deny access
             if (string.IsNullOrWhiteSpace(user.PasswordHash) || string.IsNullOrEmpty(request.Password) || !PassHashValidation.VerifyPassword(request.Password, user.PasswordHash))
             {
                 return null;
             }
-            return new LoginResponse
+
+            var loginResponse = new LoginResponse
             {
                 AccessToken = $"demo-token-{user.UserId}",
                 User = new Entities.User
@@ -46,6 +47,11 @@ namespace CareerSystem.API.Services.Implementations
                     Role = user.Role,
                 }
             };
+
+            var sessionData = await _mentorService.InitializeChatSessionAsync(user.UserId);
+            loginResponse.MentorSessionData = sessionData;
+
+            return loginResponse;
         }
         public string Login(LoginRequest request)
         {
