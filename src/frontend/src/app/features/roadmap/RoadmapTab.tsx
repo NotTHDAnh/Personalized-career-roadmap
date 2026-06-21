@@ -9,138 +9,144 @@ import { ErrorAlert } from "@/app/components/common/ErrorAlert";
 import { COLORS } from "@/shared/constants/colors";
 import type { NodeState, CourseNode } from "@/app/types";
 
-const NODES: CourseNode[] = [
-  // ── Zone 1: Foundation (Done) ──
-  {
-    id: 1,
-    name: "Introduction to Computer Science (CS101)",
-    code: "CS101",
-    shortLabel: "CS101",
-    state: "done",
-    zone: 1,
-    source: "university",
-    duration: "8 Weeks",
-    prerequisite: "None",
-    skills: ["#Logic", "#Syntax", "#ComputerScience"],
-    cx: 75,
-    cy: 100,
-  },
-  {
-    id: 2,
-    name: "Web Foundations (Coursera)",
-    code: "Coursera",
-    shortLabel: "Web\nFound.",
-    state: "done",
-    zone: 1,
-    source: "external",
-    duration: "4 Weeks",
-    prerequisite: "CS101",
-    skills: ["#HTML", "#CSS", "#WebDesign"],
-    cx: 165,
-    cy: 55,
-  },
-  {
-    id: 3,
-    name: "Programming Fundamentals (PR101)",
-    code: "PR101",
-    shortLabel: "PR101",
-    state: "done",
-    zone: 1,
-    source: "university",
-    duration: "8 Weeks",
-    prerequisite: "CS101",
-    skills: ["#Variables", "#ControlFlow", "#Functions"],
-    cx: 248,
-    cy: 118,
-  },
-  // ── Zone 2: Core Skills (Active) ──
-  {
-    id: 4,
-    name: "Data Structures & Algorithms (DSA201)",
-    code: "DSA201",
-    shortLabel: "DSA201",
-    state: "active",
-    zone: 2,
-    source: "university",
-    duration: "10 Weeks",
-    prerequisite: "PR101",
-    skills: ["#DataStructures", "#Algorithms", "#Efficiency"],
-    cx: 365,
-    cy: 78,
-  },
-  {
-    id: 5,
-    name: "Database Management Systems (DB202)",
-    code: "DB202",
-    shortLabel: "DB202",
-    state: "active",
-    zone: 2,
-    source: "university",
-    duration: "6 Weeks",
-    prerequisite: "PR101",
-    skills: ["#SQL", "#Schema", "#Databases"],
-    cx: 488,
-    cy: 128,
-  },
-  // ── Zone 3: Advanced (Locked) ──
-  {
-    id: 6,
-    name: "Advanced Java Programming (JA301)",
-    code: "JA301",
-    shortLabel: "JA301",
-    state: "locked",
-    zone: 3,
-    source: "university",
-    duration: "8 Weeks",
-    prerequisite: "DSA201",
-    skills: ["#OOP", "#Backend", "#Java"],
-    cx: 622,
-    cy: 72,
-  },
-  {
-    id: 7,
-    name: "RESTful API Design (Coursera)",
-    code: "Coursera",
-    shortLabel: "API\nDesign",
-    state: "locked",
-    zone: 3,
-    source: "external",
-    duration: "4 Weeks",
-    prerequisite: "JA301",
-    skills: ["#RESTful_API", "#HTTP", "#JSON"],
-    cx: 742,
-    cy: 128,
-  },
-  // ── Zone 4: Specialisation (Locked) ──
-  {
-    id: 8,
-    name: "Microservices Architecture (MSA401)",
-    code: "MSA401",
-    shortLabel: "MSA401",
-    state: "locked",
-    zone: 4,
-    source: "university",
-    duration: "6 Weeks",
-    prerequisite: "RESTful API Design",
-    skills: ["#Microservices", "#Docker", "#Distributed"],
-    cx: 885,
-    cy: 80,
-  },
-  {
-    id: 9,
-    name: "Cloud Fundamentals — AWS (Coursera)",
-    code: "Coursera",
-    shortLabel: "AWS\nCloud",
-    state: "locked",
-    zone: 4,
-    source: "external",
-    duration: "6 Weeks",
-    prerequisite: "MSA401",
-    skills: ["#AWS_Cloud", "#CloudComputing", "#Serverless"],
-    cx: 1000,
-    cy: 90,   // raised for smoother path to goal
-  },
-];
+import { useMemo } from "react";
+import { RoadmapCanvas } from "./components/RoadmapCanvas";
+import { MOCK_ROADMAP_DTO } from "./core/mockData";
+import { mapDtoToGraph } from "./core/roadmapAdapter";
+import { PhaseBasedLayoutEngine } from "./core/phaseBasedEngine";
+
+// const NODES: CourseNode[] = [
+//   // ── Zone 1: Foundation (Done) ──
+//   {
+//     id: 1,
+//     name: "Introduction to Computer Science (CS101)",
+//     code: "CS101",
+//     shortLabel: "CS101",
+//     state: "done",
+//     zone: 1,
+//     source: "university",
+//     duration: "8 Weeks",
+//     prerequisite: "None",
+//     skills: ["#Logic", "#Syntax", "#ComputerScience"],
+//     cx: 75,
+//     cy: 100,
+//   },
+//   {
+//     id: 2,
+//     name: "Web Foundations (Coursera)",
+//     code: "Coursera",
+//     shortLabel: "Web\nFound.",
+//     state: "done",
+//     zone: 1,
+//     source: "external",
+//     duration: "4 Weeks",
+//     prerequisite: "CS101",
+//     skills: ["#HTML", "#CSS", "#WebDesign"],
+//     cx: 165,
+//     cy: 55,
+//   },
+//   {
+//     id: 3,
+//     name: "Programming Fundamentals (PR101)",
+//     code: "PR101",
+//     shortLabel: "PR101",
+//     state: "done",
+//     zone: 1,
+//     source: "university",
+//     duration: "8 Weeks",
+//     prerequisite: "CS101",
+//     skills: ["#Variables", "#ControlFlow", "#Functions"],
+//     cx: 248,
+//     cy: 118,
+//   },
+//   // ── Zone 2: Core Skills (Active) ──
+//   {
+//     id: 4,
+//     name: "Data Structures & Algorithms (DSA201)",
+//     code: "DSA201",
+//     shortLabel: "DSA201",
+//     state: "active",
+//     zone: 2,
+//     source: "university",
+//     duration: "10 Weeks",
+//     prerequisite: "PR101",
+//     skills: ["#DataStructures", "#Algorithms", "#Efficiency"],
+//     cx: 365,
+//     cy: 78,
+//   },
+//   {
+//     id: 5,
+//     name: "Database Management Systems (DB202)",
+//     code: "DB202",
+//     shortLabel: "DB202",
+//     state: "active",
+//     zone: 2,
+//     source: "university",
+//     duration: "6 Weeks",
+//     prerequisite: "PR101",
+//     skills: ["#SQL", "#Schema", "#Databases"],
+//     cx: 488,
+//     cy: 128,
+//   },
+//   // ── Zone 3: Advanced (Locked) ──
+//   {
+//     id: 6,
+//     name: "Advanced Java Programming (JA301)",
+//     code: "JA301",
+//     shortLabel: "JA301",
+//     state: "locked",
+//     zone: 3,
+//     source: "university",
+//     duration: "8 Weeks",
+//     prerequisite: "DSA201",
+//     skills: ["#OOP", "#Backend", "#Java"],
+//     cx: 622,
+//     cy: 72,
+//   },
+//   {
+//     id: 7,
+//     name: "RESTful API Design (Coursera)",
+//     code: "Coursera",
+//     shortLabel: "API\nDesign",
+//     state: "locked",
+//     zone: 3,
+//     source: "external",
+//     duration: "4 Weeks",
+//     prerequisite: "JA301",
+//     skills: ["#RESTful_API", "#HTTP", "#JSON"],
+//     cx: 742,
+//     cy: 128,
+//   },
+//   // ── Zone 4: Specialisation (Locked) ──
+//   {
+//     id: 8,
+//     name: "Microservices Architecture (MSA401)",
+//     code: "MSA401",
+//     shortLabel: "MSA401",
+//     state: "locked",
+//     zone: 4,
+//     source: "university",
+//     duration: "6 Weeks",
+//     prerequisite: "RESTful API Design",
+//     skills: ["#Microservices", "#Docker", "#Distributed"],
+//     cx: 885,
+//     cy: 80,
+//   },
+//   {
+//     id: 9,
+//     name: "Cloud Fundamentals — AWS (Coursera)",
+//     code: "Coursera",
+//     shortLabel: "AWS\nCloud",
+//     state: "locked",
+//     zone: 4,
+//     source: "external",
+//     duration: "6 Weeks",
+//     prerequisite: "MSA401",
+//     skills: ["#AWS_Cloud", "#CloudComputing", "#Serverless"],
+//     cx: 1000,
+//     cy: 90,   // raised for smoother path to goal
+//   },
+// ];
 
 const ROADMAP_GOALS: Record<string, { title: string; subtitle: string }> = {
   "Backend Developer Path": {
@@ -161,8 +167,8 @@ const ROADMAP_GOALS: Record<string, { title: string; subtitle: string }> = {
 
 const ZONES = [
   { label: "ZONE: MONTH 1", sub: "Foundation · Completed", textColor: "#15803D", bg: "#F0FDF4", border: "#BBF7D0" },
-  { label: "ZONE: MONTH 2", sub: "Core Skills · Active",   textColor: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE" },
-  { label: "ZONE: MONTH 3", sub: "Advanced · Upcoming",    textColor: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
+  { label: "ZONE: MONTH 2", sub: "Core Skills · Active", textColor: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE" },
+  { label: "ZONE: MONTH 3", sub: "Advanced · Upcoming", textColor: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
   { label: "ZONE: MONTH 4", sub: "Specialisation · Upcoming", textColor: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
 ];
 
@@ -170,13 +176,25 @@ export default function MyRoadmaps() {
   const [selected, setSelected] = useState("Backend Developer Path");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [roadmapData, setRoadmapData] = useState<any>(null); // State chứa dữ liệu thật
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 700);
-    return () => clearTimeout(timer);
-  }, []);
+    setLoading(true);
+    fetch("http://localhost:5087/api/Roadmap/rm-001") //mã định danh này chưa có chốt được
+      .then(res => {
+        if (!res.ok) throw new Error("Không tìm thấy Roadmap trong Database");
+        return res.json();
+      })
+      .then(data => {
+        setRoadmapData(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Lỗi gọi API, đang dùng tạm Mock Data:", err);
+        setRoadmapData(MOCK_ROADMAP_DTO);
+        setLoading(false);
+      });
+  }, [selected]);
 
   const handleRetry = () => {
     setError(null);
@@ -187,7 +205,15 @@ export default function MyRoadmaps() {
   const roadmaps = Object.keys(ROADMAP_GOALS);
   const goal = ROADMAP_GOALS[selected];
 
-  const byZone = (z: number) => NODES.filter((n) => n.zone === z);
+  // 1. Chạy Layout Engine để chuyển DTO thành Graph có tọa độ
+  const computedGraph = useMemo(() => {
+    if (!roadmapData) return null; // Ngăn lỗi sập ứng dụng
+    const graph = mapDtoToGraph(roadmapData);
+    const engine = new PhaseBasedLayoutEngine();
+    return engine.layout(graph);
+  }, [roadmapData]);
+
+  // const byZone = (z: number) => NODES.filter((n) => n.zone === z);
 
   if (error) {
     return (
@@ -278,8 +304,9 @@ export default function MyRoadmaps() {
             </div>
 
             {/* Map canvas — taller to give goal card room below its circle */}
+            {/* Map canvas — taller to give goal card room below its circle */}
             <div className="relative" style={{ height: "280px", background: "#FAFBFC" }}>
-              {loading ? (
+              {(loading || !computedGraph) ? (
                 <div className="absolute inset-0 flex items-center justify-around px-12">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <div key={i} className="flex flex-col items-center gap-3">
@@ -293,61 +320,7 @@ export default function MyRoadmaps() {
                   </div>
                 </div>
               ) : (
-                <>
-                  <svg
-                    className="absolute inset-0 w-full h-full"
-                    viewBox="0 0 1100 200"
-                    preserveAspectRatio="none"
-                  >
-                    {/* Zone shading */}
-                    <rect x="0"   y="0" width="275" height="200" fill="#F0FDF4" opacity="0.55" />
-                    <rect x="275" y="0" width="275" height="200" fill="#EFF6FF" opacity="0.45" />
-                    <rect x="550" y="0" width="275" height="200" fill="#F8FAFC" opacity="0.7"  />
-                    <rect x="825" y="0" width="275" height="200" fill="#F8FAFC" opacity="0.7"  />
-
-                    {/* Zone separators */}
-                    {[275, 550, 825].map((x) => (
-                      <line key={x} x1={x} y1="0" x2={x} y2="200" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="5,4" />
-                    ))}
-
-                    {/* Solid teal path — Zones 1–2 (done + active) */}
-                    <path
-                      d="M 20 100
-                         C 48 100 62 100 75 100
-                         C 112 100 142 55 165 55
-                         C 196 55 228 118 248 118
-                         C 283 118 330 78 365 78
-                         C 412 78 457 128 488 128
-                         C 522 128 548 108 550 108"
-                      fill="none"
-                      stroke={COLORS.TEAL_ACCENT}
-                      strokeWidth="4.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-
-                    {/* Dashed gray path — Zones 3–4 → goal (node 9 cy adjusted to 90) */}
-                    <path
-                      d="M 550 108
-                         C 578 108 600 72 622 72
-                         C 665 72 710 128 742 128
-                         C 790 128 848 80 885 80
-                         C 932 80 968 90 1000 90
-                         C 1025 90 1042 76 1055 76"
-                      fill="none"
-                      stroke="#94A3B8"
-                      strokeWidth="4.5"
-                      strokeLinecap="round"
-                      strokeDasharray="10,6"
-                    />
-                  </svg>
-
-                  {/* Course nodes */}
-                  {NODES.map((node) => <RoadmapNode key={node.id} node={node} />)}
-
-                  {/* Career target node — anchored to right edge */}
-                  <GoalNode goal={goal} />
-                </>
+                <RoadmapCanvas graph={computedGraph} goal={goal} zones={ZONES} />
               )}
             </div>
           </div>
@@ -374,7 +347,7 @@ export default function MyRoadmaps() {
 
         {/* Course card stacks */}
         <div className="grid grid-cols-4 divide-x divide-gray-100">
-          {[1, 2, 3, 4].map((z) => (
+          {[0, 1, 2, 3].map((z) => (
             <div key={z} className="p-3">
               {loading ? (
                 <div className="space-y-3">
@@ -383,9 +356,9 @@ export default function MyRoadmaps() {
                 </div>
               ) : (
                 <>
-                  {byZone(z).map((n) => <CourseCard key={n.id} node={n} />)}
+                  {computedGraph && computedGraph.nodes.filter((n) => n.zone === z).map((n) => <CourseCard key={n.id} node={n.data as any} />)}
                   {/* Career Target card in Month 4 column */}
-                  {z === 4 && (
+                  {z === 3 && (
                     <div
                       className="rounded-xl border p-3.5 mt-1"
                       style={{ background: "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)", border: "1.5px solid #FDE68A" }}
