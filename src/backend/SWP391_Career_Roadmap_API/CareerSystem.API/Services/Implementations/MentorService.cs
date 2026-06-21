@@ -1,4 +1,4 @@
-﻿using CareerSystem.API.Data;
+using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
@@ -142,7 +142,29 @@ namespace CareerSystem.API.Services.Implementations
             return messages;
         }
 
+        public async Task<bool> ClearSessionHistoryAsync(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                throw new Exception("UserId is required.");
 
+            var session = await _context.MentorSessions
+                .FirstOrDefaultAsync(s => s.UserId == userId);
+
+            if (session == null)
+                return false;
+
+            var messages = await _context.ChatMessages
+                .Where(m => m.SessionId == session.SessionId)
+                .ToListAsync();
+
+            if (messages.Any())
+            {
+                _context.ChatMessages.RemoveRange(messages);
+                await _context.SaveChangesAsync();
+            }
+
+            return true;
+        }
 
         private async Task SaveChatSessionAsync(string userId, string userQuestion, string aiRawResponse)
         {

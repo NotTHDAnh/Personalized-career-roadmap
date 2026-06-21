@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import type { Message } from "@/app/types";
@@ -18,7 +18,29 @@ interface ChatSectionProps {
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onCreateRoadmap: () => void;
   onChooseCareer: (career: string) => void;
+  loadingHistory?: boolean;
+  onClearHistory: () => void;
 }
+
+
+const MessageItem = React.memo(({ message }: { message: Message }) => {
+  const isUser = message.role === "user";
+  return (
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${
+          isUser
+            ? "bg-[#006b5f] text-white rounded-br-sm"
+            : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
+        }`}
+      >
+        <ReactMarkdown>{message.content}</ReactMarkdown>
+      </div>
+    </div>
+  );
+});
+
+MessageItem.displayName = "MessageItem";
 
 export default function MentorChatSection({
   messages,
@@ -33,73 +55,63 @@ export default function MentorChatSection({
   onKeyDown,
   onCreateRoadmap,
   onChooseCareer,
+  loadingHistory = false,
+  onClearHistory,
 }: ChatSectionProps) {
   return (
     <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm h-[calc(100vh-180px)] min-h-[560px] flex flex-col overflow-hidden">
       {/* <div className="p-6 border-b border-[#c4c6cf]"> */}
-      <div className="shrink-0 p-6 border-b border-[#c4c6cf]">
-        <p className="text-xs font-bold uppercase tracking-widest text-[#74777f]">
-          AI Virtual Mentor
-        </p>
-        <h3 className="text-2xl font-bold text-[#002046] mt-2">
-          Career Advisement Chat
-        </h3>
-        <p className="text-sm text-[#44474e] mt-1">
-          Ask questions about your career direction, skill gaps and learning path.
-        </p>
+      <div className="shrink-0 p-6 border-b border-[#c4c6cf] flex items-start justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-[#74777f]">
+            AI Virtual Mentor
+          </p>
+          <h3 className="text-2xl font-bold text-[#002046] mt-2">
+            Career Advisement Chat
+          </h3>
+          <p className="text-sm text-[#44474e] mt-1">
+            Ask questions about your career direction, skill gaps and learning path.
+          </p>
+        </div>
+        {/* <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onClearHistory}
+          disabled={messages.length <= 1 || loadingHistory || typing}
+          title="Clear chat history"
+          className="text-[#ba1a1a] hover:bg-[#ffdad6] hover:text-[#410002] rounded-xl shrink-0"
+        >
+          <Trash2 className="w-5 h-5" />
+        </Button> */}
       </div>
-
-      {/* <div className="flex-1 p-6 overflow-y-auto space-y-4"> */}
-      {/* <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3">
-        {messages.map((message) => (
-          <div
-            ref={messagesContainerRef}
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3"
-          >
-            <div
-              className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${message.role === "user"
-                ? "bg-[#006b5f] text-white rounded-br-sm"
-                : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
-                }`}
-            >
-              {message.content}
-            </div>
-          </div>
-        ))} */}
 
       <div
         ref={messagesContainerRef}
         className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3"
       >
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${
-                message.role === "user"
-                  ? "bg-[#006b5f] text-white rounded-br-sm"
-                  : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
-              }`}
-            >
-              <ReactMarkdown>
-                {message.content}
-              </ReactMarkdown>
-            </div>
+        {loadingHistory ? (
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#006b5f]" />
           </div>
-        ))}
+        ) : (
+          <>
+            {messages.map((message) => (
+              <MessageItem key={message.id} message={message} />
+            ))}
 
-        {typing && (
-          <div className="flex justify-start">
-            <div className="max-w-[78%] rounded-2xl rounded-bl-sm bg-[#eff4ff] px-5 py-4 text-sm text-[#0b1c30]">
-              <div className="flex items-center gap-1">
-                <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f]" />
-                <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:120ms]" />
-                <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:240ms]" />
+            {typing && (
+              <div className="flex justify-start">
+                <div className="max-w-[78%] rounded-2xl rounded-bl-sm bg-[#eff4ff] px-5 py-4 text-sm text-[#0b1c30]">
+                  <div className="flex items-center gap-1">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:120ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:240ms]" />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
 
         {/* <div ref={bottomRef} /> */}

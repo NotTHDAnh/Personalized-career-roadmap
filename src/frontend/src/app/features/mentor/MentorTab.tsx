@@ -24,24 +24,30 @@ import RoadmapTimeline from "./components/RoadmapTimeline";
 import MentorChatSection from "./components/MentorChatSection";
 import MentorSidebar from "./components/MentorSidebar";
 
-function formatMentorResponse(response: MentorAskResponse) {
+function formatMentorResponse(response: any) {
+  const answer = response.answer || response.Answer;
+  const targetRoleName = response.targetRoleName || response.TargetRoleName;
+  const recommendedCareers = response.recommendedCareers || response.RecommendedCareers;
+  const missingSkills = response.missingSkills || response.MissingSkills;
+  const followUpQuestion = response.followUpQuestion || response.FollowUpQuestion;
+
   return [
-    response.answer || "The AI Mentor couldn't find an appropriate answer. Please try asking your question more clearly.",
+    answer || "The AI Mentor couldn't find an appropriate answer. Please try asking your question more clearly.",
 
-    response.targetRoleName
-      ? `**Target Role:**\n${response.targetRoleName}`
+    targetRoleName
+      ? `**Target Role:**\n${targetRoleName}`
       : "",
 
-    response.recommendedCareers?.length
-      ? `**Recommended Careers:**\n- ${response.recommendedCareers.join("\n- ")}`
+    recommendedCareers?.length
+      ? `**Recommended Careers:**\n- ${recommendedCareers.join("\n- ")}`
       : "",
 
-    response.missingSkills?.length
-      ? `**Missing Skills:**\n- ${response.missingSkills.join("\n- ")}`
+    missingSkills?.length
+      ? `**Missing Skills:**\n- ${missingSkills.join("\n- ")}`
       : "",
 
-    response.followUpQuestion
-      ? `**Follow-up Question:**\n${response.followUpQuestion}`
+    followUpQuestion
+      ? `**Follow-up Question:**\n${followUpQuestion}`
       : "",
   ]
     .filter(Boolean)
@@ -97,7 +103,73 @@ export function MentorTab() {
   const [recommendedCareers, setRecommendedCareers] = useState<string[]>([]);
 
   const [typing, setTyping] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function loadChatHistory() {
+      if (!userId) {
+        setLoadingHistory(false);
+        return;
+      }
+      try {
+        setLoadingHistory(true);
+        const historyData = await apiClient.get<any[]>(`/mentor/history/${userId}`);
+        
+        if (historyData && historyData.length > 0) {
+          let lastAiResponse: any = null;
+
+          const formattedMessages: Message[] = historyData.map((msg) => {
+            const isUser = msg.sender.toUpperCase() === "USER";
+            let displayContent = msg.content;
+
+            if (!isUser) {
+              try {
+                // AI response is stored as JSON string representing MentorAskResponse
+                const parsedJson = JSON.parse(msg.content);
+                lastAiResponse = parsedJson;
+                displayContent = formatMentorResponse(parsedJson);
+              } catch {
+                // Fallback to raw text if not JSON
+                displayContent = msg.content;
+              }
+            }
+
+            return {
+              id: msg.messageId || Date.now() + Math.random(),
+              role: isUser ? "user" : "ai",
+              content: displayContent,
+            };
+          });
+
+          setMessages(formattedMessages);
+
+          // Restore target role and recommended careers from the latest AI response in history
+          if (lastAiResponse) {
+            const targetRoleName = lastAiResponse.targetRoleName || lastAiResponse.TargetRoleName;
+            const targetRoleId = lastAiResponse.targetRoleId || lastAiResponse.TargetRoleId;
+            const recommended = lastAiResponse.recommendedCareers || lastAiResponse.RecommendedCareers;
+
+            if (targetRoleName) {
+              setTargetRole({
+                id: targetRoleId,
+                name: targetRoleName,
+              });
+            }
+            if (recommended && recommended.length > 0) {
+              setRecommendedCareers(recommended);
+            }
+          }
+        }
+      } catch (error) {
+        openNotification("error", "Cannot load chat history.");
+      } finally {
+        setLoadingHistory(false);
+      }
+    }
+
+    void loadChatHistory();
+  }, [userId]);
 
   // useEffect(() => {
   //   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -263,6 +335,32 @@ export function MentorTab() {
     void send(confirmPrompt);
   }
 
+  async function handleClearHistory() {
+    const confirmed = window.confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử trò chuyện?");
+    if (!confirmed) return;
+
+    try {
+      setLoadingHistory(true);
+      await apiClient.delete(`/mentor/history/${userId}`);
+      
+      // Reset state to default greeting message
+      setMessages([
+        {
+          id: 0,
+          role: "ai",
+          content: `Xin chào, ${studentName} 👋 Tôi là Cố vấn Học tập AI của bạn. Tôi có thể giúp bạn phân tích định hướng nghề nghiệp, xác định những kỹ năng còn thiếu và xây dựng lộ trình học tập cá nhân hóa dựa trên hồ sơ học tập của bạn.`,
+        },
+      ]);
+      setTargetRole(null);
+      setRecommendedCareers([]);
+      openNotification("success", "Đã xóa lịch sử trò chuyện thành công.");
+    } catch {
+      openNotification("error", "Không thể xóa lịch sử trò chuyện.");
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
   return (
     // <div className="grid xl:grid-cols-[0.72fr_0.28fr] gap-8">
     //   <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm min-h-[680px] flex flex-col">
@@ -280,6 +378,8 @@ export function MentorTab() {
         onKeyDown={handleKeyDown}
         onCreateRoadmap={handleCreateRoadmapClick}
         onChooseCareer={handleChooseRecommendedCareer}
+        loadingHistory={loadingHistory}
+        onClearHistory={handleClearHistory}
       />
 
       <MentorSidebar
