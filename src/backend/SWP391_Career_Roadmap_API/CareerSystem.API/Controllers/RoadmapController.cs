@@ -24,8 +24,24 @@ namespace CareerSystem.API.Controllers
             if (request.DailyStudyHours <= 0)
                 return BadRequest("Số giờ học mỗi ngày phải lớn hơn 0.");
 
-            var roadmapId = await _roadmapService.GeneratePersonalizedRoadmapAsync(request);
-            return Ok(new { message = "Lộ trình đã tạo thành công!", roadmapId = roadmapId });
+            var previewDto = await _roadmapService.GenerateRoadmapPreviewAsync(request);
+            return Ok(previewDto);
+        }
+
+        //API lưu roadmap vào DB
+        [HttpPost("save")]
+        public async Task<IActionResult> SaveRoadmap([FromBody] SaveRoadmapRequestDto request)
+        {
+            var roadmapId = await _roadmapService.SaveRoadmapAsync(request);
+            return Ok(new { message = "Lộ trình đã lưu thành công!", roadmapId = roadmapId });
+        }
+
+        //API lấy danh sách roadmap của một User
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetUserRoadmaps(string userId)
+        {
+            var roadmaps = await _roadmapService.GetUserRoadmapsAsync(userId);
+            return Ok(roadmaps);
         }
 
         //API xem chi tiết roadmap

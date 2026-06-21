@@ -41,7 +41,7 @@ export const MOCK_ROADMAP_DTO: RoadmapDetailDto = {
           nodeId: "4",
           courseCode: "DSA201",
           courseName: "Data Structures & Algorithms (DSA201)",
-          status: "active",
+          status: "done",
           parentNodeId: "3",
           academicLevel: "Intermediate",
         },

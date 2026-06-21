@@ -1,4 +1,4 @@
-﻿using CareerSystem.API.DTOs;
+using CareerSystem.API.DTOs;
 
 namespace CareerSystem.API.Services.Interfaces
 {
@@ -8,5 +8,9 @@ namespace CareerSystem.API.Services.Interfaces
 
         // Hàm xem lộ trình sau khi AI gen
         Task<RoadmapDetailDto> GetRoadmapDetailAsync(string roadmapId);
+
+        Task<RoadmapDetailDto> GenerateRoadmapPreviewAsync(PersonalizedRoadmapRequest request);
+        Task<string> SaveRoadmapAsync(SaveRoadmapRequestDto request);
+        Task<List<UserRoadmapDto>> GetUserRoadmapsAsync(string userId);
     }
 }

@@ -8,6 +8,9 @@ import { ErrorAlert } from "@/app/components/common/ErrorAlert";
 
 import { COLORS } from "@/shared/constants/colors";
 import type { NodeState, CourseNode } from "@/app/types";
+import { CourseContext } from "@/app/data/CourseContext";
+import { useAuth } from "@/shared/contexts/AuthContext";
+import { apiClient } from "@/shared/api/apiClient";
 
 import { useMemo } from "react";
 import { RoadmapCanvas } from "./components/RoadmapCanvas";
@@ -173,28 +176,85 @@ const ZONES = [
 ];
 
 export default function MyRoadmaps() {
-  const [selected, setSelected] = useState("Backend Developer Path");
+  const { user } = useAuth();
+  const userId = user?.userId || "student-001";
+
+  const [roadmaps, setRoadmaps] = useState<{ roadmapId: string; targetRoleName: string }[]>([]);
+  const [selectedRoadmapId, setSelectedRoadmapId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roadmapData, setRoadmapData] = useState<any>(null); // State chứa dữ liệu thật
 
+  const handleUpdateNodeState = (nodeId: string, newStatus: NodeState) => {
+    if (!roadmapData) return;
+    const updatedPhases = roadmapData.phases.map((phase: any) => ({
+      ...phase,
+      nodes: phase.nodes.map((node: any) =>
+        node.nodeId === nodeId ? { ...node, status: newStatus } : node
+      ),
+    }));
+    setRoadmapData({
+      ...roadmapData,
+      phases: updatedPhases,
+    });
+  };
+
+  // 1. Lấy danh sách Roadmap từ Database
   useEffect(() => {
-    setLoading(true);
-    fetch("http://localhost:5087/api/Roadmap/rm-001") //mã định danh này chưa có chốt được
-      .then(res => {
-        if (!res.ok) throw new Error("Không tìm thấy Roadmap trong Database");
-        return res.json();
-      })
-      .then(data => {
-        setRoadmapData(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Lỗi gọi API, đang dùng tạm Mock Data:", err);
+    async function fetchUserRoadmaps() {
+      try {
+        const data = await apiClient.get<any[]>(`/Roadmap/user/${userId}`);
+        if (data && data.length > 0) {
+          setRoadmaps(data);
+          setSelectedRoadmapId(data[0].roadmapId);
+        } else {
+          // Fallback sang mock nếu chưa có lộ trình nào được lưu
+          setRoadmaps([
+            { roadmapId: "mock-backend", targetRoleName: "Backend Developer Path" },
+            { roadmapId: "mock-fullstack", targetRoleName: "Full-Stack Engineer Path" },
+            { roadmapId: "mock-dataeng", targetRoleName: "Data Engineering Path" },
+          ]);
+          setSelectedRoadmapId("mock-backend");
+        }
+      } catch (err) {
+        console.error("Lỗi lấy danh sách roadmap, dùng tạm mock:", err);
+        setRoadmaps([
+          { roadmapId: "mock-backend", targetRoleName: "Backend Developer Path" },
+          { roadmapId: "mock-fullstack", targetRoleName: "Full-Stack Engineer Path" },
+          { roadmapId: "mock-dataeng", targetRoleName: "Data Engineering Path" },
+        ]);
+        setSelectedRoadmapId("mock-backend");
+      }
+    }
+    void fetchUserRoadmaps();
+  }, [userId]);
+
+  // 2. Lấy chi tiết Roadmap được chọn
+  useEffect(() => {
+    if (!selectedRoadmapId) return;
+
+    async function fetchRoadmapDetail() {
+      setLoading(true);
+      setError(null);
+
+      if (selectedRoadmapId.startsWith("mock-")) {
         setRoadmapData(MOCK_ROADMAP_DTO);
         setLoading(false);
-      });
-  }, [selected]);
+        return;
+      }
+
+      try {
+        const data = await apiClient.get<any>(`/Roadmap/${selectedRoadmapId}`);
+        setRoadmapData(data);
+      } catch (err) {
+        console.error("Lỗi load chi tiết roadmap:", err);
+        setRoadmapData(MOCK_ROADMAP_DTO);
+      } finally {
+        setLoading(false);
+      }
+    }
+    void fetchRoadmapDetail();
+  }, [selectedRoadmapId]);
 
   const handleRetry = () => {
     setError(null);
@@ -202,8 +262,13 @@ export default function MyRoadmaps() {
     setTimeout(() => setLoading(false), 500);
   };
 
-  const roadmaps = Object.keys(ROADMAP_GOALS);
-  const goal = ROADMAP_GOALS[selected];
+  const goal = useMemo(() => {
+    if (!roadmapData) return { title: "Career Path", subtitle: "" };
+    return {
+      title: roadmapData.targetRoleName,
+      subtitle: roadmapData.targetRoleName === "Backend Developer" ? "Java · APIs · Cloud" : "Personalized Path"
+    };
+  }, [roadmapData]);
 
   // 1. Chạy Layout Engine để chuyển DTO thành Graph có tọa độ
   const computedGraph = useMemo(() => {
@@ -224,7 +289,8 @@ export default function MyRoadmaps() {
   }
 
   return (
-    <div className="p-8 space-y-6 min-h-full" style={{ background: "#F1F5F9" }}>
+    <CourseContext.Provider value={{ updateNodeState: handleUpdateNodeState }}>
+      <div className="p-8 space-y-6 min-h-full" style={{ background: "#F1F5F9" }}>
 
       {/* ── Section 1: Management Header ── */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4 flex items-center gap-4 flex-wrap">
@@ -238,12 +304,12 @@ export default function MyRoadmaps() {
             ) : (
               <>
                 <select
-                  value={selected}
-                  onChange={(e) => setSelected(e.target.value)}
+                  value={selectedRoadmapId}
+                  onChange={(e) => setSelectedRoadmapId(e.target.value)}
                   className="appearance-none pr-8 pl-3 py-2 rounded-lg border text-sm text-gray-800 focus:outline-none cursor-pointer"
                   style={{ borderColor: "#E2E8F0", background: "#F8FAFC", fontWeight: 500 }}
                 >
-                  {roadmaps.map((r) => <option key={r} value={r}>{r}</option>)}
+                  {roadmaps.map((r) => <option key={r.roadmapId} value={r.roadmapId}>{r.targetRoleName}</option>)}
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </>
@@ -382,5 +448,6 @@ export default function MyRoadmaps() {
         </div>
       </div>
     </div>
+    </CourseContext.Provider>
   );
 }
