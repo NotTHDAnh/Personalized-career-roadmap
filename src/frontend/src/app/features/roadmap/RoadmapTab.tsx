@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase } from "lucide-react";
+import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase, Loader2 } from "lucide-react";
 import { GoalNode } from "./components/GoalNode";
 import { RoadmapNode } from "./components/RoadmapNode";
 import { CourseCard } from "./components/CourseCard";
@@ -17,6 +17,16 @@ import { RoadmapCanvas } from "./components/RoadmapCanvas";
 import { MOCK_ROADMAP_DTO } from "./core/mockData";
 import { mapDtoToGraph } from "./core/roadmapAdapter";
 import { PhaseBasedLayoutEngine } from "./core/phaseBasedEngine";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 
 // const NODES: CourseNode[] = [
 //   // ── Zone 1: Foundation (Done) ──
@@ -184,6 +194,30 @@ export default function MyRoadmaps() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roadmapData, setRoadmapData] = useState<any>(null); // State chứa dữ liệu thật
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteRoadmap = async () => {
+    if (!selectedRoadmapId || selectedRoadmapId.startsWith("mock-")) return;
+    setIsDeleting(true);
+    try {
+      await apiClient.delete(`/Roadmap/${selectedRoadmapId}`);
+      const updatedList = roadmaps.filter((r) => r.roadmapId !== selectedRoadmapId);
+      setRoadmaps(updatedList);
+      if (updatedList.length > 0) {
+        setSelectedRoadmapId(updatedList[0].roadmapId);
+      } else {
+        setSelectedRoadmapId("");
+        setRoadmapData(null);
+      }
+    } catch (err) {
+      console.error("Lỗi xóa roadmap:", err);
+      setError("Không thể xóa lộ trình. Vui lòng thử lại.");
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+    }
+  };
 
   const handleUpdateNodeState = (nodeId: string, newStatus: NodeState) => {
     if (!roadmapData) return;
@@ -324,8 +358,14 @@ export default function MyRoadmaps() {
           <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-white hover:opacity-90 transition-opacity" style={{ background: COLORS.TEAL_ACCENT }}>
             <Save className="w-3.5 h-3.5" /> Save
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-red-50 transition-colors" style={{ borderColor: "#FCA5A5", color: "#DC2626" }}>
-            <Trash2 className="w-3.5 h-3.5" /> Delete
+          <button 
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+            style={{ borderColor: "#FCA5A5", color: "#DC2626" }}
+            onClick={() => setIsDeleteDialogOpen(true)}
+            disabled={!selectedRoadmapId || selectedRoadmapId.startsWith("mock-") || isDeleting}
+          >
+            {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} 
+            Delete
           </button>
         </div>
 
@@ -447,7 +487,39 @@ export default function MyRoadmaps() {
           ))}
         </div>
       </div>
-    </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your roadmap and all its progress.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteRoadmap();
+              }}
+              disabled={isDeleting}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      </div>
     </CourseContext.Provider>
   );
 }

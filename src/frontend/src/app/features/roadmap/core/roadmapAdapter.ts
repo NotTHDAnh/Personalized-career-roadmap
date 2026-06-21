@@ -24,6 +24,8 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
                     source: "university", // Cứng tạm
                     duration: "8 Weeks",  // Cứng tạm
                     prerequisite: dtoNode.parentNodeId ? "Có điều kiện tiên quyết" : "Không có",
+                    deadline: dtoNode.deadline,
+                    academicLevel: dtoNode.academicLevel,
                     skills: ["#Coding", "#System"] // DÙNG MẢNG MẶC ĐỊNH ĐỂ KHÔNG BỊ LỖI .map()
                 },
             });
