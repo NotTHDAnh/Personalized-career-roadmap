@@ -8,25 +8,48 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
     const nodes: GraphNode[] = [];
     const edges: GraphEdge[] = [];
 
+    // Collect all completed node IDs for fast lookup
+    const completedNodeIds = new Set<string>();
+    dto.phases.forEach((phase) => {
+        phase.nodes.forEach((dtoNode) => {
+            if (dtoNode.status === "COMPLETED" || dtoNode.status === "done") {
+                completedNodeIds.add(dtoNode.nodeId);
+            }
+        });
+    });
+
     // Lặp qua từng Phase (Zone)
     dto.phases.forEach((phase, zoneIndex) => {
         phase.nodes.forEach((dtoNode) => {
+            let state: "done" | "active" | "locked" = "locked";
+
+            if (dtoNode.status === "COMPLETED" || dtoNode.status === "done") {
+                state = "done";
+            } else {
+                // Node is not completed yet (status is PENDING)
+                if (!dtoNode.parentNodeId) {
+                    // No prerequisite -> Active (ready to study)
+                    state = "active";
+                } else {
+                    // Has prerequisite -> Active only if parent is completed
+                    state = completedNodeIds.has(dtoNode.parentNodeId) ? "active" : "locked";
+                }
+            }
+
             nodes.push({
                 id: dtoNode.nodeId,
                 zone: zoneIndex,
-                // Chế biến (Adapt) dữ liệu ở đây để UI không bị sập
                 data: {
                     ...dtoNode,
-                    // Map các trường DTO sang định dạng mà RoadmapNode và CourseCard cần:
                     name: dtoNode.courseName,
                     shortLabel: dtoNode.courseCode || "N/A",
-                    state: dtoNode.status === "COMPLETED" || dtoNode.status === "done" ? "done" : dtoNode.status === "PENDING" ? "locked" : "active",
-                    source: "university", // Cứng tạm
-                    duration: "8 Weeks",  // Cứng tạm
+                    state: state,
+                    source: "university",
+                    duration: "8 Weeks",
                     prerequisite: dtoNode.parentNodeId ? "Có điều kiện tiên quyết" : "Không có",
                     deadline: dtoNode.deadline,
                     academicLevel: dtoNode.academicLevel,
-                    skills: ["#Coding", "#System"] // DÙNG MẢNG MẶC ĐỊNH ĐỂ KHÔNG BỊ LỖI .map()
+                    skills: ["#Coding", "#System"]
                 },
             });
 

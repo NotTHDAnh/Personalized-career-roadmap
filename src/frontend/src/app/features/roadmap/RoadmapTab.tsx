@@ -221,17 +221,61 @@ export default function MyRoadmaps() {
 
   const handleUpdateNodeState = (nodeId: string, newStatus: NodeState) => {
     if (!roadmapData) return;
+
+    // Chuyển đổi trạng thái từ UI sang trạng thái DTO tương ứng của Database:
+    // database chỉ chấp nhận 'PENDING' hoặc 'COMPLETED'
+    const newDtoStatus = newStatus === "done" ? "COMPLETED" : "PENDING";
+
+    // 1. Thu thập tất cả các Node trong lộ trình phẳng để duyệt tìm quan hệ cha-con
+    const flatNodes = roadmapData.phases.flatMap((p: any) => p.nodes);
+
+    // 2. Lưu trữ danh sách cần cập nhật dưới dạng Map
+    const statusUpdates: Record<string, string> = {};
+    statusUpdates[nodeId] = newDtoStatus;
+
+    // Nếu người dùng hủy hoàn thành (chuyển sang PENDING), chúng ta cần khóa đệ quy tất cả các môn nối sau
+    if (newDtoStatus === "PENDING") {
+      const updateDescendants = (parentId: string) => {
+        const children = flatNodes.filter((n: any) => n.parentNodeId === parentId);
+        for (const child of children) {
+          statusUpdates[child.nodeId] = "PENDING";
+          updateDescendants(child.nodeId);
+        }
+      };
+      updateDescendants(nodeId);
+    }
+
+    // 3. Áp dụng toàn bộ thay đổi trạng thái mới vào state roadmapData
     const updatedPhases = roadmapData.phases.map((phase: any) => ({
       ...phase,
       nodes: phase.nodes.map((node: any) =>
-        node.nodeId === nodeId ? { ...node, status: newStatus } : node
+        statusUpdates[node.nodeId] !== undefined
+          ? { ...node, status: statusUpdates[node.nodeId] }
+          : node
       ),
     }));
+
     setRoadmapData({
       ...roadmapData,
       phases: updatedPhases,
     });
+
+    // 4. Gửi yêu cầu cập nhật lên Database nếu là roadmap thực tế
+    if (selectedRoadmapId && !selectedRoadmapId.startsWith("mock-") && !selectedRoadmapId.startsWith("preview-")) {
+      const updates = Object.entries(statusUpdates).map(([nid, status]) => ({
+        nodeId: nid,
+        status: status
+      }));
+
+      apiClient.put("/Roadmap/update-nodes-status", {
+        roadmapId: selectedRoadmapId,
+        updates: updates
+      }).catch((err) => {
+        console.error("Lỗi cập nhật trạng thái node trên Database:", err);
+      });
+    }
   };
+
 
   // 1. Lấy danh sách Roadmap từ Database
   useEffect(() => {
@@ -352,12 +396,12 @@ export default function MyRoadmaps() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-gray-50 transition-colors" style={{ borderColor: "#E2E8F0", color: "#475569" }}>
+          {/* <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-gray-50 transition-colors" style={{ borderColor: "#E2E8F0", color: "#475569" }}>
             <Pencil className="w-3.5 h-3.5" /> Edit
           </button>
           <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-white hover:opacity-90 transition-opacity" style={{ background: COLORS.TEAL_ACCENT }}>
             <Save className="w-3.5 h-3.5" /> Save
-          </button>
+          </button> */}
           <button 
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
             style={{ borderColor: "#FCA5A5", color: "#DC2626" }}
