@@ -30,5 +30,16 @@ namespace CareerSystem.API.Controllers
             var history = await _mentorService.GetSessionHistoryAsync(userId);
             return Ok(history);
         }
+
+        [HttpDelete("history/{userId}")]
+        public async Task<IActionResult> ClearChatHistory(string userId)
+        {
+            var success = await _mentorService.ClearSessionHistoryAsync(userId);
+            if (!success)
+            {
+                return NotFound(new { message = "No chat session found for this user." });
+            }
+            return Ok(new { message = "Chat history cleared successfully." });
+        }
     }
 }

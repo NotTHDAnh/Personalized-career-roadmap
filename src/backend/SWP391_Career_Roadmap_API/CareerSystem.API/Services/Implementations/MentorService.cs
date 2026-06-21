@@ -55,10 +55,86 @@ namespace CareerSystem.API.Services.Implementations
             return result;
         }
 
+        public async Task<SessionInitializationDto> InitializeChatSessionAsync(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                throw new Exception("UserId is required.");
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (user == null)
+                throw new Exception("User not found.");
+
+            var session = await _context.MentorSessions
+                .FirstOrDefaultAsync(s => s.UserId == userId);
+
+            bool isNewSession = false;
+
+            if (session == null)
+            {
+                session = new MentorSession
+                {
+                    SessionId = Guid.NewGuid().ToString(),
+                    UserId = userId,
+                    CreatedAt = DateTime.Now
+                };
+                _context.MentorSessions.Add(session);
+                await _context.SaveChangesAsync();
+                isNewSession = true;
+            }
+
+            var messages = await _context.ChatMessages
+                .Where(m => m.SessionId == session.SessionId)
+                .OrderBy(m => m.Timestamp)
+                .Select(m => new ChatMessageDto
+                {
+                    MessageId = m.MessageId,
+                    Sender = m.Sender,
+                    Content = m.Content,
+                    Timestamp = m.Timestamp
+                })
+                .ToListAsync();
+
+            return new SessionInitializationDto
+            {
+                SessionId = session.SessionId,
+                UserId = user.UserId,
+                FullName = user.FullName,
+                Email = user.Email,
+                Role = user.Role ?? "STUDENT",
+                CreatedAt = session.CreatedAt ?? DateTime.Now,
+                ChatHistory = messages,
+                IsNewSession = isNewSession
+            };
+        }
+
         public async Task<List<ChatMessageDto>> GetSessionHistoryAsync(string userId)
         {
+            if (string.IsNullOrWhiteSpace(userId))
+                throw new Exception("UserId is required.");
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (user == null)
+                throw new Exception("User not found.");
+
+            var session = await _context.MentorSessions
+                .FirstOrDefaultAsync(s => s.UserId == userId);
+
+            if (session == null)
+            {
+                session = new MentorSession
+                {
+                    SessionId = Guid.NewGuid().ToString(),
+                    UserId = userId,
+                    CreatedAt = DateTime.Now
+                };
+                _context.MentorSessions.Add(session);
+                await _context.SaveChangesAsync();
+
+                return new List<ChatMessageDto>();
+            }
+
             var messages = await _context.ChatMessages
-                .Where(m => m.Session.UserId == userId)
+                .Where(m => m.SessionId == session.SessionId)
                 .OrderBy(m => m.Timestamp)
                 .Select(m => new ChatMessageDto
                 {
@@ -72,7 +148,29 @@ namespace CareerSystem.API.Services.Implementations
             return messages;
         }
 
+        public async Task<bool> ClearSessionHistoryAsync(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                throw new Exception("UserId is required.");
 
+            var session = await _context.MentorSessions
+                .FirstOrDefaultAsync(s => s.UserId == userId);
+
+            if (session == null)
+                return false;
+
+            var messages = await _context.ChatMessages
+                .Where(m => m.SessionId == session.SessionId)
+                .ToListAsync();
+
+            if (messages.Any())
+            {
+                _context.ChatMessages.RemoveRange(messages);
+                await _context.SaveChangesAsync();
+            }
+
+            return true;
+        }
 
         private async Task SaveChatSessionAsync(string userId, string userQuestion, string aiRawResponse)
         {
