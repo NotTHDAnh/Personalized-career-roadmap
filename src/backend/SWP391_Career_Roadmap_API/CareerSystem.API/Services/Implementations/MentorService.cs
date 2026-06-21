@@ -38,9 +38,15 @@ namespace CareerSystem.API.Services.Implementations
             {
                 throw new Exception("User not found.");
             }
+
+            if (string.IsNullOrWhiteSpace(user.GeminiApiKey))
+            {
+                throw new Exception("Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để sử dụng tính năng này.");
+            }
+
             var (contextJson, githubContextJson) = await _promptContextService.BuildMentorContextAsync(user, request);
 
-            var result = await _aiRecommendationService.GetMentorAdviceAsync(contextJson, githubContextJson, request.Question);
+            var result = await _aiRecommendationService.GetMentorAdviceAsync(contextJson, githubContextJson, request.Question, user.GeminiApiKey);
 
             string rawJsonResponse = JsonSerializer.Serialize(result);
 

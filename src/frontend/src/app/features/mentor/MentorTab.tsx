@@ -15,6 +15,9 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { Message, MentorAskResponse, GenerateRoadmapResponse, RoadmapPreview } from "@/app/types";
 import { apiClient } from "@/shared/api/apiClient";
+import { ApiKeyModal } from "@/app/components/common/ApiKeyModal";
+import { deleteApiKey, getApiKeyStatus } from "@/app/services/apiKeyApi";
+import type { ApiKeyStatus } from "@/app/services/apiKeyApi";
 import { useAuth } from "@/shared/contexts/AuthContext";
 import { useNotification } from "@/shared/contexts/NotificationContext";
 import { Button } from "@/app/components/ui/button";
@@ -171,6 +174,32 @@ export function MentorTab() {
     void loadChatHistory();
   }, [userId]);
 
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus | null>(null);
+
+  async function fetchKeyStatus() {
+    try {
+      const status = await getApiKeyStatus(userId);
+      setApiKeyStatus(status);
+    } catch {
+      setApiKeyStatus({ hasKey: false });
+    }
+  }
+
+  useEffect(() => {
+    void fetchKeyStatus();
+  }, [userId]);
+
+  async function handleDeleteKey() {
+    try {
+      await deleteApiKey(userId);
+      await fetchKeyStatus();
+    } catch {
+      // handle error silently for now
+    }
+  }
+
   // useEffect(() => {
   //   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   // }, [messages, typing]);
@@ -183,25 +212,7 @@ export function MentorTab() {
     container.scrollTop = container.scrollHeight;
   }, [messages, typing]);
 
-  // function send(text: string) {
-  async function send(text: string) {
-    // if (!text.trim()) return;
-    // const userMsg: Message = { id: Date.now(), role: "user", content: text.trim() };
-    // setMessages((prev) => [...prev, userMsg]);
-    // setInput("");
-    // setTyping(true);
-    const trimmedText = text.trim();
-
-    if (!trimmedText || typing) return;
-
-    const userMsg: Message = {
-      id: Date.now(),
-      role: "user",
-      content: trimmedText,
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
+  async function performAskMentor(text: string) {
     setTyping(true);
 
     //   setTimeout(() => {
@@ -217,7 +228,7 @@ export function MentorTab() {
 
 
     try {
-      const mentorResponse = await askMentor(trimmedText, userId);
+      const mentorResponse = await askMentor(text, userId);
 
       // INTERCEPT SYSTEM ERROR: Stop backend Vietnamese fallbacks from executing into a message bubble
       if (mentorResponse.answer?.includes("Hệ thống cố vấn") || !mentorResponse.answer) {
@@ -244,14 +255,36 @@ export function MentorTab() {
       };
 
       setMessages((prev) => [...prev, aiMsg]);
-    } catch {
-      openNotification(
-        "error",
-        "AI Mentor is currently unavailable."
-      );
+    } catch (error: any) {
+      if (error.message?.includes("Gemini API Key")) {
+        setPendingAction(() => () => void performAskMentor(text));
+        setIsApiKeyModalOpen(true);
+      } else {
+        openNotification(
+          "error",
+          "AI Mentor is currently unavailable."
+        );
+      }
     } finally {
       setTyping(false);
     }
+  }
+
+  async function send(text: string) {
+    const trimmedText = text.trim();
+
+    if (!trimmedText || typing) return;
+
+    const userMsg: Message = {
+      id: Date.now(),
+      role: "user",
+      content: trimmedText,
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+
+    await performAskMentor(trimmedText);
   }
 
   // function handleKeyDown(e: React.KeyboardEvent) {
@@ -268,7 +301,7 @@ export function MentorTab() {
     }
   }
 
-  async function handleCreateRoadmapClick() {
+  async function performCreateRoadmap() {
     if (!targetRole || creatingRoadmap) return;
 
     if (!targetRole.id) {
@@ -301,20 +334,28 @@ export function MentorTab() {
 
       setRoadmapPreview(roadmapDetail);
 
-      // setRoadmapPreview(generatedRoadmap);
       setShowRoadmapPreview(true);
       setPreviewCollapsed(false);
 
       // THÊM: Hiện thông báo thành công ngắn gọn như trong ảnh mẫu bạn gửi
       openNotification("success", "Roadmap generated successfully!");
-    } catch {
-      openNotification(
-        "error",
-        "Failed to create roadmap."
-      );
+    } catch (error: any) {
+      if (error.message?.includes("Gemini API Key")) {
+        setPendingAction(() => () => void performCreateRoadmap());
+        setIsApiKeyModalOpen(true);
+      } else {
+        openNotification(
+          "error",
+          "Failed to create roadmap."
+        );
+      }
     } finally {
       setCreatingRoadmap(false);
     }
+  }
+
+  async function handleCreateRoadmapClick() {
+    await performCreateRoadmap();
   }
 
   function handleSaveRoadmapClick() {
@@ -392,6 +433,25 @@ export function MentorTab() {
         setInput={setInput}
         onCancelRoadmap={handleCancelRoadmapClick}
         onSaveRoadmap={handleSaveRoadmapClick}
+        apiKeyStatus={apiKeyStatus}
+        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+        onDeleteApiKey={() => void handleDeleteKey()}
+      />
+
+      <ApiKeyModal
+        userId={userId}
+        isOpen={isApiKeyModalOpen}
+        onClose={() => {
+          setIsApiKeyModalOpen(false);
+          setPendingAction(null);
+        }}
+        onSuccess={() => {
+          void fetchKeyStatus();
+          if (pendingAction) {
+            void pendingAction();
+            setPendingAction(null);
+          }
+        }}
       />
     </div>
   );

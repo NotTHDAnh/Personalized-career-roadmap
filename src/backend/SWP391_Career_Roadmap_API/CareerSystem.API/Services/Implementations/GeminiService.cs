@@ -3,8 +3,8 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using CareerSystem.API.Services.Interfaces;
 using Microsoft.Extensions.Configuration;
+using CareerSystem.API.Services.Interfaces;
 
 namespace CareerSystem.API.Services.Implementations
 {
@@ -22,11 +22,12 @@ namespace CareerSystem.API.Services.Implementations
         /// <summary>
         /// Gửi Prompt đến Gemini API và nhận phản hồi văn bản từ AI với cơ chế thử lại tự động khi gặp lỗi tạm thời.
         /// </summary>
-        public async Task<string> CallGeminiApiAsync(string prompt)
+        public async Task<string> CallGeminiApiAsync(string prompt, string apiKey)
         {
-            // 1. Lấy API Key từ file cấu hình hệ thống (appsettings.json)
-            string apiKey = _configuration["AiSettings:ApiKey"]
-                 ?? throw new Exception("Thiếu cấu hình API Key của hệ thống.");
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new Exception("Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để sử dụng tính năng này.");
+            }
 
             apiKey = apiKey.Trim();
             // 2. Thiết lập endpoint gọi tới mô hình Gemini 2.5 Flash
@@ -97,6 +98,10 @@ namespace CareerSystem.API.Services.Implementations
 
                     // Nếu là lỗi khác hoặc đã hết số lần thử lại, ném Exception
                     var errorMsg = await response.Content.ReadAsStringAsync();
+                    if (statusCode == 400 || statusCode == 403)
+                    {
+                        throw new Exception("Gemini API Key của bạn đã hết hạn, không hợp lệ hoặc hết hạn mức sử dụng. Vui lòng cấu hình lại.");
+                    }
                     throw new Exception($"Lỗi gọi Gemini API: HTTP {(int)response.StatusCode} - {errorMsg}");
                 }
                 catch (HttpRequestException ex) when (i < maxRetries - 1)
@@ -169,6 +174,26 @@ namespace CareerSystem.API.Services.Implementations
 
             // Nếu không có dấu ngoặc vuông nào, trả về chuỗi gốc đã cắt khoảng trắng
             return text.Trim();
+        }
+
+        public async Task<bool> ValidateApiKeyAsync(string apiKey)
+        {
+            if (string.IsNullOrWhiteSpace(apiKey)) return false;
+            try
+            {
+                string testUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey.Trim()}";
+                var testBody = new
+                {
+                    contents = new[] { new { parts = new[] { new { text = "ping" } } } }
+                };
+
+                var response = await _httpClient.PostAsJsonAsync(testUrl, testBody);
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

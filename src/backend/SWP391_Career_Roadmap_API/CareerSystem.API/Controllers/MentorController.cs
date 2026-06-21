@@ -1,5 +1,6 @@
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
+using CareerSystem.API.Utilities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CareerSystem.API.Controllers
@@ -16,6 +17,7 @@ namespace CareerSystem.API.Controllers
         }
 
         [HttpPost("ask")]
+        [ValidateGeminiApiKey]
         public async Task<IActionResult> Ask([FromBody] MentorAskRequestDto request)
         {
             var result = await _mentorService.AskAsync(request);

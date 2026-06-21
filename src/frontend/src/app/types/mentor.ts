@@ -24,6 +24,12 @@ export type SkillNodeDetail = {
   status: string;
   deadline?: string | null;
   parentNodeId?: string | null;
+  academicLevel?: string | null;
+};
+
+export type RoadmapPhaseDto = {
+  phaseName: string;
+  nodes: SkillNodeDetail[];
 };
 
 export type RoadmapPreview = {
@@ -31,5 +37,5 @@ export type RoadmapPreview = {
   targetRoleName: string;
   dailyStudyHours: number;
   progressPercent: number;
-  nodes: SkillNodeDetail[];
+  phases: RoadmapPhaseDto[];
 };

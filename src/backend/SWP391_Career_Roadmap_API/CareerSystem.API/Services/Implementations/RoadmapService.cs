@@ -23,9 +23,20 @@ namespace CareerSystem.API.Services.Implementations
 
         public async Task<string> GeneratePersonalizedRoadmapAsync(PersonalizedRoadmapRequest request)
         {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == request.UserId);
+            if (user == null)
+            {
+                throw new Exception("Không tìm thấy người dùng.");
+            }
+
+            if (string.IsNullOrWhiteSpace(user.GeminiApiKey))
+            {
+                throw new Exception("Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để sử dụng tính năng này.");
+            }
+
             var (targetRole, passedCoursesText, courseCatalogJson) = await _promptContextService.BuildRoadmapContextAsync(request);
 
-            var recommendedCourses = await _aiRecommendationService.GetRoadmapCoursesAsync(targetRole, passedCoursesText, courseCatalogJson);
+            var recommendedCourses = await _aiRecommendationService.GetRoadmapCoursesAsync(targetRole, passedCoursesText, courseCatalogJson, user.GeminiApiKey);
 
             // 5. Khởi tạo Roadmap
             var newRoadmap = new Roadmap
@@ -46,6 +57,9 @@ namespace CareerSystem.API.Services.Implementations
                 DateOnly currentDeadline = DateOnly.FromDateTime(DateTime.Now);
                 string? previousNodeId = null;
 
+                // Tập hợp các môn học đã được xử lý để tránh trùng lặp
+                var seenCourseCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
                 //Tránh lỗi chia cho 0 nếu sinh viên nhập DailyStudyHours = 0
                 decimal dailyHours = request.DailyStudyHours > 0 ? (decimal)request.DailyStudyHours : 2.0m;
 
@@ -54,7 +68,14 @@ namespace CareerSystem.API.Services.Implementations
                     // 6.1. Đối chiếu mã môn AI chọn với Database thật
                     if (string.IsNullOrWhiteSpace(rec.CourseCode)) continue;
 
-                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == rec.CourseCode);
+                    string normalizedCode = rec.CourseCode.Trim();
+                    if (seenCourseCodes.Contains(normalizedCode))
+                    {
+                        continue; // Bỏ qua nếu môn học này đã xuất hiện trước đó trong lộ trình
+                    }
+                    seenCourseCodes.Add(normalizedCode);
+
+                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == normalizedCode);
                     if (courseDb == null) continue; // Bỏ qua nếu AI bịa mã môn sai
 
                     // 6.2. Truy xuất kỹ năng cốt lõi của môn học (Để map vào SkillId)

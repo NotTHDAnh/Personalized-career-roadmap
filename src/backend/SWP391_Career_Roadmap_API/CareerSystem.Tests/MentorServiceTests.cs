@@ -40,7 +40,8 @@ namespace CareerSystem.Tests
                 UserId = "valid-user-guid",
                 FullName = "Test User",
                 Email = "test@pcr.com",
-                Role = "Student"
+                Role = "Student",
+                GeminiApiKey = "test-key"
             });
             _context.SaveChanges();
         }
@@ -67,7 +68,7 @@ namespace CareerSystem.Tests
             _mockPromptService.Setup(p => p.BuildMentorContextAsync(It.IsAny<User>(), request))
                 .ReturnsAsync(("mock-context-json", "mock-github-json"));
 
-            _mockAiService.Setup(a => a.GetMentorAdviceAsync("mock-context-json", "mock-github-json", request.Question))
+            _mockAiService.Setup(a => a.GetMentorAdviceAsync("mock-context-json", "mock-github-json", request.Question, "test-key"))
                 .ReturnsAsync(mockResponse);
 
             var result = await _service.AskAsync(request);
@@ -139,6 +140,28 @@ namespace CareerSystem.Tests
             var request = new MentorAskRequestDto { UserId = "nonexistent-user-guid", Question = "Valid question" };
             var ex = await Assert.ThrowsAsync<Exception>(() => _service.AskAsync(request));
             Assert.Equal("User not found.", ex.Message);
+        }
+
+        // UTCID12: Abnormal Ask - No Gemini API Key
+        [Fact]
+        public async Task AskAsync_NoGeminiApiKey_ThrowsException()
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == "valid-user-guid");
+            if (user != null)
+            {
+                user.GeminiApiKey = null;
+                await _context.SaveChangesAsync();
+            }
+
+            var request = new MentorAskRequestDto
+            {
+                UserId = "valid-user-guid",
+                Question = "Valid advice request question",
+                SelectedTopic = "Career Path"
+            };
+
+            var ex = await Assert.ThrowsAsync<Exception>(() => _service.AskAsync(request));
+            Assert.Equal("Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để sử dụng tính năng này.", ex.Message);
         }
     }
 }
