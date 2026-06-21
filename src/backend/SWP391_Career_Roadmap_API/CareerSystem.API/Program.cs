@@ -40,6 +40,9 @@ namespace CareerSystem.API
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IMentorService,
                 CareerSystem.API.Services.Implementations.MentorService>();
 
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.ICourseService,
+                CareerSystem.API.Services.Implementations.CourseService>();
+
             // CORS
             builder.Services.AddCors(options =>
             {
