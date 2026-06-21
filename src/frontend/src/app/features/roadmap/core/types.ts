@@ -23,9 +23,15 @@ export interface ComputedNode extends GraphNode {
     height?: number;
 }
 
+export interface ComputedZone {
+    x: number;
+    width: number;
+}
+
 export interface ComputedRoadmapGraph {
     nodes: ComputedNode[];
     edges: GraphEdge[];
+    zones?: ComputedZone[];
 }
 
 // Cấu trúc DTO (Data Transfer Object) mô phỏng Backend

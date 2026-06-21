@@ -18,6 +18,8 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
         });
     });
 
+    let previousNodeId: string | null = null;
+
     // Lặp qua từng Phase (Zone)
     dto.phases.forEach((phase, zoneIndex) => {
         phase.nodes.forEach((dtoNode) => {
@@ -27,12 +29,13 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
                 state = "done";
             } else {
                 // Node is not completed yet (status is PENDING)
-                if (!dtoNode.parentNodeId) {
+                if (!dtoNode.parentNodeId && !previousNodeId) {
                     // No prerequisite -> Active (ready to study)
                     state = "active";
                 } else {
                     // Has prerequisite -> Active only if parent is completed
-                    state = completedNodeIds.has(dtoNode.parentNodeId) ? "active" : "locked";
+                    const parentId = dtoNode.parentNodeId || previousNodeId;
+                    state = parentId && completedNodeIds.has(parentId) ? "active" : "locked";
                 }
             }
 
@@ -41,6 +44,7 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
                 zone: zoneIndex,
                 data: {
                     ...dtoNode,
+                    code: dtoNode.courseCode || "N/A",
                     name: dtoNode.courseName,
                     shortLabel: dtoNode.courseCode || "N/A",
                     state: state,
@@ -61,7 +65,17 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
                     target: dtoNode.nodeId,
                     type: "required",
                 });
+            } else if (previousNodeId) {
+                // Fallback: connect sequentially to ensure continuous roadmap line
+                edges.push({
+                    id: `edge-${previousNodeId}-${dtoNode.nodeId}`,
+                    source: previousNodeId,
+                    target: dtoNode.nodeId,
+                    type: "required",
+                });
             }
+            
+            previousNodeId = dtoNode.nodeId;
         });
     });
 

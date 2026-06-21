@@ -1,19 +1,17 @@
 import { useState, useEffect } from "react";
-import { Card, CardHeader, CardContent } from "@/app/components/ui/card";
+import { Card } from "@/app/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
-import { Badge } from "@/app/components/ui/badge";
 import { Progress } from "@/app/components/ui/progress";
 import { Skeleton } from "@/app/components/ui/skeleton";
-import { COLORS } from "@/shared/constants/colors";
+import { TrendingUp, Code2, Plus } from "lucide-react";
 import { SkillTag } from "./components/SkillTag";
 import { StudentProfileCard } from "./components/StudentProfileCard";
 import { GpaInput } from "./components/GpaInput";
 import { ErrorAlert } from "@/app/components/common/ErrorAlert";
 
 const skills = [
-  "#Logic", "#Syntax", "#HTML", "#CSS", "#OOP",
-  "#Backend", "#SQL", "#Schema", "#DataStructures",
-  "#Algorithms", "#API", "#REST",
+  "JavaScript", "React", "TypeScript", "Next.js", "Tailwind CSS",
+  "Node.js", "GraphQL", "Redux",
 ];
 
 export default function ProfileTranscripts() {
@@ -35,226 +33,219 @@ export default function ProfileTranscripts() {
 
   if (error) {
     return (
-      <div className="p-8 min-h-full" style={{ background: "#F1F5F9" }}>
+      <div className="p-6 md:p-8 min-h-full bg-transparent">
         <ErrorAlert title="Profile Loading Error" message={error} onRetry={handleRetry} />
       </div>
     );
   }
 
   return (
-    <div className="p-8 space-y-6 min-h-full" style={{ background: "#F1F5F9" }}>
-      <div>
-        <h2 style={{ color: COLORS.BLUE_PRIMARY, fontWeight: 700, fontSize: "1.2rem" }}>
-          Profile &amp; Transcript Management
+    <div className="p-6 md:p-8 space-y-6 min-h-full bg-transparent transition-colors duration-300">
+      {/* Header */}
+      <div className="mb-6">
+        <h2 className="text-[24px] font-bold tracking-tight text-[#0F172A] mb-1">
+          Profile & Transcript Management
         </h2>
-        <p className="text-sm text-gray-500 mt-0.5">Workspace · Academic Year 2024–2025</p>
+        <p className="text-[13px] text-[#64748B]">
+          Workspace - Academic Year: 2024 - 2025
+        </p>
       </div>
 
-      {/* ── TOP TIER: 3-column ── */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: "35% 28% 1fr" }}>
+      {/* ── TOP TIER: 2-column layout (Student Card | Stats) ── */}
+      <div className="grid gap-6 items-start" style={{ gridTemplateColumns: "320px 1fr" }}>
         {/* Left: Student Profile */}
         <StudentProfileCard />
 
-        {/* Center: 2 stacked metric cards */}
-        <div className="flex flex-col gap-4">
-          {/* Learning Time */}
-          <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex-1 flex flex-col gap-3">
-            <CardHeader className="p-0">
-              <p
-                className="text-xs uppercase tracking-wider font-semibold text-muted-foreground"
-                style={{ color: "#94A3B8" }}
-              >
-                Total Learning Time Completed
-              </p>
-            </CardHeader>
-            <CardContent className="p-0 flex-1 flex flex-col justify-between">
-              {loading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-10 w-24" />
-                  <Skeleton className="h-2 w-full" />
-                </div>
-              ) : (
-                <div>
-                  <div className="flex items-baseline gap-2 mb-4">
-                    <span style={{ fontSize: "2.4rem", fontWeight: 700, color: COLORS.BLUE_PRIMARY, lineHeight: 1 }}>
-                      36
-                    </span>
-                    <span className="text-sm text-gray-500">Weeks Completed</span>
+        {/* Right: Learning Progress & Acquired Skills */}
+        <div className="flex flex-col gap-6">
+          {/* Learning Progress Card */}
+          <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-6 flex flex-col transition-colors duration-300">
+            <div className="flex items-center gap-2 mb-5">
+              <TrendingUp className="w-5 h-5 text-[#3B28CC]" strokeWidth={2.5} />
+              <h4 className="text-[16px] font-bold text-[#0F172A]">Learning Progress</h4>
+            </div>
+
+            {loading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {/* 2 Progress Bars Side by Side */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Active Course */}
+                  <div className="border border-[#E2E8F0] bg-white rounded-xl p-4 relative overflow-hidden transition-colors">
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#3B28CC]" />
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[13px] font-bold text-[#0F172A] truncate pr-2">Advanced React Patterns</span>
+                      <span className="bg-[#E0E7FF] text-[#3B28CC] text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap">In Progress</span>
+                    </div>
+                    <div className="flex justify-between items-end mb-2">
+                      <span className="text-[11px] font-semibold text-[#64748B]">Step 4 of 10</span>
+                      <span className="text-[11px] font-bold text-[#3B28CC]">40%</span>
+                    </div>
+                    <Progress value={40} className="h-1.5 bg-[#E2E8F0] [&>[data-slot=progress-indicator]]:bg-[#3B28CC]" />
                   </div>
-                  <Progress value={60} className="h-2 bg-gray-100 [&>[data-slot=progress-indicator]]:bg-[#0D9488]" />
+
+                  {/* Completed Course */}
+                  <div className="border border-[#E2E8F0] bg-white rounded-xl p-4 relative overflow-hidden transition-colors">
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#10B981]" />
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[13px] font-bold text-[#0F172A] truncate pr-2">TypeScript Fundamentals</span>
+                      <span className="bg-[#DCFCE7] text-[#16A34A] text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        Done
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-end mb-2">
+                      <span className="text-[11px] font-semibold text-[#64748B]">Completed</span>
+                      <span className="text-[11px] font-bold text-[#0F172A]">100%</span>
+                    </div>
+                    <Progress value={100} className="h-1.5 bg-[#E2E8F0] [&>[data-slot=progress-indicator]]:bg-[#10B981]" />
+                  </div>
                 </div>
-              )}
-              <p className="text-xs text-gray-400 mt-2">60 of 100 weeks total programme</p>
-            </CardContent>
+
+                {/* Bottom Stats */}
+                <div className="pt-5 border-t border-[#E2E8F0]">
+                  <div className="flex justify-between text-center divide-x divide-[#E2E8F0]">
+                    <div className="flex-1">
+                      <p className="text-[24px] font-bold text-[#3B28CC]">12</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748B] mt-0.5">SKILLS</p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[24px] font-bold text-[#10B981]">3</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748B] mt-0.5">COMPLETED</p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[24px] font-bold text-[#0F172A]">45h</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748B] mt-0.5">STUDY HOUR</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </Card>
 
-          {/* GPA */}
-          <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex-1 flex flex-col gap-3">
-            <CardHeader className="p-0">
-              <p
-                className="text-xs uppercase tracking-wider font-semibold text-muted-foreground"
-                style={{ color: "#94A3B8" }}
-              >
-                GPA
-              </p>
-            </CardHeader>
-            <CardContent className="p-0 flex-1 flex flex-col justify-between">
-              {loading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-10 w-24" />
-                  <Skeleton className="h-2 w-full" />
-                </div>
-              ) : (
-                <div>
-                  <div className="flex items-baseline gap-2 mb-4">
-                    <span style={{ fontSize: "2.4rem", fontWeight: 700, color: COLORS.BLUE_PRIMARY, lineHeight: 1 }}>
-                      3.85
-                    </span>
-                    <span className="text-sm text-gray-500">out of 4.0</span>
-                  </div>
-                  <Progress value={96} className="h-2 bg-gray-100 [&>[data-slot=progress-indicator]]:bg-[#F59E0B]" />
-                </div>
-              )}
-              <p className="text-xs text-gray-400 mt-2">96.25% of maximum attainable</p>
-            </CardContent>
+          {/* Acquired Skills Card */}
+          <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-6 flex flex-col transition-colors duration-300">
+            <div className="flex items-center gap-2 mb-4">
+              <Code2 className="w-5 h-5 text-[#3B28CC]" strokeWidth={2.5} />
+              <h4 className="text-[16px] font-bold text-[#0F172A]">Acquired Skills</h4>
+            </div>
+            <div className="border-t border-[#E2E8F0] mb-5 w-full" />
+            
+            {loading ? (
+              <div className="flex flex-wrap gap-2.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-7 w-20 rounded-full" />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-3 items-center">
+                {skills.slice(0, 5).map((s) => (
+                  <SkillTag key={s} label={s} />
+                ))}
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#F1F5F9]:bg-slate-700 transition-colors text-[12px] font-semibold text-[#3B28CC]">
+                  <Plus size={14} strokeWidth={3} />
+                  Add Skill
+                </button>
+              </div>
+            )}
           </Card>
-        </div>
-
-        {/* Right: Skill Hashtags */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col gap-4">
-          <p
-            className="text-xs uppercase tracking-wider font-semibold text-muted-foreground"
-            style={{ color: "#94A3B8" }}
-          >
-            Acquired Skill Hashtags
-          </p>
-          {loading ? (
-            <div className="flex flex-wrap gap-2">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-6 w-16 rounded-full" />
-              ))}
-            </div>
-          ) : (
-            <div
-              className="flex flex-wrap gap-2"
-              style={{ maxHeight: "200px", overflow: "hidden" }}
-            >
-              {skills.slice(0, 11).map((s) => (
-                <SkillTag key={s} label={s} />
-              ))}
-              <span className="text-xs text-gray-400 self-center">...more</span>
-            </div>
-          )}
-          <p className="text-xs text-gray-400 mt-auto border-t border-gray-100 pt-3">
-            {loading ? <Skeleton className="h-3 w-32" /> : `${skills.length} skills unlocked from completed courses`}
-          </p>
         </div>
       </div>
 
       {/* ── MIDDLE TIER: In-Progress Courses ── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] overflow-hidden transition-colors duration-300">
+        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
           <div>
-            <h3 className="text-sm text-gray-800 font-semibold">
+            <h3 className="text-[14px] text-[#0F172A] font-bold">
               In-Progress Courses
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">Active Semester · Currently Enrolled</p>
+            <p className="text-[12px] text-[#64748B] mt-0.5 font-medium">Active Semester · Currently Enrolled</p>
           </div>
           {loading ? (
-            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-5 w-14 rounded-full" />
           ) : (
-            <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-200 rounded-full px-3 py-1 text-xs">
+            <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
               2 Active
-            </Badge>
+            </span>
           )}
         </div>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-[#F8FAFC] border-b border-gray-100 hover:bg-transparent">
-                {[
-                  "Course Name",
-                  "Course Code",
-                  "Standard Duration (Weeks)",
-                  "Learning Outcomes (Skill Hashtags)",
-                  "GPA",
-                  "Status",
-                ].map((col) => (
-                  <TableHead
-                    key={col}
-                    className="px-5 py-3 text-left text-xs uppercase tracking-wider font-semibold text-[#64748B] h-auto"
-                  >
-                    {col}
-                  </TableHead>
-                ))}
+              <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] hover:bg-transparent:bg-transparent">
+                <TableHead className="w-[25%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Name</TableHead>
+                <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Code</TableHead>
+                <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Duration</TableHead>
+                <TableHead className="w-[20%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Learning Outcomes</TableHead>
+                <TableHead className="w-[10%] px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">GPA</TableHead>
+                <TableHead className="w-[15%] px-5 py-3 text-right text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 Array.from({ length: 2 }).map((_, i) => (
-                  <TableRow key={i} className="border-t border-gray-100">
-                    <TableCell><Skeleton className="h-5 w-44" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Skeleton className="h-5 w-12 rounded-full" />
-                        <Skeleton className="h-5 w-14 rounded-full" />
-                      </div>
-                    </TableCell>
-                    <TableCell><Skeleton className="h-8 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                  <TableRow key={i} className="border-t border-[#E2E8F0]">
+                    <TableCell className="px-5 py-3"><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-4 w-10" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-6 w-16" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
                   </TableRow>
                 ))
               ) : (
                 <>
-                  <TableRow className="border-t border-gray-100 hover:bg-gray-50/50">
-                    <TableCell className="px-5 py-4 text-sm text-gray-800 font-medium">
-                      Advanced Java Programming
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-sm font-mono text-gray-600">JA301</TableCell>
-                    <TableCell className="px-5 py-4 text-sm text-gray-600">8 Weeks</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {["#OOP", "#Backend"].map((t) => (
-                          <SkillTag key={t} label={t} variant="green" />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <GpaInput />
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 rounded-full px-2.5 py-1 text-xs font-medium">
-                          In Progress
-                        </Badge>
-                        <span className="text-xs whitespace-nowrap text-amber-600 font-medium">
-                          ⚠️ Prerequisite Missing
+                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
+                    <TableCell className="px-5 py-3 align-top">
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="text-[13px] text-[#0F172A] font-bold">Advanced Java Programming</span>
+                        <span className="text-[10px] bg-[#FEF3C7] text-[#D97706] font-bold px-1.5 py-0.5 rounded-md">
+                          * Prerequisite
                         </span>
                       </div>
                     </TableCell>
-                  </TableRow>
-                  <TableRow className="border-t border-gray-100 hover:bg-gray-50/50">
-                    <TableCell className="px-5 py-4 text-sm text-gray-800 font-medium">
-                      Database Management Systems
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-sm font-mono text-gray-600">DB202</TableCell>
-                    <TableCell className="px-5 py-4 text-sm text-gray-600">6 Weeks</TableCell>
-                    <TableCell className="px-5 py-4">
+                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-top">JA301</TableCell>
+                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-top">8 Weeks</TableCell>
+                    <TableCell className="px-5 py-3 align-top">
                       <div className="flex gap-1.5 flex-wrap">
-                        {["#SQL", "#Schema"].map((t) => (
+                        {["OOP", "Backend"].map((t) => (
                           <SkillTag key={t} label={t} variant="green" />
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <GpaInput />
+                    <TableCell className="px-5 py-3 align-top text-center">
+                      <div className="flex justify-center"><GpaInput /></div>
                     </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 rounded-full px-2.5 py-1 text-xs font-medium">
+                    <TableCell className="px-5 py-3 align-top text-right">
+                      <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
                         In Progress
-                      </Badge>
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
+                    <TableCell className="px-5 py-3 align-top text-[13px] text-[#0F172A] font-bold">
+                      Database Management Systems
+                    </TableCell>
+                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-top">DB202</TableCell>
+                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-top">6 Weeks</TableCell>
+                    <TableCell className="px-5 py-3 align-top">
+                      <div className="flex gap-1.5 flex-wrap">
+                        {["SQL", "Schema"].map((t) => (
+                          <SkillTag key={t} label={t} variant="green" />
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-5 py-3 align-top text-center">
+                      <div className="flex justify-center"><GpaInput /></div>
+                    </TableCell>
+                    <TableCell className="px-5 py-3 align-top text-right">
+                      <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
+                        In Progress
+                      </span>
                     </TableCell>
                   </TableRow>
                 </>
@@ -265,104 +256,92 @@ export default function ProfileTranscripts() {
       </div>
 
       {/* ── BOTTOM TIER: Completed Courses ── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] overflow-hidden transition-colors duration-300">
+        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
           <div>
-            <h3 className="text-sm text-gray-800 font-semibold">
+            <h3 className="text-[14px] text-[#0F172A] font-bold">
               Completed Courses
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">Historical Academic Record</p>
+            <p className="text-[12px] text-[#64748B] mt-0.5 font-medium">Historical Academic Record</p>
           </div>
           {loading ? (
-            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-5 w-14 rounded-full" />
           ) : (
-            <Badge variant="secondary" className="bg-green-50 text-green-600 border-green-200 rounded-full px-3 py-1 text-xs">
+            <span className="bg-[#DCFCE7] text-[#16A34A] px-2.5 py-1 rounded-full text-[11px] font-bold">
               2 Completed
-            </Badge>
+            </span>
           )}
         </div>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-[#F8FAFC] border-b border-gray-100 hover:bg-transparent">
-                {[
-                  "Course Name",
-                  "Course Code",
-                  "Standard Duration (Weeks)",
-                  "Learning Outcomes (Skill Hashtags)",
-                  "GPA",
-                  "Status",
-                ].map((col) => (
-                  <TableHead
-                    key={col}
-                    className="px-5 py-3 text-left text-xs uppercase tracking-wider font-semibold text-[#64748B] h-auto"
-                  >
-                    {col}
-                  </TableHead>
-                ))}
+              <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] hover:bg-transparent:bg-transparent">
+                <TableHead className="w-[25%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Name</TableHead>
+                <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Code</TableHead>
+                <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Duration</TableHead>
+                <TableHead className="w-[20%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Learning Outcomes</TableHead>
+                <TableHead className="w-[10%] px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">GPA</TableHead>
+                <TableHead className="w-[15%] px-5 py-3 text-right text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 Array.from({ length: 2 }).map((_, i) => (
-                  <TableRow key={i} className="border-t border-gray-100">
-                    <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Skeleton className="h-5 w-12 rounded-full" />
-                        <Skeleton className="h-5 w-12 rounded-full" />
-                      </div>
-                    </TableCell>
-                    <TableCell><Skeleton className="h-8 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                  <TableRow key={i} className="border-t border-[#E2E8F0]">
+                    <TableCell className="px-5 py-3"><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-4 w-10" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-6 w-16" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
                   </TableRow>
                 ))
               ) : (
                 <>
-                  <TableRow className="border-t border-gray-100 hover:bg-gray-50/50">
-                    <TableCell className="px-5 py-4 text-sm text-gray-800 font-medium">
-                      Introduction to Programming
+                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
+                    <TableCell className="px-5 py-3 align-top">
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="text-[13px] text-[#0F172A] font-bold">Introduction to Programming</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="px-5 py-4 text-sm font-mono text-gray-600">PR101</TableCell>
-                    <TableCell className="px-5 py-4 text-sm text-gray-600">8 Weeks</TableCell>
-                    <TableCell className="px-5 py-4">
+                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-top">PR101</TableCell>
+                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-top">8 Weeks</TableCell>
+                    <TableCell className="px-5 py-3 align-top">
                       <div className="flex gap-1.5 flex-wrap">
-                        {["#Logic", "#Syntax"].map((t) => (
+                        {["Logic", "Syntax"].map((t) => (
                           <SkillTag key={t} label={t} />
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <GpaInput defaultValue="3.8" />
+                    <TableCell className="px-5 py-3 align-top text-center">
+                      <div className="flex justify-center"><GpaInput defaultValue="3.8" /></div>
                     </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 rounded-full px-2.5 py-1 text-xs font-medium">
+                    <TableCell className="px-5 py-3 align-top text-right">
+                      <span className="bg-[#DCFCE7] text-[#16A34A] px-2.5 py-1 rounded-full text-[11px] font-bold">
                         Done
-                      </Badge>
+                      </span>
                     </TableCell>
                   </TableRow>
-                  <TableRow className="border-t border-gray-100 hover:bg-gray-50/50">
-                    <TableCell className="px-5 py-4 text-sm text-gray-800 font-medium">
+                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
+                    <TableCell className="px-5 py-3 align-top text-[13px] text-[#0F172A] font-bold">
                       Web Foundations (External)
                     </TableCell>
-                    <TableCell className="px-5 py-4 text-sm font-mono text-gray-600">Coursera</TableCell>
-                    <TableCell className="px-5 py-4 text-sm text-gray-600">4 Weeks</TableCell>
-                    <TableCell className="px-5 py-4">
+                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-top">Coursera</TableCell>
+                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-top">4 Weeks</TableCell>
+                    <TableCell className="px-5 py-3 align-top">
                       <div className="flex gap-1.5 flex-wrap">
-                        {["#HTML", "#CSS"].map((t) => (
+                        {["HTML", "CSS"].map((t) => (
                           <SkillTag key={t} label={t} />
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <GpaInput defaultValue="4.0" />
+                    <TableCell className="px-5 py-3 align-top text-center">
+                      <div className="flex justify-center"><GpaInput defaultValue="4.0" /></div>
                     </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 rounded-full px-2.5 py-1 text-xs font-medium">
+                    <TableCell className="px-5 py-3 align-top text-right">
+                      <span className="bg-[#DCFCE7] text-[#16A34A] px-2.5 py-1 rounded-full text-[11px] font-bold">
                         Done
-                      </Badge>
+                      </span>
                     </TableCell>
                   </TableRow>
                 </>

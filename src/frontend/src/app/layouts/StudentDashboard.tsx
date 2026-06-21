@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router";
 import { useAuth } from "../../shared/contexts/AuthContext";
-import { COLORS } from "../../shared/constants/colors";
 import {
   BookOpen,
   Map,
@@ -12,33 +11,28 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { Button } from "../components/ui/button";
 
 type NavItem = {
   to: string;
   label: string;
   icon: React.ReactNode;
-  desc: string;
 };
 
 const navItems: NavItem[] = [
   {
     to: "/dashboard/profile",
-    label: "Profile & Transcripts",
-    icon: <BookOpen size={17} />,
-    desc: "GPA · Courses · Status",
+    label: "Profile",
+    icon: <BookOpen size={20} />,
   },
   {
     to: "/dashboard/roadmap",
-    label: "My Career Roadmap",
-    icon: <Map size={17} />,
-    desc: "Skill trees · Paths",
+    label: "Career Planner",
+    icon: <Map size={20} />,
   },
   {
     to: "/dashboard/mentor",
-    label: "AI Virtual Mentor",
-    icon: <MessageCircle size={17} />,
-    desc: "Chat · Guidance",
+    label: "AI Mentor",
+    icon: <MessageCircle size={20} />,
   },
 ];
 
@@ -57,111 +51,99 @@ export function StudentDashboard() {
   return (
     <div
       className={`min-h-screen transition-all duration-300 ${
-        isSidebarOpen ? "ml-[280px] w-[calc(100vw-280px)]" : "ml-0 w-full"
-      }`}
+        isSidebarOpen ? "ml-[260px] w-[calc(100vw-260px)]" : "ml-[80px] w-[calc(100vw-80px)]"
+      } bg-[#F4F7F9]`}
       style={{ fontFamily: "'Inter', sans-serif" }}
     >
       {/* ── Sidebar ── */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-[280px] text-white flex flex-col z-40 transition-transform duration-300 ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed left-0 top-0 h-screen text-[#0F172A] flex flex-col z-40 transition-all duration-300 bg-[#EFF4FF] border-r border-[#E2E8F0] shadow-[4px_0_24px_rgba(0,0,0,0.02)] ${
+          isSidebarOpen ? "w-[260px]" : "w-[80px]"
         }`}
-        style={{ background: COLORS.BLUE_PRIMARY }}
       >
-        {/* ── CHI TIẾT THAY ĐỔI: Cái "Bookmark" handle nằm ở đây ── */}
+        {/* Toggle Button */}
         <button
           type="button"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute top-1/2 -translate-y-1/2 flex items-center justify-center rounded-r-xl transition-all duration-300 shadow-md text-white hover:brightness-110"
-          style={{
-            right: "-24px",         // Đẩy nó thò ra ngoài sidebar 24px
-            width: "24px",          // Chiều rộng hình chữ nhật đứng (bookmark)
-            height: "50px",         // Chiều dài dọc theo sidebar
-            background: COLORS.BLUE_PRIMARY, // Trùng màu nền để nhìn liền mạch với sidebar
-          }}
+          className="absolute top-8 -right-3.5 flex items-center justify-center w-7 h-7 bg-white border border-[#E2E8F0] rounded-full shadow-sm text-[#64748B] hover:text-[#3B28CC] hover:border-[#3B28CC] transition-colors z-50"
           title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
         >
           {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
         </button>
 
-        <div className="p-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <GraduationCap size={28} style={{ color: COLORS.MINT_ACCENT }} />
-            <div>
-              <h1 className="font-bold leading-tight">Smart Career Roadmap</h1>
-              <p className="text-xs text-white/60">Student Portal</p>
-            </div>
+        {/* Logo */}
+        <div className="p-6 flex items-center overflow-hidden h-[80px]">
+          <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-[#3B28CC]">
+            <GraduationCap size={28} />
+          </div>
+          <div className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${isSidebarOpen ? "max-w-[200px] opacity-100 ml-3" : "max-w-0 opacity-0 ml-0"}`}>
+            <h1 className="text-[18px] font-bold text-[#3B28CC] tracking-tight">DevRoadmap</h1>
+            <p className="text-[11px] text-[#64748B] font-medium">Attainable Mastery</p>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-2 space-y-1.5 overflow-hidden">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                `w-full flex items-center px-[14px] py-3 rounded-xl transition-all duration-300 overflow-hidden ${
                   isActive
-                    ? "bg-[#006b5f] text-white shadow"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                    ? "bg-[#DCFCE7] text-[#16A34A] font-bold shadow-sm"
+                    : "text-[#64748B] hover:bg-white hover:text-[#0F172A] font-semibold"
                 }`
               }
+              title={!isSidebarOpen ? item.label : undefined}
             >
-              {item.icon}
-              {item.label}
+              <div className="flex-shrink-0 flex items-center justify-center w-5">{item.icon}</div>
+              <span className={`text-[13px] whitespace-nowrap transition-all duration-300 overflow-hidden ${isSidebarOpen ? "max-w-[150px] opacity-100 ml-3" : "max-w-0 opacity-0 ml-0"}`}>
+                {item.label}
+              </span>
             </NavLink>
           ))}
         </nav>
 
-        <div className="mt-auto p-6 border-t border-white/10">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold"
-              style={{ background: COLORS.TEAL_DARK }}
-            >
+        {/* Footer / User Profile */}
+        <div className="p-4 mt-auto border-t border-[#E2E8F0]">
+          {/* User Info */}
+          <div className="flex items-center px-1 mb-4 overflow-hidden">
+            <div className="w-10 h-10 rounded-full bg-white text-[#3B28CC] flex items-center justify-center font-bold text-[14px] flex-shrink-0 shadow-sm border border-[#C7D2FE]">
               {initial}
             </div>
-            <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-semibold text-white truncate">
+            <div className={`flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ${isSidebarOpen ? "max-w-[150px] opacity-100 ml-3" : "max-w-0 opacity-0 ml-0"}`}>
+              <span className="text-[13px] font-bold text-[#0F172A] truncate">
                 {displayName}
               </span>
-              <span
-                className="text-[10px] uppercase tracking-wider font-bold"
-                style={{ color: COLORS.MINT_LIGHT }}
-              >
-                {user?.role || "None"}
+              <span className="text-[11px] font-semibold text-[#16A34A]">
+                Student
               </span>
             </div>
           </div>
 
-          <Button
-            variant="ghost"
+          {/* Logout */}
+          <button
             onClick={logout}
-            className="mt-4 w-full justify-start gap-3 text-white/80 hover:bg-white/10 hover:text-white"
+            className="w-full flex items-center px-[15px] py-2.5 rounded-xl text-[#64748B] hover:bg-[#FEF2F2] hover:text-[#EF4444] transition-all duration-300 overflow-hidden"
+            title={!isSidebarOpen ? "Logout" : undefined}
           >
-            <LogOut size={18} />
-            <span className="text-sm font-semibold">Logout</span>
-          </Button>
+            <div className="flex-shrink-0 flex items-center justify-center w-[18px]"><LogOut size={18} /></div>
+            <span className={`text-[13px] font-semibold whitespace-nowrap transition-all duration-300 overflow-hidden ${isSidebarOpen ? "max-w-[150px] opacity-100 ml-3" : "max-w-0 opacity-0 ml-0"}`}>
+              Logout
+            </span>
+          </button>
         </div>
       </aside>
 
       {/* ── Main Content ── */}
-      <main className="flex-1 min-w-0 w-full">
+      <main className="flex-1 min-w-0 w-full flex flex-col h-screen overflow-hidden bg-[#F4F7F9] transition-colors duration-300">
+        {/* Header */}
         <header
-          className="h-20 bg-white px-6 md:px-10 flex items-center justify-between"
-          style={{ borderBottom: `1px solid ${COLORS.BORDER_DEFAULT}` }}
+          className="h-[68px] bg-[#F8F9FF] px-6 md:px-8 flex items-center justify-between shrink-0 shadow-[0_1px_2px_rgba(0,0,0,0.02)] border-b border-[#E2E8F0] z-10 transition-colors duration-300"
         >
           <div>
-            <p
-              className="text-xs font-bold uppercase tracking-widest"
-              style={{ color: COLORS.TEXT_MUTED }}
-            >
-              Student Dashboard
-            </p>
-            <h2
-              className="text-xl font-bold"
-              style={{ color: COLORS.NAVY_HEADING }}
-            >
+            <h2 className="text-[18px] font-bold text-[#0F172A]">
               {currentNav?.label || "Dashboard"}
             </h2>
           </div>
@@ -169,21 +151,18 @@ export function StudentDashboard() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ background: COLORS.SURFACE_BLUE_LIGHT }}
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[#E0E7FF] transition-colors text-[#64748B]"
             >
-              <Bell size={18} style={{ color: COLORS.NAVY_HEADING }} />
+              <Bell size={18} />
             </button>
-            <div
-              className="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold"
-              style={{ background: COLORS.TEAL_DARK }}
-            >
+            <div className="w-9 h-9 rounded-full bg-white text-[#3B28CC] flex items-center justify-center font-bold text-[13px] shadow-sm border border-[#C7D2FE]">
               {initial}
             </div>
           </div>
         </header>
 
-        <div className="p-6 md:p-10">
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-auto">
           <Outlet />
         </div>
       </main>
