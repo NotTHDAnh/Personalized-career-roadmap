@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import type { Message } from "@/app/types";
@@ -17,7 +17,7 @@ interface ChatSectionProps {
   onSend: (text: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onCreateRoadmap: () => void;
-  onChooseCareer: (career: string) => void;
+  hasActivePreview: boolean;
 }
 
 export default function MentorChatSection({
@@ -32,10 +32,10 @@ export default function MentorChatSection({
   onSend,
   onKeyDown,
   onCreateRoadmap,
-  onChooseCareer,
+  hasActivePreview,
 }: ChatSectionProps) {
   return (
-    <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm h-[calc(100vh-180px)] min-h-[560px] flex flex-col overflow-hidden">
+    <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm flex-1 min-h-0 flex flex-col overflow-hidden">
       {/* <div className="p-6 border-b border-[#c4c6cf]"> */}
       <div className="shrink-0 p-6 border-b border-[#c4c6cf]">
         <p className="text-xs font-bold uppercase tracking-widest text-[#74777f]">
@@ -77,11 +77,10 @@ export default function MentorChatSection({
             className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${
-                message.role === "user"
+              className={`max-w-[90%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${message.role === "user"
                   ? "bg-[#006b5f] text-white rounded-br-sm"
                   : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
-              }`}
+                }`}
             >
               <ReactMarkdown>
                 {message.content}
@@ -92,7 +91,7 @@ export default function MentorChatSection({
 
         {typing && (
           <div className="flex justify-start">
-            <div className="max-w-[78%] rounded-2xl rounded-bl-sm bg-[#eff4ff] px-5 py-4 text-sm text-[#0b1c30]">
+            <div className="max-w-[90%] rounded-2xl rounded-bl-sm bg-[#eff4ff] px-5 py-4 text-sm text-[#0b1c30]">
               <div className="flex items-center gap-1">
                 <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f]" />
                 <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:120ms]" />
@@ -107,27 +106,15 @@ export default function MentorChatSection({
 
       {/* <div className="p-6 border-t border-[#c4c6cf]"> */}
       <div className="shrink-0 border-t border-[#c4c6cf] p-6">
-        {recommendedCareers.length > 0 && (
-          <div className="mb-4 rounded-2xl border border-[#c4c6cf] bg-white p-4">
-            <p className="text-sm font-semibold text-[#002046]">
-              Choose one career to create your roadmap:
-            </p>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {recommendedCareers.map((career) => (
-                <button
-                  key={career}
-                  type="button"
-                  onClick={() => onChooseCareer(career)}
-                  disabled={typing}
-                  className="rounded-full border border-[#006b5f] px-4 py-2 text-sm font-semibold text-[#006b5f] transition hover:bg-[#f0fffb] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Use {career}
-                </button>
-              ))}
-            </div>
+        {hasActivePreview && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              You have an unsaved roadmap preview. Please <strong>Save</strong> or <strong>Cancel</strong> it before continuing.
+            </span>
           </div>
         )}
+
         <div className="flex gap-3">
           <Input
             value={input}
@@ -135,15 +122,16 @@ export default function MentorChatSection({
             onKeyDown={(e) => {
               onKeyDown(e);
             }}
-            placeholder="Ask about career direction..."
-            className="flex-1 rounded-xl"
+            disabled={typing || hasActivePreview}
+            placeholder={hasActivePreview ? "Please Save or Cancel the roadmap preview first..." : "Ask about career direction..."}
+            className="flex-1 rounded-xl disabled:bg-gray-50"
           />
 
           <Button
             type="button"
             variant="outline"
             onClick={() => void onCreateRoadmap()}
-            disabled={!targetRole || typing || creatingRoadmap}
+            disabled={!targetRole || typing || creatingRoadmap || hasActivePreview}
             title={
               targetRole
                 ? `Create roadmap for ${targetRole.name}`
@@ -151,14 +139,14 @@ export default function MentorChatSection({
             }
             className="rounded-xl border-[#006b5f] text-[#006b5f] hover:bg-[#f0fffb] hover:text-[#00544b]"
           >
-            {creatingRoadmap && <Loader2 className="w-4 h-4 animate-spin" />}
+            {creatingRoadmap && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
             Create Roadmap
           </Button>
 
           <Button
             type="button"
             onClick={() => void onSend(input)}
-            disabled={!input.trim() || typing}
+            disabled={!input.trim() || typing || hasActivePreview}
             className="rounded-xl bg-[#006b5f] text-white px-5 hover:bg-[#00544b]"
           >
             Send

@@ -16,6 +16,7 @@ import type { KeyboardEvent } from "react";
 import type { Message, MentorAskResponse, GenerateRoadmapResponse, RoadmapPreview } from "@/app/types";
 import { apiClient } from "@/shared/api/apiClient";
 import { ApiKeyModal } from "@/app/components/common/ApiKeyModal";
+import { StudyHoursModal } from "@/app/components/common/StudyHoursModal";
 import { deleteApiKey, getApiKeyStatus } from "@/app/services/apiKeyApi";
 import type { ApiKeyStatus } from "@/app/services/apiKeyApi";
 import { useAuth } from "@/shared/contexts/AuthContext";
@@ -32,19 +33,19 @@ function formatMentorResponse(response: MentorAskResponse) {
     response.answer || "The AI Mentor couldn't find an appropriate answer. Please try asking your question more clearly.",
 
     response.targetRoleName
-      ? `**Target Role:**\n${response.targetRoleName}`
+      ? `**Target Role:** ${response.targetRoleName}`
       : "",
 
     response.recommendedCareers?.length
-      ? `**Recommended Careers:**\n- ${response.recommendedCareers.join("\n- ")}`
+      ? `**Recommended Careers:** ${response.recommendedCareers.join(", ")}`
       : "",
 
     response.missingSkills?.length
-      ? `**Missing Skills:**\n- ${response.missingSkills.join("\n- ")}`
+      ? `**Missing Skills:** ${response.missingSkills.join(", ")}`
       : "",
 
     response.followUpQuestion
-      ? `**Follow-up Question:**\n${response.followUpQuestion}`
+      ? `**Follow-up Question:** ${response.followUpQuestion}`
       : "",
   ]
     .filter(Boolean)
@@ -103,6 +104,8 @@ export function MentorTab() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [isStudyHoursModalOpen, setIsStudyHoursModalOpen] = useState(false);
+  const [dailyStudyHours, setDailyStudyHours] = useState<number | null>(null);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus | null>(null);
 
@@ -229,16 +232,10 @@ export function MentorTab() {
     }
   }
 
-  async function performCreateRoadmap() {
-    if (!targetRole || creatingRoadmap) return;
-
-    if (!targetRole.id) {
-      openNotification(
-        "warning",
-        "Please clarify your target career role first."
-      );
-      return;
-    }
+  async function performCreateRoadmap(hoursToUse?: number) {
+    const activeRoleId = targetRole?.id;
+    const finalHours = hoursToUse || dailyStudyHours || 2;
+    if (!activeRoleId || creatingRoadmap) return;
 
     setCreatingRoadmap(true);
 
@@ -247,8 +244,8 @@ export function MentorTab() {
         "/Roadmap/generate-personalized",
         {
           userId,
-          targetRoleId: targetRole.id,
-          dailyStudyHours: 2,
+          targetRoleId: activeRoleId,
+          dailyStudyHours: finalHours,
         }
       );
 
@@ -260,7 +257,7 @@ export function MentorTab() {
       openNotification("success", "Roadmap preview generated successfully!");
     } catch (error: any) {
       if (error.message?.includes("Gemini API Key")) {
-        setPendingAction(() => () => void performCreateRoadmap());
+        setPendingAction(() => () => void performCreateRoadmap(hoursToUse));
         setIsApiKeyModalOpen(true);
       } else {
         openNotification(
@@ -274,7 +271,17 @@ export function MentorTab() {
   }
 
   async function handleCreateRoadmapClick() {
-    await performCreateRoadmap();
+    if (!targetRole || creatingRoadmap) return;
+    if (!targetRole.id) {
+      openNotification("warning", "Please clarify your target career role first.");
+      return;
+    }
+
+    if (dailyStudyHours === null) {
+      setIsStudyHoursModalOpen(true);
+    } else {
+      await performCreateRoadmap(dailyStudyHours);
+    }
   }
 
   async function handleSaveRoadmapClick() {
@@ -313,20 +320,44 @@ export function MentorTab() {
     // <div className="grid xl:grid-cols-[0.72fr_0.28fr] gap-8">
     //   <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm min-h-[680px] flex flex-col">
     <div className="grid min-h-0 gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <MentorChatSection
-        messages={messages}
-        input={input}
-        setInput={setInput}
-        typing={typing}
-        creatingRoadmap={creatingRoadmap}
-        targetRole={targetRole}
-        recommendedCareers={recommendedCareers}
-        messagesContainerRef={messagesContainerRef}
-        onSend={send}
-        onKeyDown={handleKeyDown}
-        onCreateRoadmap={handleCreateRoadmapClick}
-        onChooseCareer={handleChooseRecommendedCareer}
-      />
+      <div className="flex flex-col gap-6 h-[calc(100vh-100px)] min-h-[750px]">
+        <MentorChatSection
+          messages={messages}
+          input={input}
+          setInput={setInput}
+          typing={typing}
+          creatingRoadmap={creatingRoadmap}
+          targetRole={targetRole}
+          recommendedCareers={recommendedCareers}
+          messagesContainerRef={messagesContainerRef}
+          hasActivePreview={showRoadmapPreview}
+          onSend={send}
+          onKeyDown={handleKeyDown}
+          onCreateRoadmap={handleCreateRoadmapClick}
+        />
+
+      {recommendedCareers.length > 0 && (
+        <div className="shrink-0 rounded-2xl border border-[#c4c6cf] bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-[#002046]">
+            Choose one career to create your roadmap:
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {recommendedCareers.map((career) => (
+              <button
+                key={career}
+                type="button"
+                onClick={() => handleChooseRecommendedCareer(career)}
+                disabled={typing || showRoadmapPreview}
+                className="rounded-full border border-[#006b5f] px-4 py-2 text-sm font-semibold text-[#006b5f] transition hover:bg-[#f0fffb] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Use {career}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
 
       <MentorSidebar
         targetRole={targetRole}
@@ -356,6 +387,16 @@ export function MentorTab() {
             void pendingAction();
             setPendingAction(null);
           }
+        }}
+      />
+
+      <StudyHoursModal
+        isOpen={isStudyHoursModalOpen}
+        onClose={() => setIsStudyHoursModalOpen(false)}
+        onSubmit={(hours) => {
+          setDailyStudyHours(hours);
+          setIsStudyHoursModalOpen(false);
+          void performCreateRoadmap(hours);
         }}
       />
     </div>
