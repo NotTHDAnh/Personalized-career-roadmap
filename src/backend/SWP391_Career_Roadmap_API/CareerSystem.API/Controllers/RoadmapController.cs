@@ -1,6 +1,5 @@
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
-using CareerSystem.API.Utilities;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
@@ -21,7 +20,6 @@ namespace CareerSystem.API.Controllers
 
         //API tạo roadmap
         [HttpPost("generate-personalized")]
-        [ValidateGeminiApiKey]
         public async Task<IActionResult> GeneratePersonalizedRoadmap([FromBody] PersonalizedRoadmapRequest request)
         {
             if (request.DailyStudyHours <= 0)
