@@ -1,4 +1,4 @@
-﻿USE SE_Career_Roadmap;
+USE SE_Career_Roadmap;
 GO
 
 -- ============================================================
@@ -563,9 +563,9 @@ INSERT INTO Course_Learning_Outcomes (id, course_id, skill_id, outcome_descripti
   ('CLO_0061', 'CRS_020', 'SKL_058', N'React front-end development; components, JSX/ES6 and Bootstrap; lifecycle, forms and routes; hooks/events; API fetching, Redux and AI-assisted development.'),
   ('CLO_0062', 'CRS_020', 'SKL_013', N'React front-end development; components, JSX/ES6 and Bootstrap; lifecycle, forms and routes; hooks/events; API fetching, Redux and AI-assisted development.'),
   ('CLO_0063', 'CRS_020', 'SKL_059', N'React front-end development; components, JSX/ES6 and Bootstrap; lifecycle, forms and routes; hooks/events; API fetching, Redux and AI-assisted development.'),
-  ('CLO_0064', 'CRS_029B', 'SKL_034', N'Electronic circuit principles; passive/active components; circuit analysis; semiconductor basics; analog/digital circuit design, measurement and engineering ethics.'),
-  ('CLO_0065', 'CRS_029B', 'SKL_026', N'Electronic circuit principles; passive/active components; circuit analysis; semiconductor basics; analog/digital circuit design, measurement and engineering ethics.'),
-  ('CLO_0066', 'CRS_029B', 'SKL_050', N'Electronic circuit principles; passive/active components; circuit analysis; semiconductor basics; analog/digital circuit design, measurement and engineering ethics.'),
+  ('CLO_0064', 'CRS_029', 'SKL_034', N'Electronic circuit principles; passive/active components; circuit analysis; semiconductor basics; analog/digital circuit design, measurement and engineering ethics.'),
+  ('CLO_0065', 'CRS_029', 'SKL_026', N'Electronic circuit principles; passive/active components; circuit analysis; semiconductor basics; analog/digital circuit design, measurement and engineering ethics.'),
+  ('CLO_0066', 'CRS_029', 'SKL_050', N'Electronic circuit principles; passive/active components; circuit analysis; semiconductor basics; analog/digital circuit design, measurement and engineering ethics.'),
   ('CLO_0067', 'CRS_021', 'SKL_002', N'ORM fundamentals; Spring Framework and Spring Boot; Spring Data and Spring MVC; JavaFX CRUD applications; teamwork and communication.'),
   ('CLO_0068', 'CRS_021', 'SKL_028', N'ORM fundamentals; Spring Framework and Spring Boot; Spring Data and Spring MVC; JavaFX CRUD applications; teamwork and communication.'),
   ('CLO_0069', 'CRS_021', 'SKL_015', N'ORM fundamentals; Spring Framework and Spring Boot; Spring Data and Spring MVC; JavaFX CRUD applications; teamwork and communication.'),

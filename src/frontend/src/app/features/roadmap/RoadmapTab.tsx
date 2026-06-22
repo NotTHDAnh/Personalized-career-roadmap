@@ -311,7 +311,59 @@ export default function MyRoadmaps() {
 
       try {
         const data = await apiClient.get<any>(`/Roadmap/${selectedRoadmapId}`);
+        console.log("[RoadmapDetail] Raw roadmap loaded:", data);
         setRoadmapData(data);
+
+        // Fetch course details for all nodes in the background
+        const uniqueCourseIds = new Set<string>();
+        if (data?.phases) {
+          data.phases.forEach((p: any) => {
+            if (p?.nodes) {
+              p.nodes.forEach((n: any) => {
+                if (n.courseId) uniqueCourseIds.add(n.courseId);
+              });
+            }
+          });
+        }
+
+        console.log("[RoadmapDetail] Unique Course IDs found:", Array.from(uniqueCourseIds));
+
+        if (uniqueCourseIds.size > 0) {
+          const courseDetailsMap: Record<string, any> = {};
+          await Promise.all(
+            Array.from(uniqueCourseIds).map(async (cid) => {
+              try {
+                const details = await apiClient.get<any>(`/Course/${cid}`);
+                console.log(`[RoadmapDetail] Fetched course details for ${cid}:`, details);
+                courseDetailsMap[cid] = details;
+              } catch (err) {
+                console.error(`[RoadmapDetail] Failed to fetch course details for ${cid}:`, err);
+              }
+            })
+          );
+
+          // Update roadmap data with course details
+          const enrichedPhases = data.phases.map((p: any) => ({
+            ...p,
+            nodes: p.nodes?.map((n: any) => {
+              const details = n.courseId ? courseDetailsMap[n.courseId] : null;
+              return {
+                ...n,
+                courseDetails: details,
+              };
+            }) || [],
+          }));
+
+          console.log("[RoadmapDetail] Setting enriched phases:", enrichedPhases);
+
+          setRoadmapData((prev: any) => {
+            if (!prev || prev.roadmapId !== selectedRoadmapId) return prev;
+            return {
+              ...prev,
+              phases: enrichedPhases,
+            };
+          });
+        }
       } catch (err) {
         console.error("Lỗi load chi tiết roadmap:", err);
         setRoadmapData(null);
@@ -353,8 +405,10 @@ export default function MyRoadmaps() {
     if (!roadmapData) return { totalCourses: 0, totalHours: 0, progress: 0 };
     const flatNodes = roadmapData.phases?.flatMap((p: any) => p.nodes) || [];
     const totalCourses = flatNodes.length;
-    // Tạm tính trung bình 30 giờ cho mỗi môn học nếu không có dữ liệu giờ cụ thể
     const totalHours = flatNodes.reduce((acc: number, node: any) => {
+      if (node.courseDetails?.totalStudyHours !== undefined) {
+        return acc + node.courseDetails.totalStudyHours;
+      }
       const weeks = parseInt(node.duration) || 8; 
       return acc + (weeks * 5); // Tạm tính 1 week = 5 hours
     }, 0);

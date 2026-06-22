@@ -39,6 +39,11 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
                 }
             }
 
+            const details = dtoNode.courseDetails;
+            const dynamicSkills = details?.learningOutcomes && details.learningOutcomes.length > 0
+                ? details.learningOutcomes.map((lo: any) => lo.skillName)
+                : ["#Coding", "#System"];
+
             nodes.push({
                 id: dtoNode.nodeId,
                 zone: zoneIndex,
@@ -49,12 +54,16 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
                     shortLabel: dtoNode.courseCode || "N/A",
                     state: state,
                     source: "university",
-                    duration: "8 Weeks",
+                    duration: details?.totalStudyHours ? `${details.totalStudyHours} Hours` : "8 Weeks",
                     prerequisite: dtoNode.parentNodeId ? "Có điều kiện tiên quyết" : "Không có",
                     deadline: dtoNode.deadline,
                     academicLevel: dtoNode.academicLevel,
-                    skills: ["#Coding", "#System"],
-                    gpa: dtoNode.gpa
+                    skills: dynamicSkills,
+                    gpa: dtoNode.gpa,
+                    credits: details?.credits,
+                    totalStudyHours: details?.totalStudyHours,
+                    suggestedResources: details?.suggestedResources,
+                    learningOutcomes: details?.learningOutcomes,
                 },
             });
 
