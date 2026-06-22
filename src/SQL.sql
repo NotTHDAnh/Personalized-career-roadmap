@@ -1,4 +1,4 @@
-USE SE_Career_Roadmap;
+﻿USE SE_Career_Roadmap;
 GO
 
 -- ============================================================
@@ -605,3 +605,66 @@ GO
 --        7 GitHub Profiles, 9 Repositories, 20 Job Trends,
 --        7 Mentor Sessions, 14 Chat Messages
 -- ============================================================
+
+
+-- ============================================================
+-- 1. THÊM THUỘC TÍNH course_id (Tạm thời cho phép NULL để update dữ liệu cũ)
+-- ============================================================
+ALTER TABLE Learning_Resources ADD course_id VARCHAR(50) NULL;
+GO
+
+-- ============================================================
+-- 2. CẬP NHẬT DỮ LIỆU CHO CỘT course_id
+-- ============================================================
+
+-- A. Cập nhật tự động dựa trên mối liên kết qua skill_id trong Course_Learning_Outcomes
+UPDATE lr
+SET lr.course_id = clo.course_id
+FROM Learning_Resources lr
+INNER JOIN Course_Learning_Outcomes clo ON lr.skill_id = clo.skill_id;
+GO
+
+-- B. Tối ưu hóa thủ công các môn học phù hợp nhất (do 1 kỹ năng có thể xuất hiện ở nhiều môn học)
+-- Hoặc để gán môn học phù hợp cho các tài nguyên đặc thù:
+UPDATE Learning_Resources SET course_id = 'CRS_006' WHERE resource_id = 'LR_001'; -- Java Programming Masterclass -> PRO192 (Môn OOP)
+UPDATE Learning_Resources SET course_id = 'CRS_011' WHERE resource_id = 'LR_002'; -- Java Docs -> LAB211 (Thực hành Java OOP)
+UPDATE Learning_Resources SET course_id = 'CRS_019' WHERE resource_id = 'LR_003'; -- Python for Everybody -> PRP201c (Python căn bản)
+UPDATE Learning_Resources SET course_id = 'CRS_023' WHERE resource_id = 'LR_004'; -- Real Python -> PDS301m (Python cho Data Science)
+UPDATE Learning_Resources SET course_id = 'CRS_010' WHERE resource_id = 'LR_005'; -- JavaScript.info -> WED201c (Thiết kế Web)
+UPDATE Learning_Resources SET course_id = 'CRS_020' WHERE resource_id = 'LR_006'; -- React Docs -> FER202 (ReactJS)
+UPDATE Learning_Resources SET course_id = 'CRS_020' WHERE resource_id = 'LR_007'; -- React FCC -> FER202 (ReactJS)
+UPDATE Learning_Resources SET course_id = 'CRS_007' WHERE resource_id = 'LR_008'; -- SQL Tutorial -> DBI202 (Hệ quản trị CSDL)
+UPDATE Learning_Resources SET course_id = 'CRS_007' WHERE resource_id = 'LR_009'; -- SQLBolt -> DBI202 (Hệ quản trị CSDL)
+UPDATE Learning_Resources SET course_id = 'CRS_021' WHERE resource_id = 'LR_010'; -- Spring Boot -> HSF302 (Spring Framework)
+UPDATE Learning_Resources SET course_id = 'CRS_018' WHERE resource_id = 'LR_011'; -- Flutter Docs -> PRM393 (Lập trình Di động)
+UPDATE Learning_Resources SET course_id = 'CRS_018' WHERE resource_id = 'LR_012'; -- Flutter FCC -> PRM393 (Lập trình Di động)
+UPDATE Learning_Resources SET course_id = 'CRS_026' WHERE resource_id = 'LR_013'; -- Machine Learning Specialization -> AIL303m (Học máy)
+UPDATE Learning_Resources SET course_id = 'CRS_026' WHERE resource_id = 'LR_014'; -- Scikit-learn Docs -> AIL303m (Học máy)
+UPDATE Learning_Resources SET course_id = 'CRS_006' WHERE resource_id = 'LR_015'; -- OOP in Java -> PRO192 (Môn OOP)
+UPDATE Learning_Resources SET course_id = 'CRS_005' WHERE resource_id = 'LR_016'; -- Git & GitHub Crash Course -> CEA201 (Kiến trúc máy tính)
+UPDATE Learning_Resources SET course_id = 'CRS_009' WHERE resource_id = 'LR_017'; -- Computer Networking Book -> CNA201 (Mạng máy tính)
+UPDATE Learning_Resources SET course_id = 'CRS_017' WHERE resource_id = 'LR_018'; -- Google UX Design -> WDU203c (Thiết kế UI/UX)
+UPDATE Learning_Resources SET course_id = 'CRS_001' WHERE resource_id = 'LR_019'; -- CS50 Data Structures -> CSI106 (Nhập môn Khoa học máy tính)
+UPDATE Learning_Resources SET course_id = 'CRS_007' WHERE resource_id = 'LR_020'; -- Database Design -> DBI202 (Hệ quản trị CSDL)
+UPDATE Learning_Resources SET course_id = 'CRS_022' WHERE resource_id = 'LR_021'; -- Unity Learn -> FGU301 (Lập trình Game)
+UPDATE Learning_Resources SET course_id = 'CRS_013' WHERE resource_id = 'LR_022'; -- Arduino -> IOT102 (Internet of Things)
+UPDATE Learning_Resources SET course_id = 'CRS_012' WHERE resource_id = 'LR_023'; -- ISTQB Testing -> SWE202c (Nhập môn Kỹ nghệ phần mềm)
+
+-- C. Cập nhật các khoá học ngoài có SkillId chưa được dạy trực tiếp ở bất cứ môn học nào
+-- (ví dụ: Docker - SKL_057, Deep Learning - SKL_037) vào các môn học liên quan/gần nhất:
+UPDATE Learning_Resources SET course_id = 'CRS_027' WHERE resource_id = 'LR_024'; -- Docker (SKL_057) -> SDN302 NodeJS Server-side (CRS_027)
+UPDATE Learning_Resources SET course_id = 'CRS_026' WHERE resource_id = 'LR_025'; -- Deep Learning (SKL_037) -> AIL303m Machine Learning (CRS_026)
+GO
+
+-- ============================================================
+-- 3. THAY ĐỔI CỘT sang NOT NULL sau khi đã điền đầy đủ dữ liệu
+-- ============================================================
+ALTER TABLE Learning_Resources ALTER COLUMN course_id VARCHAR(50) NOT NULL;
+GO
+
+-- ============================================================
+-- 4. TẠO KHÓA NGOẠI TRỎ ĐẾN BẢNG Courses
+-- ============================================================
+ALTER TABLE Learning_Resources ADD CONSTRAINT FK_LearningResources_Courses
+FOREIGN KEY (course_id) REFERENCES Courses(course_id) ON DELETE CASCADE;
+GO
