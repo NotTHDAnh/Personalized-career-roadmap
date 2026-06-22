@@ -10,5 +10,6 @@ namespace CareerSystem.API.DTOs
         public int? Credits { get; set; }
         public int? TotalStudyHours { get; set; }
         public List<LearningResourceDto> SuggestedResources { get; set; } = new();
+        public List<CourseLearningOutcomeDto> LearningOutcomes { get; set; } = new();
     }
 }
