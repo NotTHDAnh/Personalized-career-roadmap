@@ -1,4 +1,4 @@
-import { Check, Lock, CalendarDays, GraduationCap, Clock, BookOpen, Target, Book } from "lucide-react";
+import { Check, Lock, CalendarDays, GraduationCap, Clock, BookOpen, Target, Book, ExternalLink } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/app/components/ui/popover";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -138,7 +138,7 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
         </div>
       </PopoverTrigger>
 
-      <PopoverContent className="w-80 p-0 overflow-hidden shadow-2xl border border-gray-100 rounded-2xl" side="right" align="center" sideOffset={16}>
+      <PopoverContent className="w-[22rem] p-0 overflow-hidden shadow-2xl border border-gray-100 rounded-2xl" side="right" align="center" sideOffset={16}>
         <div className="px-5 py-4 text-white relative" style={{ background: isLocked ? "#94A3B8" : style.core }}>
           <div className="relative z-10 flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
@@ -164,7 +164,7 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
           </div>
         </div>
 
-        <div className="p-5 space-y-4 bg-white">
+        <div className="p-5 space-y-4 bg-white max-h-[350px] overflow-y-auto scrollbar-thin">
           <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-sm">
             <div>
               <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
@@ -172,6 +172,14 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
               </span>
               <span className="font-medium text-gray-800">{node.duration}</span>
             </div>
+            {node.credits !== undefined && (
+              <div>
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <BookOpen className="w-3.5 h-3.5" /> Credits
+                </span>
+                <span className="font-medium text-gray-800">{node.credits} Credits</span>
+              </div>
+            )}
             <div>
               <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                 <CalendarDays className="w-3.5 h-3.5" /> Deadline
@@ -195,8 +203,8 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
             <div className="flex flex-wrap gap-1.5">
               {node.skills && node.skills.length > 0 ? (
                 node.skills.map((skill, idx) => (
-                  <span key={idx} className="px-2 py-1 bg-blue-50/50 border border-blue-100/50 text-blue-700 rounded-md text-[11px] font-semibold">
-                    {skill}
+                  <span key={idx} className="px-2 py-1 bg-blue-50/70 border border-blue-100 text-blue-700 rounded-md text-[11px] font-bold">
+                    {skill.startsWith("#") ? skill : `#${skill}`}
                   </span>
                 ))
               ) : (
@@ -204,6 +212,59 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
               )}
             </div>
           </div>
+
+          {/* Dynamic Learning Outcomes */}
+          {node.learningOutcomes && node.learningOutcomes.length > 0 && (
+            <div className="pt-3 border-t border-gray-100">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <Target className="w-3.5 h-3.5" /> Learning Outcomes
+              </span>
+              <div className="space-y-2">
+                {node.learningOutcomes.map((outcome) => (
+                  <div key={outcome.id} className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 flex flex-col gap-1">
+                    <span className="font-bold text-gray-700 text-[11px] uppercase tracking-wider">
+                      {outcome.skillName}
+                    </span>
+                    {outcome.outcomeDescription && (
+                      <p className="text-gray-500 leading-relaxed text-[11px]">
+                        {outcome.outcomeDescription}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Dynamic Suggested Resources */}
+          {node.suggestedResources && node.suggestedResources.length > 0 && (
+            <div className="pt-3 border-t border-gray-100">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <Book className="w-3.5 h-3.5" /> Study Resources
+              </span>
+              <div className="space-y-2">
+                {node.suggestedResources.map((res) => (
+                  <a
+                    key={res.resourceId}
+                    href={res.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-indigo-50/50 border border-indigo-100/50 text-xs font-medium text-indigo-600 transition-all hover:bg-indigo-50 hover:border-indigo-200"
+                  >
+                    <div className="flex flex-col gap-0.5 truncate pr-2">
+                      <span className="font-bold text-slate-700 text-[11px] truncate">
+                        {res.title}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-semibold truncate">
+                        For: {res.skillName}
+                      </span>
+                    </div>
+                    <ExternalLink className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2">

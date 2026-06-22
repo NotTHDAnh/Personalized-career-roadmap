@@ -37,12 +37,15 @@ export interface ComputedRoadmapGraph {
 // Cấu trúc DTO (Data Transfer Object) mô phỏng Backend
 export interface SkillNodeDetailDto {
     nodeId: string;
+    courseId?: string;
     courseCode?: string;
     courseName?: string;
     status: string;
     deadline?: string;
     parentNodeId?: string;
     academicLevel?: string;
+    gpa?: number;
+    courseDetails?: any;
 }
 
 export interface RoadmapPhaseDto {
