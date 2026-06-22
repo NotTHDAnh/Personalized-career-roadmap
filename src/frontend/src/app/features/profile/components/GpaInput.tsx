@@ -6,7 +6,7 @@ export function GpaInput({ defaultValue }: { defaultValue?: string }) {
       type="text"
       defaultValue={defaultValue ?? ""}
       placeholder="—"
-      className="w-20 text-center bg-white dark:bg-input/30"
+      className="w-20 text-center bg-white"
     />
   );
 }

@@ -315,7 +315,7 @@ export function MentorTab() {
     setCreatingRoadmap(true);
 
     try {
-      const generatedResult = await apiClient.post<GenerateRoadmapResponse>(
+      const generatedResult = await apiClient.post<any>(
         "/Roadmap/generate-personalized",
         {
           userId,
@@ -324,21 +324,12 @@ export function MentorTab() {
         }
       );
 
-      if (!generatedResult.roadmapId) {
-        throw new Error("Roadmap was created but roadmapId was not returned.");
-      }
-
-      const roadmapDetail = await apiClient.get<RoadmapPreview>(
-        `/Roadmap/${generatedResult.roadmapId}`
-      );
-
-      setRoadmapPreview(roadmapDetail);
+      setRoadmapPreview(generatedResult);
 
       setShowRoadmapPreview(true);
       setPreviewCollapsed(false);
 
-      // THÊM: Hiện thông báo thành công ngắn gọn như trong ảnh mẫu bạn gửi
-      openNotification("success", "Roadmap generated successfully!");
+      openNotification("success", "Roadmap preview generated successfully!");
     } catch (error: any) {
       if (error.message?.includes("Gemini API Key")) {
         setPendingAction(() => () => void performCreateRoadmap());
@@ -358,9 +349,23 @@ export function MentorTab() {
     await performCreateRoadmap();
   }
 
-  function handleSaveRoadmapClick() {
-    openNotification("success", "Saved successfully.");
-    setShowRoadmapPreview(false);
+  async function handleSaveRoadmapClick() {
+    if (!roadmapPreview || !targetRole) return;
+
+    try {
+      await apiClient.post("/Roadmap/save", {
+        userId,
+        targetRoleId: targetRole.id,
+        dailyStudyHours: roadmapPreview.dailyStudyHours,
+        phases: roadmapPreview.phases,
+      });
+
+      openNotification("success", "Lộ trình đã được lưu thành công.");
+      setShowRoadmapPreview(false);
+      setRoadmapPreview(null);
+    } catch {
+      openNotification("error", "Lưu lộ trình thất bại.");
+    }
   }
 
   function handleCancelRoadmapClick() {
