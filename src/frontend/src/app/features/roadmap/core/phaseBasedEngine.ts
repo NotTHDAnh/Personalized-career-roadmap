@@ -38,35 +38,44 @@ import { RoadmapGraph, ComputedRoadmapGraph, ComputedNode } from "./types";
 import { RoadmapLayoutEngine } from "./layoutEngine";
 
 export class PhaseBasedLayoutEngine implements RoadmapLayoutEngine {
-    private topY = 60;
-    private bottomY = 125;
-    private zoneWidth = 275; // Bề ngang mỗi cột Phase trên bản đồ là 275px
+    private topY = 40;
+    private bottomY = 100;
+    private nodeSpacingX = 80; // Ultra compressed distance between nodes
+    private minZoneWidth = 110; // Smaller minimum zone width to prevent empty space
 
     public layout(graph: RoadmapGraph): ComputedRoadmapGraph {
         let globalIndex = 0;
 
-        // Đếm xem mỗi Zone (Phase) đang có bao nhiêu Node
+        // Đếm số lượng Node trong từng Zone
         const nodesInZone: Record<number, number> = {};
         const localIndexTracker: Record<number, number> = {};
 
         graph.nodes.forEach(n => {
             nodesInZone[n.zone] = (nodesInZone[n.zone] || 0) + 1;
-            localIndexTracker[n.zone] = 0; // Khởi tạo đếm thứ tự node bên trong 1 zone
+            localIndexTracker[n.zone] = 0;
         });
 
+        // Tìm số lượng zone tối đa
+        const maxZone = Math.max(...Object.keys(nodesInZone).map(Number), 0);
+        const computedZones: { x: number; width: number }[] = [];
+        let currentX = 0;
+
+        // Tính toán kích thước động cho từng Zone dựa trên số lượng Node
+        for (let i = 0; i <= maxZone; i++) {
+            const count = nodesInZone[i] || 0;
+            const width = Math.max(this.minZoneWidth, count > 0 ? (count + 0.8) * this.nodeSpacingX : this.minZoneWidth);
+            computedZones.push({ x: currentX, width });
+            currentX += width;
+        }
+
         const computedNodes: ComputedNode[] = graph.nodes.map((node) => {
-            const zoneStart = node.zone * this.zoneWidth; // Điểm bắt đầu của cột Zone (0, 275, 550, 825)
-            const localIndex = localIndexTracker[node.zone]; // Node này đứng thứ mấy trong Zone của nó?
+            const zoneInfo = computedZones[node.zone];
+            const localIndex = localIndexTracker[node.zone];
             const countInZone = nodesInZone[node.zone];
 
             // Tự động chia đều không gian bên trong 1 Zone dựa theo số lượng Node
-            // (Ví dụ Zone có 3 node thì chia cột làm 4 phần)
-            const localStep = this.zoneWidth / (countInZone + 1);
-
-            // X sẽ hoàn toàn nằm gọn bên trong Zone của nó
-            const cx = zoneStart + localStep * (localIndex + 1);
-
-            // Trục Y vẫn lượn zigzag chẵn/lẻ để đường S-Curve uốn lượn đẹp
+            const localStep = zoneInfo.width / (countInZone + 1);
+            const cx = zoneInfo.x + localStep * (localIndex + 1);
             const cy = globalIndex % 2 === 0 ? this.bottomY : this.topY;
 
             localIndexTracker[node.zone]++;
@@ -84,6 +93,7 @@ export class PhaseBasedLayoutEngine implements RoadmapLayoutEngine {
         return {
             nodes: computedNodes,
             edges: graph.edges,
+            zones: computedZones
         };
     }
 }

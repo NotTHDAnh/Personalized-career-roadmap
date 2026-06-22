@@ -1,17 +1,20 @@
-import { Badge } from "@/app/components/ui/badge";
+interface SkillTagProps {
+  label: string;
+  variant?: "default" | "green";
+}
 
-export function SkillTag({ label, variant }: { label: string; variant?: "blue" | "green" }) {
-  const isGreen = variant === "green";
+export function SkillTag({ label, variant = "default" }: SkillTagProps) {
+  if (variant === "green") {
+    return (
+      <span className="px-2.5 py-1 text-[11px] font-semibold bg-[#DCFCE7] text-[#16A34A] rounded-full whitespace-nowrap">
+        {label}
+      </span>
+    );
+  }
+
   return (
-    <Badge
-      variant="outline"
-      className={`rounded-full px-2.5 py-1 text-xs border ${
-        isGreen
-          ? "bg-green-50 text-green-600 border-green-200"
-          : "bg-blue-50 text-blue-600 border-blue-200"
-      }`}
-    >
+    <span className="px-3 py-1.5 text-[11px] font-semibold bg-[#E0E7FF] text-[#3B28CC] rounded-full whitespace-nowrap transition-colors">
       {label}
-    </Badge>
+    </span>
   );
 }
