@@ -219,7 +219,7 @@ export default function MyRoadmaps() {
     }
   };
 
-  const handleUpdateNodeState = (nodeId: string, newStatus: NodeState) => {
+  const handleUpdateNodeState = (nodeId: string, newStatus: NodeState, gpa?: number) => {
     if (!roadmapData) return;
 
     // Chuyển đổi trạng thái từ UI sang trạng thái DTO tương ứng của Database:
@@ -230,15 +230,15 @@ export default function MyRoadmaps() {
     const flatNodes = roadmapData.phases.flatMap((p: any) => p.nodes);
 
     // 2. Lưu trữ danh sách cần cập nhật dưới dạng Map
-    const statusUpdates: Record<string, string> = {};
-    statusUpdates[nodeId] = newDtoStatus;
+    const statusUpdates: Record<string, { status: string, gpa?: number }> = {};
+    statusUpdates[nodeId] = { status: newDtoStatus, gpa };
 
     // Nếu người dùng hủy hoàn thành (chuyển sang PENDING), chúng ta cần khóa đệ quy tất cả các môn nối sau
     if (newDtoStatus === "PENDING") {
       const updateDescendants = (parentId: string) => {
         const children = flatNodes.filter((n: any) => n.parentNodeId === parentId);
         for (const child of children) {
-          statusUpdates[child.nodeId] = "PENDING";
+          statusUpdates[child.nodeId] = { status: "PENDING" };
           updateDescendants(child.nodeId);
         }
       };
@@ -250,7 +250,7 @@ export default function MyRoadmaps() {
       ...phase,
       nodes: phase.nodes.map((node: any) =>
         statusUpdates[node.nodeId] !== undefined
-          ? { ...node, status: statusUpdates[node.nodeId] }
+          ? { ...node, status: statusUpdates[node.nodeId].status, gpa: statusUpdates[node.nodeId].gpa ?? node.gpa }
           : node
       ),
     }));
@@ -262,9 +262,10 @@ export default function MyRoadmaps() {
 
     // 4. Gửi yêu cầu cập nhật lên Database nếu là roadmap thực tế
     if (selectedRoadmapId && !selectedRoadmapId.startsWith("preview-")) {
-      const updates = Object.entries(statusUpdates).map(([nid, status]) => ({
+      const updates = Object.entries(statusUpdates).map(([nid, data]) => ({
         nodeId: nid,
-        status: status
+        status: data.status,
+        gpa: data.gpa
       }));
 
       apiClient.put("/Roadmap/update-nodes-status", {

@@ -12,5 +12,6 @@ namespace CareerSystem.API.DTOs
     {
         public string NodeId { get; set; } = null!;
         public string Status { get; set; } = null!;
+        public decimal? Gpa { get; set; }
     }
 }

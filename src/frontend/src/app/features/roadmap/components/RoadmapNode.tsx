@@ -1,6 +1,16 @@
 import { Check, Lock, CalendarDays, GraduationCap, Clock, BookOpen, Target, Book } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/app/components/ui/popover";
 import { Button } from "@/app/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 import React, { useState } from "react";
 import { useCourseContext } from "@/app/data/CourseContext";
 import type { CourseNode } from "@/app/types";
@@ -15,6 +25,19 @@ const ZONE_STYLES: Record<number, { core: string, aura: string, text: string }> 
 export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWidth?: number }) {
   const { updateNodeState } = useCourseContext();
   const [open, setOpen] = useState(false);
+  const [gpa, setGpa] = useState(node.gpa ? node.gpa.toString() : "");
+  const [gpaError, setGpaError] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleValidateAndConfirm = () => {
+    const num = parseFloat(gpa);
+    if (isNaN(num) || num < 5 || num > 10) {
+      setGpaError("GPA must be between 5 and 10.");
+    } else {
+      setGpaError("");
+      setShowConfirm(true);
+    }
+  };
 
   const cWidth = canvasWidth || 1280;
   const pctX = (node.cx / cWidth) * 100;
@@ -185,27 +208,70 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
 
         <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2">
           {isActive ? (
-            <Button
-              className="w-full font-bold shadow-md transition-all hover:scale-[1.02]"
-              style={{ background: style.core, color: "white" }}
-              onClick={() => {
-                updateNodeState(node.id.toString(), "done");
-                setOpen(false);
-              }}
-            >
-              Mark as Finished
-            </Button>
+            <div className="w-full flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5 w-full">
+                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  Enter GPA to Complete
+                </label>
+                <input 
+                  type="number"
+                  step="0.1"
+                  placeholder="Enter GPA (5-10)..."
+                  className={`border rounded-lg px-3 py-2 text-sm w-full outline-none transition-all focus:ring-2 focus:ring-opacity-50 ${
+                    gpaError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"
+                  }`}
+                  value={gpa}
+                  onChange={(e) => {
+                    setGpa(e.target.value);
+                    setGpaError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleValidateAndConfirm();
+                    }
+                  }}
+                />
+                {gpaError && (
+                  <span className="text-red-500 text-[10px] font-semibold animate-pulse">{gpaError}</span>
+                )}
+                <Button 
+                  className="w-full mt-2 font-bold shadow-md transition-all hover:scale-[1.02]"
+                  style={{ background: style.core, color: "white" }}
+                  onClick={handleValidateAndConfirm}
+                >
+                  Enter GPA & Finished
+                </Button>
+              </div>
+
+              <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Completion</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to save GPA: <strong className="text-blue-600">{gpa}</strong> and mark this course as finished? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setShowConfirm(false)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      style={{ background: style.core, color: "white" }}
+                      onClick={() => {
+                        updateNodeState(node.id.toString(), "done", parseFloat(gpa));
+                        setShowConfirm(false);
+                        setOpen(false);
+                      }}
+                    >
+                      Confirm
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           ) : isDone ? (
-            <Button
-              variant="outline"
-              className="w-full font-semibold border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors"
-              onClick={() => {
-                updateNodeState(node.id.toString(), "active");
-                setOpen(false);
-              }}
-            >
-              Mark as Unfinished
-            </Button>
+            <div className="w-full text-center py-2 text-xs font-medium text-green-600 border border-dashed border-green-200 rounded-md bg-green-50 flex flex-col gap-1">
+              <span>Course completed</span>
+              {node.gpa && <span className="font-bold text-[13px]">GPA: {node.gpa}</span>}
+            </div>
           ) : (
             <div className="w-full text-center py-2 text-xs font-medium text-gray-400 border border-dashed border-gray-200 rounded-md bg-white">
               Complete prerequisites to unlock
