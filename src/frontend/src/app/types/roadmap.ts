@@ -4,7 +4,7 @@
 export type NodeState = "done" | "active" | "locked";
 
 export interface CourseNode {
-  id: number;
+  id: number | string;
   name: string;
   code: string;
   shortLabel: string;
@@ -14,6 +14,10 @@ export interface CourseNode {
   duration: string;
   prerequisite: string;
   skills: string[];
+  /** Expected completion date */
+  deadline?: string;
+  /** Academic Level */
+  academicLevel?: string;
   /** SVG coords (viewBox 0 0 1100 200) */
   cx: number;
   /** SVG coords (viewBox 0 0 1100 200) */

@@ -1,4 +1,4 @@
-﻿namespace CareerSystem.API.DTOs
+namespace CareerSystem.API.DTOs
 {
     public class MentorAskResponseDto
     {

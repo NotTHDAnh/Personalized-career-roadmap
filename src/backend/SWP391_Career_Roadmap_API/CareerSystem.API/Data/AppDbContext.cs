@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using CareerSystem.API.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -263,6 +263,10 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false)
                 .HasColumnName("resource_id");
+            entity.Property(e => e.CourseId)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("course_id");
             entity.Property(e => e.SkillId)
                 .HasMaxLength(50)
                 .IsUnicode(false)
@@ -274,6 +278,10 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(500)
                 .IsUnicode(false)
                 .HasColumnName("url");
+
+            entity.HasOne(d => d.Course).WithMany(p => p.LearningResources)
+                .HasForeignKey(d => d.CourseId)
+                .HasConstraintName("FK_LearningResources_Courses");
 
             entity.HasOne(d => d.Skill).WithMany(p => p.LearningResources)
                 .HasForeignKey(d => d.SkillId)
