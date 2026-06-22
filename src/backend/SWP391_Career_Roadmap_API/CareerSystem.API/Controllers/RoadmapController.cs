@@ -1,6 +1,5 @@
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
-using CareerSystem.API.Utilities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CareerSystem.API.Controllers
@@ -18,22 +17,13 @@ namespace CareerSystem.API.Controllers
 
         //API tạo roadmap
         [HttpPost("generate-personalized")]
-        [ValidateGeminiApiKey]
         public async Task<IActionResult> GeneratePersonalizedRoadmap([FromBody] PersonalizedRoadmapRequest request)
         {
             if (request.DailyStudyHours <= 0)
                 return BadRequest("Số giờ học mỗi ngày phải lớn hơn 0.");
 
-            var previewDto = await _roadmapService.GenerateRoadmapPreviewAsync(request);
-            return Ok(previewDto);
-        }
-
-        //API lưu roadmap vào DB
-        [HttpPost("save")]
-        public async Task<IActionResult> SaveRoadmap([FromBody] SaveRoadmapRequestDto request)
-        {
-            var roadmapId = await _roadmapService.SaveRoadmapAsync(request);
-            return Ok(new { message = "Lộ trình đã lưu thành công!", roadmapId = roadmapId });
+            var roadmapId = await _roadmapService.GeneratePersonalizedRoadmapAsync(request);
+            return Ok(new { message = "Lộ trình đã tạo thành công!", roadmapId = roadmapId });
         }
 
         //API lấy danh sách roadmap của một User
@@ -50,6 +40,24 @@ namespace CareerSystem.API.Controllers
         {
             var roadmap = await _roadmapService.GetRoadmapDetailAsync(roadmapId);
             return Ok(roadmap);
+        }
+
+        //API xóa roadmap
+        [HttpDelete("{roadmapId}")]
+        public async Task<IActionResult> DeleteRoadmap(string roadmapId)
+        {
+            var result = await _roadmapService.DeleteRoadmapAsync(roadmapId);
+            if (!result) return NotFound(new { message = "Không tìm thấy lộ trình để xóa." });
+            return Ok(new { message = "Đã xóa lộ trình thành công." });
+        }
+
+        //API cập nhật trạng thái các node
+        [HttpPut("update-nodes-status")]
+        public async Task<IActionResult> UpdateNodesStatus([FromBody] UpdateNodesStatusRequest request)
+        {
+            var success = await _roadmapService.UpdateNodesStatusAsync(request);
+            if (!success) return NotFound(new { message = "Không tìm thấy lộ trình hoặc node cần cập nhật." });
+            return Ok(new { message = "Cập nhật trạng thái các môn học thành công!" });
         }
     }
 }

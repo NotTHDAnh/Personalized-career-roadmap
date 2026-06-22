@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase } from "lucide-react";
+import { useNavigate } from "react-router";
+import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase, Loader2, Map, Plus, CalendarDays } from "lucide-react";
 import { GoalNode } from "./components/GoalNode";
 import { RoadmapNode } from "./components/RoadmapNode";
 import { CourseCard } from "./components/CourseCard";
@@ -17,6 +18,16 @@ import { RoadmapCanvas } from "./components/RoadmapCanvas";
 import { MOCK_ROADMAP_DTO } from "./core/mockData";
 import { mapDtoToGraph } from "./core/roadmapAdapter";
 import { PhaseBasedLayoutEngine } from "./core/phaseBasedEngine";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 
 // const NODES: CourseNode[] = [
 //   // ── Zone 1: Foundation (Done) ──
@@ -168,14 +179,14 @@ const ROADMAP_GOALS: Record<string, { title: string; subtitle: string }> = {
 
 /* ─────────────────────────────────────── */
 
-const ZONES = [
-  { label: "ZONE: MONTH 1", sub: "Foundation · Completed", textColor: "#15803D", bg: "#F0FDF4", border: "#BBF7D0" },
-  { label: "ZONE: MONTH 2", sub: "Core Skills · Active", textColor: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE" },
-  { label: "ZONE: MONTH 3", sub: "Advanced · Upcoming", textColor: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
-  { label: "ZONE: MONTH 4", sub: "Specialisation · Upcoming", textColor: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
+const PHASE_COLORS = [
+  { textColor: "#4CAF50", bg: "#F0FDF4" },
+  { textColor: "#3B82F6", bg: "#EFF6FF" },
+  { textColor: "#8B5CF6", bg: "#F5F3FF" },
 ];
 
 export default function MyRoadmaps() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const userId = user?.userId || "student-001";
 
@@ -184,20 +195,90 @@ export default function MyRoadmaps() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roadmapData, setRoadmapData] = useState<any>(null); // State chứa dữ liệu thật
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteRoadmap = async () => {
+    if (!selectedRoadmapId) return;
+    setIsDeleting(true);
+    try {
+      if (!selectedRoadmapId.startsWith("mock-")) {
+        await apiClient.delete(`/Roadmap/${selectedRoadmapId}`);
+      }
+      const updatedList = roadmaps.filter((r) => r.roadmapId !== selectedRoadmapId);
+      setRoadmaps(updatedList);
+      if (updatedList.length > 0) {
+        setSelectedRoadmapId(updatedList[0].roadmapId);
+      } else {
+        setSelectedRoadmapId("");
+        setRoadmapData(null);
+      }
+    } catch (err) {
+      console.error("Lỗi xóa roadmap:", err);
+      setError("Không thể xóa lộ trình. Vui lòng thử lại.");
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+    }
+  };
 
   const handleUpdateNodeState = (nodeId: string, newStatus: NodeState) => {
     if (!roadmapData) return;
+
+    // Chuyển đổi trạng thái từ UI sang trạng thái DTO tương ứng của Database:
+    // database chỉ chấp nhận 'PENDING' hoặc 'COMPLETED'
+    const newDtoStatus = newStatus === "done" ? "COMPLETED" : "PENDING";
+
+    // 1. Thu thập tất cả các Node trong lộ trình phẳng để duyệt tìm quan hệ cha-con
+    const flatNodes = roadmapData.phases.flatMap((p: any) => p.nodes);
+
+    // 2. Lưu trữ danh sách cần cập nhật dưới dạng Map
+    const statusUpdates: Record<string, string> = {};
+    statusUpdates[nodeId] = newDtoStatus;
+
+    // Nếu người dùng hủy hoàn thành (chuyển sang PENDING), chúng ta cần khóa đệ quy tất cả các môn nối sau
+    if (newDtoStatus === "PENDING") {
+      const updateDescendants = (parentId: string) => {
+        const children = flatNodes.filter((n: any) => n.parentNodeId === parentId);
+        for (const child of children) {
+          statusUpdates[child.nodeId] = "PENDING";
+          updateDescendants(child.nodeId);
+        }
+      };
+      updateDescendants(nodeId);
+    }
+
+    // 3. Áp dụng toàn bộ thay đổi trạng thái mới vào state roadmapData
     const updatedPhases = roadmapData.phases.map((phase: any) => ({
       ...phase,
       nodes: phase.nodes.map((node: any) =>
-        node.nodeId === nodeId ? { ...node, status: newStatus } : node
+        statusUpdates[node.nodeId] !== undefined
+          ? { ...node, status: statusUpdates[node.nodeId] }
+          : node
       ),
     }));
+
     setRoadmapData({
       ...roadmapData,
       phases: updatedPhases,
     });
+
+    // 4. Gửi yêu cầu cập nhật lên Database nếu là roadmap thực tế
+    if (selectedRoadmapId && !selectedRoadmapId.startsWith("mock-") && !selectedRoadmapId.startsWith("preview-")) {
+      const updates = Object.entries(statusUpdates).map(([nid, status]) => ({
+        nodeId: nid,
+        status: status
+      }));
+
+      apiClient.put("/Roadmap/update-nodes-status", {
+        roadmapId: selectedRoadmapId,
+        updates: updates
+      }).catch((err) => {
+        console.error("Lỗi cập nhật trạng thái node trên Database:", err);
+      });
+    }
   };
+
 
   // 1. Lấy danh sách Roadmap từ Database
   useEffect(() => {
@@ -256,6 +337,19 @@ export default function MyRoadmaps() {
     void fetchRoadmapDetail();
   }, [selectedRoadmapId]);
 
+  // Map phases dynamically from the API
+  const zones = roadmapData?.phases?.map((p: any, i: number) => {
+    const colorTheme = PHASE_COLORS[i % PHASE_COLORS.length] || PHASE_COLORS[0];
+    return {
+      label: `PHASE ${i + 1}`,
+      sub: p.phaseName,
+      textColor: colorTheme.textColor,
+      bg: colorTheme.bg
+    };
+  }) || [];
+
+
+
   const handleRetry = () => {
     setError(null);
     setLoading(true);
@@ -270,6 +364,21 @@ export default function MyRoadmaps() {
     };
   }, [roadmapData]);
 
+  const stats = useMemo(() => {
+    if (!roadmapData) return { totalCourses: 0, totalHours: 0, progress: 0 };
+    const flatNodes = roadmapData.phases?.flatMap((p: any) => p.nodes) || [];
+    const totalCourses = flatNodes.length;
+    // Tạm tính trung bình 30 giờ cho mỗi môn học nếu không có dữ liệu giờ cụ thể
+    const totalHours = flatNodes.reduce((acc: number, node: any) => {
+      const weeks = parseInt(node.duration) || 8; 
+      return acc + (weeks * 5); // Tạm tính 1 week = 5 hours
+    }, 0);
+    const completedCourses = flatNodes.filter((n: any) => n.status === "COMPLETED" || n.status === "done").length;
+    const progress = totalCourses === 0 ? 0 : Math.round((completedCourses / totalCourses) * 100);
+
+    return { totalCourses, totalHours, progress };
+  }, [roadmapData]);
+
   // 1. Chạy Layout Engine để chuyển DTO thành Graph có tọa độ
   const computedGraph = useMemo(() => {
     if (!roadmapData) return null; // Ngăn lỗi sập ứng dụng
@@ -278,11 +387,18 @@ export default function MyRoadmaps() {
     return engine.layout(graph);
   }, [roadmapData]);
 
+  // Determine full horizontal width needed for the SVG and Container
+  const totalSvgWidth = computedGraph?.zones 
+    ? computedGraph.zones[computedGraph.zones.length - 1].x + computedGraph.zones[computedGraph.zones.length - 1].width 
+    : 1000;
+  
+  const containerMinWidth = totalSvgWidth + "px";
+
   // const byZone = (z: number) => NODES.filter((n) => n.zone === z);
 
   if (error) {
     return (
-      <div className="p-8 min-h-full" style={{ background: "#F1F5F9" }}>
+      <div className="p-8 min-h-full bg-transparent transition-colors duration-300">
         <ErrorAlert title="Roadmap Load Error" message={error} onRetry={handleRetry} />
       </div>
     );
@@ -290,10 +406,28 @@ export default function MyRoadmaps() {
 
   return (
     <CourseContext.Provider value={{ updateNodeState: handleUpdateNodeState }}>
-      <div className="p-8 space-y-6 min-h-full" style={{ background: "#F1F5F9" }}>
+      <div className="p-8 space-y-6 min-h-full bg-transparent transition-colors duration-300">
 
+      {(!loading && roadmaps.length === 0) ? (
+        <div className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-16 flex flex-col items-center justify-center text-center h-[60vh]">
+          <Map className="w-20 h-20 text-[#CBD5E1] mb-6" />
+          <h3 className="text-2xl font-bold text-[#0F172A] mb-3">No roadmap available</h3>
+          <p className="text-[#64748B] mb-8 max-w-[420px] text-sm leading-relaxed">
+            You haven't created any career roadmaps yet. Let our AI Virtual Mentor guide you to build a personalized path for your dream career.
+          </p>
+          <button
+            onClick={() => navigate("/dashboard/mentor")}
+            className="flex items-center gap-2 px-6 py-3 rounded-full text-white font-bold transition-transform hover:scale-105 shadow-sm"
+            style={{ background: "linear-gradient(to right, #3B28CC, #6366f1)" }}
+          >
+            <Plus className="w-5 h-5" />
+            Create Roadmap
+          </button>
+        </div>
+      ) : (
+        <>
       {/* ── Section 1: Management Header ── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4 flex items-center gap-4 flex-wrap">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4 flex items-center gap-4 flex-wrap transition-colors duration-300">
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-500 whitespace-nowrap" style={{ fontWeight: 500 }}>
             Select Active Roadmap
@@ -306,8 +440,7 @@ export default function MyRoadmaps() {
                 <select
                   value={selectedRoadmapId}
                   onChange={(e) => setSelectedRoadmapId(e.target.value)}
-                  className="appearance-none pr-8 pl-3 py-2 rounded-lg border text-sm text-gray-800 focus:outline-none cursor-pointer"
-                  style={{ borderColor: "#E2E8F0", background: "#F8FAFC", fontWeight: 500 }}
+                  className="appearance-none pr-8 pl-3 py-2 rounded-lg border text-sm text-gray-800 focus:outline-none cursor-pointer border-[#E2E8F0] bg-[#F8FAFC] font-medium transition-colors"
                 >
                   {roadmaps.map((r) => <option key={r.roadmapId} value={r.roadmapId}>{r.targetRoleName}</option>)}
                 </select>
@@ -318,103 +451,133 @@ export default function MyRoadmaps() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-gray-50 transition-colors" style={{ borderColor: "#E2E8F0", color: "#475569" }}>
-            <Pencil className="w-3.5 h-3.5" /> Edit
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-white hover:opacity-90 transition-opacity" style={{ background: COLORS.TEAL_ACCENT }}>
-            <Save className="w-3.5 h-3.5" /> Save
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-red-50 transition-colors" style={{ borderColor: "#FCA5A5", color: "#DC2626" }}>
-            <Trash2 className="w-3.5 h-3.5" /> Delete
+          <button 
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+            style={{ borderColor: "#FCA5A5", color: "#DC2626" }}
+            onClick={() => setIsDeleteDialogOpen(true)}
+            disabled={!selectedRoadmapId || isDeleting}
+          >
+            {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} 
+            Delete
           </button>
         </div>
 
         <div className="flex-1" />
 
-        <div className="flex items-center gap-3 px-4 py-2 rounded-xl" style={{ background: "#EFF6FF", border: "1px solid #BFDBFE" }}>
-          <span className="text-xs text-blue-700" style={{ fontWeight: 600 }}>⏳ Remaining Study Time</span>
-          {loading ? (
-            <Skeleton className="h-5 w-20 rounded-full" />
-          ) : (
-            <span className="text-xs px-2.5 py-1 rounded-full text-white" style={{ background: COLORS.BLUE_PRIMARY, fontWeight: 600 }}>~24 Weeks</span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Section 2: Duolingo Map (horizontally scrollable) ── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <div style={{ minWidth: "1280px" }}>
-
-            {/* Zone label header — scrolls with the map */}
-            <div style={{ display: "flex", borderBottom: "1px solid #F1F5F9" }}>
-              {ZONES.map(({ label, textColor, bg, border: bdr }, i) => (
-                <div
-                  key={label}
-                  style={{
-                    flex: 1,
-                    padding: "10px 0",
-                    textAlign: "center",
-                    fontSize: "0.68rem",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.1em",
-                    background: bg,
-                    color: textColor,
-                    borderLeft: i > 0 ? `1px solid ${bdr}` : undefined,
-                  }}
-                >
-                  {label}
-                </div>
-              ))}
+        <div className="flex items-center gap-4">
+          {/* Progress Bar */}
+          <div className="flex flex-col gap-1 w-40 md:w-56">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-gray-700">Progress</span>
+              <span className="text-[10px] font-bold" style={{ color: COLORS.BLUE_PRIMARY }}>{stats.progress}%</span>
             </div>
-
-            {/* Map canvas — taller to give goal card room below its circle */}
-            {/* Map canvas — taller to give goal card room below its circle */}
-            <div className="relative" style={{ height: "280px", background: "#FAFBFC" }}>
-              {(loading || !computedGraph) ? (
-                <div className="absolute inset-0 flex items-center justify-around px-12">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="flex flex-col items-center gap-3">
-                      <Skeleton className="w-12 h-12 rounded-full" />
-                      <Skeleton className="w-16 h-3 rounded" />
-                    </div>
-                  ))}
-                  <div className="flex flex-col items-center gap-3 ml-auto pr-10">
-                    <Skeleton className="w-16 h-16 rounded-full" />
-                    <Skeleton className="w-24 h-12 rounded-xl" />
-                  </div>
-                </div>
-              ) : (
-                <RoadmapCanvas graph={computedGraph} goal={goal} zones={ZONES} />
-              )}
+            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+              <div 
+                className="h-full rounded-full transition-all duration-1000 ease-out"
+                style={{ width: `${stats.progress}%`, background: COLORS.BLUE_PRIMARY }}
+              />
             </div>
+          </div>
+
+          {/* Stats Badge */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE]">
+            <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider hidden sm:inline">Total:</span>
+            {loading ? (
+              <Skeleton className="h-3 w-16 rounded" />
+            ) : (
+              <span className="text-[11px] text-blue-900 font-black tracking-tight">
+                {stats.totalCourses} Courses • {stats.totalHours} Hrs
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ── Section 3: Chronological Timeline ── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {/* Timeline column headers */}
-        <div className="grid grid-cols-4 border-b border-gray-100">
-          {ZONES.map(({ sub, textColor, bg, border: bdr }, i) => (
-            <div
-              key={i}
-              className="px-4 py-3"
-              style={{ background: bg, borderLeft: i > 0 ? `1px solid ${bdr}` : undefined }}
-            >
-              <p className="text-xs uppercase tracking-wider" style={{ color: textColor, fontWeight: 700 }}>
-                Month {i + 1}
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">{sub.split(" · ")[1]}</p>
+      {/* ── Section 2: Canvas and Goal ── */}
+      <div className="flex gap-4">
+        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-colors duration-300">
+          <div className="overflow-x-auto w-full">
+            <div style={{ width: containerMinWidth, minWidth: containerMinWidth }}>
+
+              {/* Zone label header — scrolls with the map */}
+              <div style={{ display: "flex", background: "white" }}>
+                {zones.map(({ label, sub, textColor, bg }: { label: string, sub: string, textColor: string, bg: string }, i: number) => {
+                  const zoneWidth = computedGraph?.zones?.[i]?.width || 300;
+                  return (
+                    <div
+                      key={label}
+                      style={{
+                        width: zoneWidth + "px",
+                        flexShrink: 0,
+                        padding: "20px 0",
+                        textAlign: "center",
+                        background: bg,
+                        borderRight: i < zones.length - 1 ? "1px dashed rgba(200,200,200,0.5)" : "none",
+                      }}
+                      className="flex flex-col items-center justify-center gap-1.5 relative"
+                    >
+                      <div className="flex items-center gap-2">
+                        <CalendarDays className="w-5 h-5" style={{ color: textColor }} />
+                        <span style={{ fontSize: "1.1rem", fontWeight: 900, color: textColor, letterSpacing: "0.05em" }}>
+                          {label}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#475569" }}>
+                        {sub}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Map canvas */}
+              <div className="relative bg-[#F3F4F6] transition-colors duration-300" style={{ height: "180px" }}>
+                {(loading || !computedGraph) ? (
+                  <div className="absolute inset-0 flex items-center justify-around px-12">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex flex-col items-center gap-3">
+                        <Skeleton className="w-12 h-12 rounded-full" />
+                        <Skeleton className="w-16 h-3 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <RoadmapCanvas graph={computedGraph} goal={goal} zones={zones} />
+                )}
+              </div>
             </div>
-          ))}
+          </div>
         </div>
 
-        {/* Course card stacks */}
-        <div className="grid grid-cols-4 divide-x divide-gray-100">
-          {[0, 1, 2, 3].map((z) => (
-            <div key={z} className="p-3">
+        {/* Separated Goal Node Card */}
+        <div className="w-[180px] lg:w-[220px] shrink flex items-center justify-center relative my-auto">
+             <GoalNode goal={goal} />
+        </div>
+      </div>
+
+      {/* ── Section 3: Chronological Timeline ── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-colors duration-300">
+        <div className="w-full">
+              {/* Timeline column headers */}
+              <div className="grid border-b border-gray-100 w-full" style={{ gridTemplateColumns: `repeat(${zones.length}, minmax(0, 1fr))` }}>
+                {zones.map(({ label, sub, textColor, bg }: { label: string, sub: string, textColor: string, bg: string }, i: number) => (
+                  <div
+                    key={i}
+                    className="px-4 py-3"
+                    style={{ background: bg, borderRight: i < zones.length - 1 ? "1px dashed rgba(200,200,200,0.5)" : "none" }}
+                  >
+                    <p className="text-xs uppercase tracking-wider text-center" style={{ color: textColor, fontWeight: 800 }}>
+                      {label}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5 font-medium text-center">{sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Course card stacks */}
+              <div className="grid divide-x divide-gray-100 w-full" style={{ gridTemplateColumns: `repeat(${zones.length}, minmax(0, 1fr))` }}>
+                {zones.map((_: any, z: number) => (
+                  <div key={z} className="p-3">
               {loading ? (
                 <div className="space-y-3">
                   <Skeleton className="h-28 w-full rounded-xl" />
@@ -423,31 +586,48 @@ export default function MyRoadmaps() {
               ) : (
                 <>
                   {computedGraph && computedGraph.nodes.filter((n) => n.zone === z).map((n) => <CourseCard key={n.id} node={n.data as any} />)}
-                  {/* Career Target card in Month 4 column */}
-                  {z === 3 && (
-                    <div
-                      className="rounded-xl border p-3.5 mt-1"
-                      style={{ background: "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)", border: "1.5px solid #FDE68A" }}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "#F59E0B" }}>
-                          <Briefcase className="w-3.5 h-3.5 text-white" />
-                        </div>
-                        <span className="text-xs uppercase tracking-wider" style={{ color: "#92400E", fontWeight: 700, fontSize: "0.6rem" }}>
-                          Career Target
-                        </span>
-                      </div>
-                      <p className="text-sm" style={{ fontWeight: 700, color: "#78350F" }}>{goal.title}</p>
-                      <p className="text-xs text-amber-600 mt-0.5">{goal.subtitle}</p>
-                    </div>
-                  )}
                 </>
               )}
             </div>
           ))}
         </div>
+        </div>
       </div>
-    </div>
+        </>
+      )}
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your roadmap and all its progress.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteRoadmap();
+              }}
+              disabled={isDeleting}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      </div>
     </CourseContext.Provider>
   );
 }

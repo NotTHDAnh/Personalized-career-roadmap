@@ -48,6 +48,12 @@ namespace CareerSystem.API.Services.Implementations
             };
             _context.Roadmaps.Add(newRoadmap);
 
+            // Lấy danh sách mã/id môn học đã học từ học bạ của sinh viên
+            var passedCourseIds = await _context.AcademicRecords
+                .Where(ar => ar.UserId == request.UserId)
+                .Select(ar => ar.CourseId)
+                .ToListAsync();
+
             // 6. Bóc tách kết quả JSON, đối chiếu với Database thật, tính toán Deadline, rồi khởi tạo các Node học tập tương ứng
 
             if (recommendedCourses != null && recommendedCourses.Any())
@@ -102,6 +108,10 @@ namespace CareerSystem.API.Services.Implementations
                     int daysRequired = (int)Math.Ceiling(totalHours / dailyHours);
                     currentDeadline = currentDeadline.AddDays(daysRequired);
 
+                    // Xác định trạng thái ban đầu dựa trên học bạ (chỉ dùng PENDING hoặc COMPLETED để khớp với CHECK constraint trong DB)
+                    bool isCompleted = passedCourseIds.Contains(courseDb.CourseId);
+                    string initialStatus = isCompleted ? "COMPLETED" : "PENDING";
+
                     // 6.4. Khởi tạo Node học tập
                     var node = new SkillNode
                     {
@@ -110,7 +120,7 @@ namespace CareerSystem.API.Services.Implementations
                         SkillId = skillDb.SkillId,             // Nối với kỹ năng chuẩn
                         CourseId = courseDb.CourseId,          // Nối với môn học chuẩn
                         ParentNodeId = previousNodeId,         // Nối tiếp với môn học trước đó (A -> B -> C)
-                        Status = "PENDING",
+                        Status = initialStatus,
                         Deadline = currentDeadline,
                         AcademicLevel = rec.Level ?? "Beginner"
                     };
@@ -145,17 +155,44 @@ namespace CareerSystem.API.Services.Implementations
                 throw new Exception("Không tìm thấy lộ trình yêu cầu.");
             }
 
+            // Lấy danh sách các CourseId đã học từ học bạ của người dùng sở hữu roadmap này
+            var passedCourseIds = await _context.AcademicRecords
+                .Where(ar => ar.UserId == roadmap.UserId)
+                .Select(ar => ar.CourseId)
+                .ToListAsync();
+
             // Sắp xếp các môn học theo thứ tự Deadline tăng dần để FE vẽ từ trái sang phải
-            var orderedNodes = roadmap.SkillNodes.OrderBy(sn => sn.Deadline).Select(sn => new SkillNodeDetailDto
+            var sortedSkillNodes = roadmap.SkillNodes.OrderBy(sn => sn.Deadline).ToList();
+            var orderedNodes = new List<SkillNodeDetailDto>();
+            bool hasChanges = false;
+
+            foreach (var sn in sortedSkillNodes)
             {
-                NodeId = sn.NodeId,
-                CourseCode = sn.Course?.CourseCode,
-                CourseName = sn.Course?.CourseName,
-                Status = sn.Status ?? "PENDING",
-                Deadline = sn.Deadline,
-                ParentNodeId = sn.ParentNodeId,
-                AcademicLevel = sn.AcademicLevel
-            }).ToList();
+                bool isCompleted = sn.CourseId != null && passedCourseIds.Contains(sn.CourseId);
+                string computedStatus = isCompleted ? "COMPLETED" : "PENDING";
+
+                if (sn.Status != computedStatus)
+                {
+                    sn.Status = computedStatus;
+                    hasChanges = true;
+                }
+
+                orderedNodes.Add(new SkillNodeDetailDto
+                {
+                    NodeId = sn.NodeId,
+                    CourseCode = sn.Course?.CourseCode,
+                    CourseName = sn.Course?.CourseName,
+                    Status = computedStatus,
+                    Deadline = sn.Deadline,
+                    ParentNodeId = sn.ParentNodeId,
+                    AcademicLevel = sn.AcademicLevel
+                });
+            }
+
+            if (hasChanges)
+            {
+                await _context.SaveChangesAsync();
+            }
 
             // Nhóm các node theo level (Beginner, Intermediate, Advanced)
             var phases = new List<RoadmapPhaseDto>();
@@ -381,6 +418,53 @@ namespace CareerSystem.API.Services.Implementations
                     TargetRoleName = r.TargetRole != null ? r.TargetRole.RoleName : "Lộ trình cá nhân"
                 })
                 .ToListAsync();
+        }
+
+        public async Task<bool> DeleteRoadmapAsync(string roadmapId)
+        {
+            var roadmap = await _context.Roadmaps.FindAsync(roadmapId);
+            if (roadmap == null) return false;
+
+            // Fetch all associated SkillNodes
+            var skillNodes = await _context.SkillNodes.Where(sn => sn.RoadmapId == roadmapId).ToListAsync();
+            
+            // Remove self-referencing foreign keys to avoid constraint violations during deletion
+            foreach (var node in skillNodes)
+            {
+                node.ParentNodeId = null;
+            }
+            
+            if (skillNodes.Any())
+            {
+                await _context.SaveChangesAsync(); // Apply ParentNodeId = null
+                _context.SkillNodes.RemoveRange(skillNodes); // Remove the skill nodes
+            }
+
+            _context.Roadmaps.Remove(roadmap);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> UpdateNodesStatusAsync(UpdateNodesStatusRequest request)
+        {
+            var roadmap = await _context.Roadmaps
+                .Include(r => r.SkillNodes)
+                .FirstOrDefaultAsync(r => r.RoadmapId == request.RoadmapId);
+
+            if (roadmap == null) return false;
+
+            var updatesMap = request.Updates.ToDictionary(u => u.NodeId, u => u.Status);
+
+            foreach (var node in roadmap.SkillNodes)
+            {
+                if (updatesMap.TryGetValue(node.NodeId, out var newStatus))
+                {
+                    node.Status = newStatus;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

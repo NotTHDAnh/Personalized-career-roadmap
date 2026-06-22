@@ -20,6 +20,26 @@ interface ChatSectionProps {
   hasActivePreview: boolean;
 }
 
+
+const MessageItem = React.memo(({ message }: { message: Message }) => {
+  const isUser = message.role === "user";
+  return (
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${
+          isUser
+            ? "bg-[#006b5f] text-white rounded-br-sm"
+            : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
+        }`}
+      >
+        <ReactMarkdown>{message.content}</ReactMarkdown>
+      </div>
+    </div>
+  );
+});
+
+MessageItem.displayName = "MessageItem";
+
 export default function MentorChatSection({
   messages,
   input,
@@ -37,35 +57,30 @@ export default function MentorChatSection({
   return (
     <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm flex-1 min-h-0 flex flex-col overflow-hidden">
       {/* <div className="p-6 border-b border-[#c4c6cf]"> */}
-      <div className="shrink-0 p-6 border-b border-[#c4c6cf]">
-        <p className="text-xs font-bold uppercase tracking-widest text-[#74777f]">
-          AI Virtual Mentor
-        </p>
-        <h3 className="text-2xl font-bold text-[#002046] mt-2">
-          Career Advisement Chat
-        </h3>
-        <p className="text-sm text-[#44474e] mt-1">
-          Ask questions about your career direction, skill gaps and learning path.
-        </p>
+      <div className="shrink-0 p-6 border-b border-[#c4c6cf] flex items-start justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-[#74777f]">
+            AI Virtual Mentor
+          </p>
+          <h3 className="text-2xl font-bold text-[#002046] mt-2">
+            Career Advisement Chat
+          </h3>
+          <p className="text-sm text-[#44474e] mt-1">
+            Ask questions about your career direction, skill gaps and learning path.
+          </p>
+        </div>
+        {/* <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onClearHistory}
+          disabled={messages.length <= 1 || loadingHistory || typing}
+          title="Clear chat history"
+          className="text-[#ba1a1a] hover:bg-[#ffdad6] hover:text-[#410002] rounded-xl shrink-0"
+        >
+          <Trash2 className="w-5 h-5" />
+        </Button> */}
       </div>
-
-      {/* <div className="flex-1 p-6 overflow-y-auto space-y-4"> */}
-      {/* <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3">
-        {messages.map((message) => (
-          <div
-            ref={messagesContainerRef}
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3"
-          >
-            <div
-              className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${message.role === "user"
-                ? "bg-[#006b5f] text-white rounded-br-sm"
-                : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
-                }`}
-            >
-              {message.content}
-            </div>
-          </div>
-        ))} */}
 
       <div
         ref={messagesContainerRef}
@@ -97,8 +112,8 @@ export default function MentorChatSection({
                 <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:120ms]" />
                 <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:240ms]" />
               </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
 
         {/* <div ref={bottomRef} /> */}
