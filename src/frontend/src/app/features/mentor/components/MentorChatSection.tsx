@@ -112,8 +112,8 @@ export default function MentorChatSection({
                 <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:120ms]" />
                 <span className="h-2 w-2 animate-bounce rounded-full bg-[#006b5f] [animation-delay:240ms]" />
               </div>
-            )}
-          </>
+            </div>
+          </div>
         )}
 
         {/* <div ref={bottomRef} /> */}
