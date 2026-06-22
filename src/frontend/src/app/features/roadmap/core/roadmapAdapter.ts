@@ -53,7 +53,8 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
                     prerequisite: dtoNode.parentNodeId ? "Có điều kiện tiên quyết" : "Không có",
                     deadline: dtoNode.deadline,
                     academicLevel: dtoNode.academicLevel,
-                    skills: ["#Coding", "#System"]
+                    skills: ["#Coding", "#System"],
+                    gpa: dtoNode.gpa
                 },
             });
 

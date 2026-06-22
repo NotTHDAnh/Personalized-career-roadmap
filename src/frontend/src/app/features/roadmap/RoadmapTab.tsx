@@ -15,7 +15,6 @@ import { apiClient } from "@/shared/api/apiClient";
 
 import { useMemo } from "react";
 import { RoadmapCanvas } from "./components/RoadmapCanvas";
-import { MOCK_ROADMAP_DTO } from "./core/mockData";
 import { mapDtoToGraph } from "./core/roadmapAdapter";
 import { PhaseBasedLayoutEngine } from "./core/phaseBasedEngine";
 import {
@@ -202,9 +201,7 @@ export default function MyRoadmaps() {
     if (!selectedRoadmapId) return;
     setIsDeleting(true);
     try {
-      if (!selectedRoadmapId.startsWith("mock-")) {
-        await apiClient.delete(`/Roadmap/${selectedRoadmapId}`);
-      }
+      await apiClient.delete(`/Roadmap/${selectedRoadmapId}`);
       const updatedList = roadmaps.filter((r) => r.roadmapId !== selectedRoadmapId);
       setRoadmaps(updatedList);
       if (updatedList.length > 0) {
@@ -222,7 +219,7 @@ export default function MyRoadmaps() {
     }
   };
 
-  const handleUpdateNodeState = (nodeId: string, newStatus: NodeState) => {
+  const handleUpdateNodeState = (nodeId: string, newStatus: NodeState, gpa?: number) => {
     if (!roadmapData) return;
 
     // Chuyển đổi trạng thái từ UI sang trạng thái DTO tương ứng của Database:
@@ -233,15 +230,15 @@ export default function MyRoadmaps() {
     const flatNodes = roadmapData.phases.flatMap((p: any) => p.nodes);
 
     // 2. Lưu trữ danh sách cần cập nhật dưới dạng Map
-    const statusUpdates: Record<string, string> = {};
-    statusUpdates[nodeId] = newDtoStatus;
+    const statusUpdates: Record<string, { status: string, gpa?: number }> = {};
+    statusUpdates[nodeId] = { status: newDtoStatus, gpa };
 
     // Nếu người dùng hủy hoàn thành (chuyển sang PENDING), chúng ta cần khóa đệ quy tất cả các môn nối sau
     if (newDtoStatus === "PENDING") {
       const updateDescendants = (parentId: string) => {
         const children = flatNodes.filter((n: any) => n.parentNodeId === parentId);
         for (const child of children) {
-          statusUpdates[child.nodeId] = "PENDING";
+          statusUpdates[child.nodeId] = { status: "PENDING" };
           updateDescendants(child.nodeId);
         }
       };
@@ -253,7 +250,7 @@ export default function MyRoadmaps() {
       ...phase,
       nodes: phase.nodes.map((node: any) =>
         statusUpdates[node.nodeId] !== undefined
-          ? { ...node, status: statusUpdates[node.nodeId] }
+          ? { ...node, status: statusUpdates[node.nodeId].status, gpa: statusUpdates[node.nodeId].gpa ?? node.gpa }
           : node
       ),
     }));
@@ -264,10 +261,11 @@ export default function MyRoadmaps() {
     });
 
     // 4. Gửi yêu cầu cập nhật lên Database nếu là roadmap thực tế
-    if (selectedRoadmapId && !selectedRoadmapId.startsWith("mock-") && !selectedRoadmapId.startsWith("preview-")) {
-      const updates = Object.entries(statusUpdates).map(([nid, status]) => ({
+    if (selectedRoadmapId && !selectedRoadmapId.startsWith("preview-")) {
+      const updates = Object.entries(statusUpdates).map(([nid, data]) => ({
         nodeId: nid,
-        status: status
+        status: data.status,
+        gpa: data.gpa
       }));
 
       apiClient.put("/Roadmap/update-nodes-status", {
@@ -289,22 +287,15 @@ export default function MyRoadmaps() {
           setRoadmaps(data);
           setSelectedRoadmapId(data[0].roadmapId);
         } else {
-          // Fallback sang mock nếu chưa có lộ trình nào được lưu
-          setRoadmaps([
-            { roadmapId: "mock-backend", targetRoleName: "Backend Developer Path" },
-            { roadmapId: "mock-fullstack", targetRoleName: "Full-Stack Engineer Path" },
-            { roadmapId: "mock-dataeng", targetRoleName: "Data Engineering Path" },
-          ]);
-          setSelectedRoadmapId("mock-backend");
+          setRoadmaps([]);
+          setSelectedRoadmapId("");
+          setLoading(false);
         }
       } catch (err) {
-        console.error("Lỗi lấy danh sách roadmap, dùng tạm mock:", err);
-        setRoadmaps([
-          { roadmapId: "mock-backend", targetRoleName: "Backend Developer Path" },
-          { roadmapId: "mock-fullstack", targetRoleName: "Full-Stack Engineer Path" },
-          { roadmapId: "mock-dataeng", targetRoleName: "Data Engineering Path" },
-        ]);
-        setSelectedRoadmapId("mock-backend");
+        console.error("Lỗi lấy danh sách roadmap:", err);
+        setRoadmaps([]);
+        setSelectedRoadmapId("");
+        setLoading(false);
       }
     }
     void fetchUserRoadmaps();
@@ -318,18 +309,12 @@ export default function MyRoadmaps() {
       setLoading(true);
       setError(null);
 
-      if (selectedRoadmapId.startsWith("mock-")) {
-        setRoadmapData(MOCK_ROADMAP_DTO);
-        setLoading(false);
-        return;
-      }
-
       try {
         const data = await apiClient.get<any>(`/Roadmap/${selectedRoadmapId}`);
         setRoadmapData(data);
       } catch (err) {
         console.error("Lỗi load chi tiết roadmap:", err);
-        setRoadmapData(MOCK_ROADMAP_DTO);
+        setRoadmapData(null);
       } finally {
         setLoading(false);
       }
