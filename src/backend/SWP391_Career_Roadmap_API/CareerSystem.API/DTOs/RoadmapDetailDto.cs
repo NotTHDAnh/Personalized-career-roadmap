@@ -18,11 +18,13 @@ namespace CareerSystem.API.DTOs
     public class SkillNodeDetailDto
     {
         public string NodeId { get; set; } = null!;
+        public string? CourseId { get; set; }
         public string? CourseCode { get; set; }
         public string? CourseName { get; set; }
         public string Status { get; set; } = null!;
         public DateOnly? Deadline { get; set; }
         public string? ParentNodeId { get; set; }
         public string? AcademicLevel { get; set; }
+        public decimal? Gpa { get; set; }
     }
 }

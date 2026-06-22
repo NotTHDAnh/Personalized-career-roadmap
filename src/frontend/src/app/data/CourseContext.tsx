@@ -2,7 +2,7 @@ import React, { createContext, useContext } from "react";
 import type { NodeState } from "@/app/types";
 
 interface CourseContextType {
-  updateNodeState: (nodeId: string, newState: NodeState) => void;
+  updateNodeState: (nodeId: string, newState: NodeState, gpa?: number) => void;
 }
 
 export const CourseContext = createContext<CourseContextType | undefined>(undefined);

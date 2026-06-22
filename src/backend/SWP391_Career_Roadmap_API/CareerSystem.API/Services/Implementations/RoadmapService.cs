@@ -155,11 +155,10 @@ namespace CareerSystem.API.Services.Implementations
                 throw new Exception("Không tìm thấy lộ trình yêu cầu.");
             }
 
-            // Lấy danh sách các CourseId đã học từ học bạ của người dùng sở hữu roadmap này
-            var passedCourseIds = await _context.AcademicRecords
+            // Lấy danh sách các CourseId đã học và gpa từ học bạ của người dùng sở hữu roadmap này
+            var academicRecords = await _context.AcademicRecords
                 .Where(ar => ar.UserId == roadmap.UserId)
-                .Select(ar => ar.CourseId)
-                .ToListAsync();
+                .ToDictionaryAsync(ar => ar.CourseId, ar => ar.Gpa);
 
             // Sắp xếp các môn học theo thứ tự Deadline tăng dần để FE vẽ từ trái sang phải
             var sortedSkillNodes = roadmap.SkillNodes.OrderBy(sn => sn.Deadline).ToList();
@@ -168,8 +167,9 @@ namespace CareerSystem.API.Services.Implementations
 
             foreach (var sn in sortedSkillNodes)
             {
-                bool isCompleted = sn.CourseId != null && passedCourseIds.Contains(sn.CourseId);
+                bool isCompleted = sn.CourseId != null && academicRecords.ContainsKey(sn.CourseId);
                 string computedStatus = isCompleted ? "COMPLETED" : "PENDING";
+                decimal? gpa = isCompleted ? academicRecords[sn.CourseId] : null;
 
                 if (sn.Status != computedStatus)
                 {
@@ -180,12 +180,14 @@ namespace CareerSystem.API.Services.Implementations
                 orderedNodes.Add(new SkillNodeDetailDto
                 {
                     NodeId = sn.NodeId,
+                    CourseId = sn.CourseId,
                     CourseCode = sn.Course?.CourseCode,
                     CourseName = sn.Course?.CourseName,
                     Status = computedStatus,
                     Deadline = sn.Deadline,
                     ParentNodeId = sn.ParentNodeId,
-                    AcademicLevel = sn.AcademicLevel
+                    AcademicLevel = sn.AcademicLevel,
+                    Gpa = gpa
                 });
             }
 
@@ -280,6 +282,7 @@ namespace CareerSystem.API.Services.Implementations
                     orderedNodes.Add(new SkillNodeDetailDto
                     {
                         NodeId = Guid.NewGuid().ToString(), // Temp Node ID
+                        CourseId = courseDb.CourseId,
                         CourseCode = courseDb.CourseCode,
                         CourseName = courseDb.CourseName,
                         Status = "PENDING",
@@ -453,13 +456,34 @@ namespace CareerSystem.API.Services.Implementations
 
             if (roadmap == null) return false;
 
-            var updatesMap = request.Updates.ToDictionary(u => u.NodeId, u => u.Status);
-
             foreach (var node in roadmap.SkillNodes)
             {
-                if (updatesMap.TryGetValue(node.NodeId, out var newStatus))
+                var updateDto = request.Updates.FirstOrDefault(u => u.NodeId == node.NodeId);
+                if (updateDto != null)
                 {
-                    node.Status = newStatus;
+                    node.Status = updateDto.Status;
+
+                    if (updateDto.Status == "COMPLETED" && node.CourseId != null && updateDto.Gpa.HasValue)
+                    {
+                        var record = await _context.AcademicRecords
+                            .FirstOrDefaultAsync(ar => ar.UserId == roadmap.UserId && ar.CourseId == node.CourseId);
+
+                        if (record == null)
+                        {
+                            _context.AcademicRecords.Add(new AcademicRecord
+                            {
+                                RecordId = Guid.NewGuid().ToString(),
+                                UserId = roadmap.UserId,
+                                CourseId = node.CourseId,
+                                Gpa = updateDto.Gpa.Value,
+                                ExamAttempts = 1
+                            });
+                        }
+                        else
+                        {
+                            record.Gpa = updateDto.Gpa.Value;
+                        }
+                    }
                 }
             }
 

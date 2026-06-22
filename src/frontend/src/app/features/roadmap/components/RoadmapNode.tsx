@@ -1,6 +1,16 @@
-import { Check, Lock, CalendarDays, GraduationCap, Clock, BookOpen, Target, Book } from "lucide-react";
+import { Check, Lock, CalendarDays, GraduationCap, Clock, BookOpen, Target, Book, ExternalLink } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/app/components/ui/popover";
 import { Button } from "@/app/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 import React, { useState } from "react";
 import { useCourseContext } from "@/app/data/CourseContext";
 import type { CourseNode } from "@/app/types";
@@ -15,6 +25,19 @@ const ZONE_STYLES: Record<number, { core: string, aura: string, text: string }> 
 export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWidth?: number }) {
   const { updateNodeState } = useCourseContext();
   const [open, setOpen] = useState(false);
+  const [gpa, setGpa] = useState(node.gpa ? node.gpa.toString() : "");
+  const [gpaError, setGpaError] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleValidateAndConfirm = () => {
+    const num = parseFloat(gpa);
+    if (isNaN(num) || num < 5 || num > 10) {
+      setGpaError("GPA must be between 5 and 10.");
+    } else {
+      setGpaError("");
+      setShowConfirm(true);
+    }
+  };
 
   const cWidth = canvasWidth || 1280;
   const pctX = (node.cx / cWidth) * 100;
@@ -115,7 +138,7 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
         </div>
       </PopoverTrigger>
 
-      <PopoverContent className="w-80 p-0 overflow-hidden shadow-2xl border border-gray-100 rounded-2xl" side="right" align="center" sideOffset={16}>
+      <PopoverContent className="w-[22rem] p-0 overflow-hidden shadow-2xl border border-gray-100 rounded-2xl" side="right" align="center" sideOffset={16}>
         <div className="px-5 py-4 text-white relative" style={{ background: isLocked ? "#94A3B8" : style.core }}>
           <div className="relative z-10 flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
@@ -141,7 +164,7 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
           </div>
         </div>
 
-        <div className="p-5 space-y-4 bg-white">
+        <div className="p-5 space-y-4 bg-white max-h-[350px] overflow-y-auto scrollbar-thin">
           <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-sm">
             <div>
               <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
@@ -149,6 +172,14 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
               </span>
               <span className="font-medium text-gray-800">{node.duration}</span>
             </div>
+            {node.credits !== undefined && (
+              <div>
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <BookOpen className="w-3.5 h-3.5" /> Credits
+                </span>
+                <span className="font-medium text-gray-800">{node.credits} Credits</span>
+              </div>
+            )}
             <div>
               <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                 <CalendarDays className="w-3.5 h-3.5" /> Deadline
@@ -172,8 +203,8 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
             <div className="flex flex-wrap gap-1.5">
               {node.skills && node.skills.length > 0 ? (
                 node.skills.map((skill, idx) => (
-                  <span key={idx} className="px-2 py-1 bg-blue-50/50 border border-blue-100/50 text-blue-700 rounded-md text-[11px] font-semibold">
-                    {skill}
+                  <span key={idx} className="px-2 py-1 bg-blue-50/70 border border-blue-100 text-blue-700 rounded-md text-[11px] font-bold">
+                    {skill.startsWith("#") ? skill : `#${skill}`}
                   </span>
                 ))
               ) : (
@@ -181,31 +212,127 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
               )}
             </div>
           </div>
+
+          {/* Dynamic Learning Outcomes */}
+          {node.learningOutcomes && node.learningOutcomes.length > 0 && (
+            <div className="pt-3 border-t border-gray-100">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <Target className="w-3.5 h-3.5" /> Learning Outcomes
+              </span>
+              <div className="space-y-2">
+                {node.learningOutcomes.map((outcome) => (
+                  <div key={outcome.id} className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 flex flex-col gap-1">
+                    <span className="font-bold text-gray-700 text-[11px] uppercase tracking-wider">
+                      {outcome.skillName}
+                    </span>
+                    {outcome.outcomeDescription && (
+                      <p className="text-gray-500 leading-relaxed text-[11px]">
+                        {outcome.outcomeDescription}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Dynamic Suggested Resources */}
+          {node.suggestedResources && node.suggestedResources.length > 0 && (
+            <div className="pt-3 border-t border-gray-100">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <Book className="w-3.5 h-3.5" /> Study Resources
+              </span>
+              <div className="space-y-2">
+                {node.suggestedResources.map((res) => (
+                  <a
+                    key={res.resourceId}
+                    href={res.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-indigo-50/50 border border-indigo-100/50 text-xs font-medium text-indigo-600 transition-all hover:bg-indigo-50 hover:border-indigo-200"
+                  >
+                    <div className="flex flex-col gap-0.5 truncate pr-2">
+                      <span className="font-bold text-slate-700 text-[11px] truncate">
+                        {res.title}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-semibold truncate">
+                        For: {res.skillName}
+                      </span>
+                    </div>
+                    <ExternalLink className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2">
           {isActive ? (
-            <Button
-              className="w-full font-bold shadow-md transition-all hover:scale-[1.02]"
-              style={{ background: style.core, color: "white" }}
-              onClick={() => {
-                updateNodeState(node.id.toString(), "done");
-                setOpen(false);
-              }}
-            >
-              Mark as Finished
-            </Button>
+            <div className="w-full flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5 w-full">
+                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  Enter GPA to Complete
+                </label>
+                <input 
+                  type="number"
+                  step="0.1"
+                  placeholder="Enter GPA (5-10)..."
+                  className={`border rounded-lg px-3 py-2 text-sm w-full outline-none transition-all focus:ring-2 focus:ring-opacity-50 ${
+                    gpaError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"
+                  }`}
+                  value={gpa}
+                  onChange={(e) => {
+                    setGpa(e.target.value);
+                    setGpaError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleValidateAndConfirm();
+                    }
+                  }}
+                />
+                {gpaError && (
+                  <span className="text-red-500 text-[10px] font-semibold animate-pulse">{gpaError}</span>
+                )}
+                <Button 
+                  className="w-full mt-2 font-bold shadow-md transition-all hover:scale-[1.02]"
+                  style={{ background: style.core, color: "white" }}
+                  onClick={handleValidateAndConfirm}
+                >
+                  Enter GPA & Finished
+                </Button>
+              </div>
+
+              <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Completion</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to save GPA: <strong className="text-blue-600">{gpa}</strong> and mark this course as finished? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setShowConfirm(false)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      style={{ background: style.core, color: "white" }}
+                      onClick={() => {
+                        updateNodeState(node.id.toString(), "done", parseFloat(gpa));
+                        setShowConfirm(false);
+                        setOpen(false);
+                      }}
+                    >
+                      Confirm
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           ) : isDone ? (
-            <Button
-              variant="outline"
-              className="w-full font-semibold border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors"
-              onClick={() => {
-                updateNodeState(node.id.toString(), "active");
-                setOpen(false);
-              }}
-            >
-              Mark as Unfinished
-            </Button>
+            <div className="w-full text-center py-2 text-xs font-medium text-green-600 border border-dashed border-green-200 rounded-md bg-green-50 flex flex-col gap-1">
+              <span>Course completed</span>
+              {node.gpa && <span className="font-bold text-[13px]">GPA: {node.gpa}</span>}
+            </div>
           ) : (
             <div className="w-full text-center py-2 text-xs font-medium text-gray-400 border border-dashed border-gray-200 rounded-md bg-white">
               Complete prerequisites to unlock

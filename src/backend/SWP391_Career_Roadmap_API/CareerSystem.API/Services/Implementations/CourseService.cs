@@ -18,10 +18,12 @@ namespace CareerSystem.API.Services.Implementations
 
         public async Task<CourseDetailDto?> GetCourseDetailAsync(string courseId)
         {
-            // Eager load LearningResources và Skill của từng resource
+            // Eager load LearningResources và Skill của từng resource, cùng CourseLearningOutcomes
             var course = await _context.Courses
                 .Include(c => c.LearningResources)
                     .ThenInclude(lr => lr.Skill)
+                .Include(c => c.CourseLearningOutcomes)
+                    .ThenInclude(clo => clo.Skill)
                 .FirstOrDefaultAsync(c => c.CourseId == courseId);
 
             if (course == null)
@@ -44,6 +46,15 @@ namespace CareerSystem.API.Services.Implementations
                         Url = lr.Url,
                         SkillId = lr.SkillId,
                         SkillName = lr.Skill.SkillName
+                    })
+                    .ToList(),
+                LearningOutcomes = course.CourseLearningOutcomes
+                    .Select(clo => new CourseLearningOutcomeDto
+                    {
+                        Id = clo.Id,
+                        SkillId = clo.SkillId,
+                        SkillName = clo.Skill.SkillName,
+                        OutcomeDescription = clo.OutcomeDescription
                     })
                     .ToList()
             };
