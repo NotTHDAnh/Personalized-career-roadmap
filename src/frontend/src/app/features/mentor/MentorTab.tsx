@@ -316,7 +316,7 @@ export function MentorTab() {
 
     try {
       const generatedResult = await apiClient.post<any>(
-        "/Roadmap/generate-personalized",
+        "/Roadmap/generate-preview",
         {
           userId,
           targetRoleId: targetRole.id,
