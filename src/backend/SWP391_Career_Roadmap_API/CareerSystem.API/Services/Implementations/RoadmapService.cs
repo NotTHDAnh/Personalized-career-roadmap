@@ -180,6 +180,7 @@ namespace CareerSystem.API.Services.Implementations
                 orderedNodes.Add(new SkillNodeDetailDto
                 {
                     NodeId = sn.NodeId,
+                    CourseId = sn.CourseId,
                     CourseCode = sn.Course?.CourseCode,
                     CourseName = sn.Course?.CourseName,
                     Status = computedStatus,
@@ -280,6 +281,7 @@ namespace CareerSystem.API.Services.Implementations
                     orderedNodes.Add(new SkillNodeDetailDto
                     {
                         NodeId = Guid.NewGuid().ToString(), // Temp Node ID
+                        CourseId = courseDb.CourseId,
                         CourseCode = courseDb.CourseCode,
                         CourseName = courseDb.CourseName,
                         Status = "PENDING",

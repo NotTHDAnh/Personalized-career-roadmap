@@ -18,6 +18,7 @@ namespace CareerSystem.API.DTOs
     public class SkillNodeDetailDto
     {
         public string NodeId { get; set; } = null!;
+        public string? CourseId { get; set; }
         public string? CourseCode { get; set; }
         public string? CourseName { get; set; }
         public string Status { get; set; } = null!;
