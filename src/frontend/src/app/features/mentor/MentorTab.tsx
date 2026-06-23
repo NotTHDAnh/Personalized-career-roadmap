@@ -15,6 +15,10 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { Message, MentorAskResponse, GenerateRoadmapResponse, RoadmapPreview } from "@/app/types";
 import { apiClient } from "@/shared/api/apiClient";
+import { ApiKeyModal } from "@/app/components/common/ApiKeyModal";
+import { StudyHoursModal } from "@/app/components/common/StudyHoursModal";
+import { deleteApiKey, getApiKeyStatus } from "@/app/services/apiKeyApi";
+import type { ApiKeyStatus } from "@/app/services/apiKeyApi";
 import { useAuth } from "@/shared/contexts/AuthContext";
 import { useNotification } from "@/shared/contexts/NotificationContext";
 import { Button } from "@/app/components/ui/button";
@@ -24,24 +28,30 @@ import RoadmapTimeline from "./components/RoadmapTimeline";
 import MentorChatSection from "./components/MentorChatSection";
 import MentorSidebar from "./components/MentorSidebar";
 
-function formatMentorResponse(response: MentorAskResponse) {
+function formatMentorResponse(response: any) {
+  const answer = response.answer || response.Answer;
+  const targetRoleName = response.targetRoleName || response.TargetRoleName;
+  const recommendedCareers = response.recommendedCareers || response.RecommendedCareers;
+  const missingSkills = response.missingSkills || response.MissingSkills;
+  const followUpQuestion = response.followUpQuestion || response.FollowUpQuestion;
+
   return [
-    response.answer || "The AI Mentor couldn't find an appropriate answer. Please try asking your question more clearly.",
+    answer || "The AI Mentor couldn't find an appropriate answer. Please try asking your question more clearly.",
 
     response.targetRoleName
-      ? `**Target Role:**\n${response.targetRoleName}`
+      ? `**Target Role:** ${response.targetRoleName}`
       : "",
 
     response.recommendedCareers?.length
-      ? `**Recommended Careers:**\n- ${response.recommendedCareers.join("\n- ")}`
+      ? `**Recommended Careers:** ${response.recommendedCareers.join(", ")}`
       : "",
 
     response.missingSkills?.length
-      ? `**Missing Skills:**\n- ${response.missingSkills.join("\n- ")}`
+      ? `**Missing Skills:** ${response.missingSkills.join(", ")}`
       : "",
 
     response.followUpQuestion
-      ? `**Follow-up Question:**\n${response.followUpQuestion}`
+      ? `**Follow-up Question:** ${response.followUpQuestion}`
       : "",
   ]
     .filter(Boolean)
@@ -97,7 +107,101 @@ export function MentorTab() {
   const [recommendedCareers, setRecommendedCareers] = useState<string[]>([]);
 
   const [typing, setTyping] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function loadChatHistory() {
+      if (!userId) {
+        setLoadingHistory(false);
+        return;
+      }
+      try {
+        setLoadingHistory(true);
+        const historyData = await apiClient.get<any[]>(`/mentor/history/${userId}`);
+        
+        if (historyData && historyData.length > 0) {
+          let lastAiResponse: any = null;
+
+          const formattedMessages: Message[] = historyData.map((msg) => {
+            const isUser = msg.sender.toUpperCase() === "USER";
+            let displayContent = msg.content;
+
+            if (!isUser) {
+              try {
+                // AI response is stored as JSON string representing MentorAskResponse
+                const parsedJson = JSON.parse(msg.content);
+                lastAiResponse = parsedJson;
+                displayContent = formatMentorResponse(parsedJson);
+              } catch {
+                // Fallback to raw text if not JSON
+                displayContent = msg.content;
+              }
+            }
+
+            return {
+              id: msg.messageId || Date.now() + Math.random(),
+              role: isUser ? "user" : "ai",
+              content: displayContent,
+            };
+          });
+
+          setMessages(formattedMessages);
+
+          // Restore target role and recommended careers from the latest AI response in history
+          if (lastAiResponse) {
+            const targetRoleName = lastAiResponse.targetRoleName || lastAiResponse.TargetRoleName;
+            const targetRoleId = lastAiResponse.targetRoleId || lastAiResponse.TargetRoleId;
+            const recommended = lastAiResponse.recommendedCareers || lastAiResponse.RecommendedCareers;
+
+            if (targetRoleName) {
+              setTargetRole({
+                id: targetRoleId,
+                name: targetRoleName,
+              });
+            }
+            if (recommended && recommended.length > 0) {
+              setRecommendedCareers(recommended);
+            }
+          }
+        }
+      } catch (error) {
+        openNotification("error", "Cannot load chat history.");
+      } finally {
+        setLoadingHistory(false);
+      }
+    }
+
+    void loadChatHistory();
+  }, [userId]);
+
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [isStudyHoursModalOpen, setIsStudyHoursModalOpen] = useState(false);
+  const [dailyStudyHours, setDailyStudyHours] = useState<number | null>(null);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus | null>(null);
+
+  async function fetchKeyStatus() {
+    try {
+      const status = await getApiKeyStatus(userId);
+      setApiKeyStatus(status);
+    } catch {
+      setApiKeyStatus({ hasKey: false });
+    }
+  }
+
+  useEffect(() => {
+    void fetchKeyStatus();
+  }, [userId]);
+
+  async function handleDeleteKey() {
+    try {
+      await deleteApiKey(userId);
+      await fetchKeyStatus();
+    } catch {
+      // handle error silently for now
+    }
+  }
 
   // useEffect(() => {
   //   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -111,25 +215,7 @@ export function MentorTab() {
     container.scrollTop = container.scrollHeight;
   }, [messages, typing]);
 
-  // function send(text: string) {
-  async function send(text: string) {
-    // if (!text.trim()) return;
-    // const userMsg: Message = { id: Date.now(), role: "user", content: text.trim() };
-    // setMessages((prev) => [...prev, userMsg]);
-    // setInput("");
-    // setTyping(true);
-    const trimmedText = text.trim();
-
-    if (!trimmedText || typing) return;
-
-    const userMsg: Message = {
-      id: Date.now(),
-      role: "user",
-      content: trimmedText,
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
+  async function performAskMentor(text: string) {
     setTyping(true);
 
     //   setTimeout(() => {
@@ -145,7 +231,7 @@ export function MentorTab() {
 
 
     try {
-      const mentorResponse = await askMentor(trimmedText, userId);
+      const mentorResponse = await askMentor(text, userId);
 
       // INTERCEPT SYSTEM ERROR: Stop backend Vietnamese fallbacks from executing into a message bubble
       if (mentorResponse.answer?.includes("Hệ thống cố vấn") || !mentorResponse.answer) {
@@ -172,14 +258,36 @@ export function MentorTab() {
       };
 
       setMessages((prev) => [...prev, aiMsg]);
-    } catch {
-      openNotification(
-        "error",
-        "AI Mentor is currently unavailable."
-      );
+    } catch (error: any) {
+      if (error.message?.includes("Gemini API Key")) {
+        setPendingAction(() => () => void performAskMentor(text));
+        setIsApiKeyModalOpen(true);
+      } else {
+        openNotification(
+          "error",
+          "AI Mentor is currently unavailable."
+        );
+      }
     } finally {
       setTyping(false);
     }
+  }
+
+  async function send(text: string) {
+    const trimmedText = text.trim();
+
+    if (!trimmedText || typing) return;
+
+    const userMsg: Message = {
+      id: Date.now(),
+      role: "user",
+      content: trimmedText,
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+
+    await performAskMentor(trimmedText);
   }
 
   // function handleKeyDown(e: React.KeyboardEvent) {
@@ -196,58 +304,75 @@ export function MentorTab() {
     }
   }
 
-  async function handleCreateRoadmapClick() {
-    if (!targetRole || creatingRoadmap) return;
-
-    if (!targetRole.id) {
-      openNotification(
-        "warning",
-        "Please clarify your target career role first."
-      );
-      return;
-    }
+  async function performCreateRoadmap(hoursToUse?: number) {
+    const activeRoleId = targetRole?.id;
+    const finalHours = hoursToUse || dailyStudyHours || 2;
+    if (!activeRoleId || creatingRoadmap) return;
 
     setCreatingRoadmap(true);
 
     try {
-      const generatedResult = await apiClient.post<GenerateRoadmapResponse>(
-        "/Roadmap/generate-personalized",
+      const generatedResult = await apiClient.post<any>(
+        "/Roadmap/generate-preview",
         {
           userId,
-          targetRoleId: targetRole.id,
-          dailyStudyHours: 2,
+          targetRoleId: activeRoleId,
+          dailyStudyHours: finalHours,
         }
       );
 
-      if (!generatedResult.roadmapId) {
-        throw new Error("Roadmap was created but roadmapId was not returned.");
-      }
+      setRoadmapPreview(generatedResult);
 
-      const roadmapDetail = await apiClient.get<RoadmapPreview>(
-        `/Roadmap/${generatedResult.roadmapId}`
-      );
-
-      setRoadmapPreview(roadmapDetail);
-
-      // setRoadmapPreview(generatedRoadmap);
       setShowRoadmapPreview(true);
       setPreviewCollapsed(false);
 
-      // THÊM: Hiện thông báo thành công ngắn gọn như trong ảnh mẫu bạn gửi
-      openNotification("success", "Roadmap generated successfully!");
-    } catch {
-      openNotification(
-        "error",
-        "Failed to create roadmap."
-      );
+      openNotification("success", "Roadmap preview generated successfully!");
+    } catch (error: any) {
+      if (error.message?.includes("Gemini API Key")) {
+        setPendingAction(() => () => void performCreateRoadmap(hoursToUse));
+        setIsApiKeyModalOpen(true);
+      } else {
+        openNotification(
+          "error",
+          "Failed to create roadmap."
+        );
+      }
     } finally {
       setCreatingRoadmap(false);
     }
   }
 
-  function handleSaveRoadmapClick() {
-    openNotification("success", "Saved successfully.");
-    setShowRoadmapPreview(false);
+  async function handleCreateRoadmapClick() {
+    if (!targetRole || creatingRoadmap) return;
+    if (!targetRole.id) {
+      openNotification("warning", "Please clarify your target career role first.");
+      return;
+    }
+
+    if (dailyStudyHours === null) {
+      setIsStudyHoursModalOpen(true);
+    } else {
+      await performCreateRoadmap(dailyStudyHours);
+    }
+  }
+
+  async function handleSaveRoadmapClick() {
+    if (!roadmapPreview || !targetRole) return;
+
+    try {
+      await apiClient.post("/Roadmap/save", {
+        userId,
+        targetRoleId: targetRole.id,
+        dailyStudyHours: roadmapPreview.dailyStudyHours,
+        phases: roadmapPreview.phases,
+      });
+
+      openNotification("success", "Lộ trình đã được lưu thành công.");
+      setShowRoadmapPreview(false);
+      setRoadmapPreview(null);
+    } catch {
+      openNotification("error", "Lưu lộ trình thất bại.");
+    }
   }
 
   function handleCancelRoadmapClick() {
@@ -263,24 +388,76 @@ export function MentorTab() {
     void send(confirmPrompt);
   }
 
+  async function handleClearHistory() {
+    const confirmed = window.confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử trò chuyện?");
+    if (!confirmed) return;
+
+    try {
+      setLoadingHistory(true);
+      await apiClient.delete(`/mentor/history/${userId}`);
+      
+      // Reset state to default greeting message
+      setMessages([
+        {
+          id: 0,
+          role: "ai",
+          content: `Xin chào, ${studentName} 👋 Tôi là Cố vấn Học tập AI của bạn. Tôi có thể giúp bạn phân tích định hướng nghề nghiệp, xác định những kỹ năng còn thiếu và xây dựng lộ trình học tập cá nhân hóa dựa trên hồ sơ học tập của bạn.`,
+        },
+      ]);
+      setTargetRole(null);
+      setRecommendedCareers([]);
+      openNotification("success", "Đã xóa lịch sử trò chuyện thành công.");
+    } catch {
+      openNotification("error", "Không thể xóa lịch sử trò chuyện.");
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
   return (
     // <div className="grid xl:grid-cols-[0.72fr_0.28fr] gap-8">
     //   <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm min-h-[680px] flex flex-col">
     <div className="grid min-h-0 gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <MentorChatSection
-        messages={messages}
-        input={input}
-        setInput={setInput}
-        typing={typing}
-        creatingRoadmap={creatingRoadmap}
-        targetRole={targetRole}
-        recommendedCareers={recommendedCareers}
-        messagesContainerRef={messagesContainerRef}
-        onSend={send}
-        onKeyDown={handleKeyDown}
-        onCreateRoadmap={handleCreateRoadmapClick}
-        onChooseCareer={handleChooseRecommendedCareer}
-      />
+      <div className="flex flex-col gap-6 h-[calc(100vh-100px)] min-h-[750px]">
+        <MentorChatSection
+          messages={messages}
+          input={input}
+          setInput={setInput}
+          typing={typing}
+          creatingRoadmap={creatingRoadmap}
+          targetRole={targetRole}
+          recommendedCareers={recommendedCareers}
+          messagesContainerRef={messagesContainerRef}
+          hasActivePreview={showRoadmapPreview}
+          onSend={send}
+          onKeyDown={handleKeyDown}
+          onCreateRoadmap={handleCreateRoadmapClick}
+          onClearHistory={handleClearHistory}
+          loadingHistory={loadingHistory}
+        />
+
+      {recommendedCareers.length > 0 && (
+        <div className="shrink-0 rounded-2xl border border-[#c4c6cf] bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-[#002046]">
+            Choose one career to create your roadmap:
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {recommendedCareers.map((career) => (
+              <button
+                key={career}
+                type="button"
+                onClick={() => handleChooseRecommendedCareer(career)}
+                disabled={typing || showRoadmapPreview}
+                className="rounded-full border border-[#006b5f] px-4 py-2 text-sm font-semibold text-[#006b5f] transition hover:bg-[#f0fffb] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Use {career}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
 
       <MentorSidebar
         targetRole={targetRole}
@@ -292,6 +469,35 @@ export function MentorTab() {
         setInput={setInput}
         onCancelRoadmap={handleCancelRoadmapClick}
         onSaveRoadmap={handleSaveRoadmapClick}
+        apiKeyStatus={apiKeyStatus}
+        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+        onDeleteApiKey={() => void handleDeleteKey()}
+      />
+
+      <ApiKeyModal
+        userId={userId}
+        isOpen={isApiKeyModalOpen}
+        onClose={() => {
+          setIsApiKeyModalOpen(false);
+          setPendingAction(null);
+        }}
+        onSuccess={() => {
+          void fetchKeyStatus();
+          if (pendingAction) {
+            void pendingAction();
+            setPendingAction(null);
+          }
+        }}
+      />
+
+      <StudyHoursModal
+        isOpen={isStudyHoursModalOpen}
+        onClose={() => setIsStudyHoursModalOpen(false)}
+        onSubmit={(hours) => {
+          setDailyStudyHours(hours);
+          setIsStudyHoursModalOpen(false);
+          void performCreateRoadmap(hours);
+        }}
       />
     </div>
   );

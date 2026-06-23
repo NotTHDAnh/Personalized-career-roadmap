@@ -264,6 +264,10 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false)
                 .HasColumnName("resource_id");
+            entity.Property(e => e.CourseId)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("course_id");
             entity.Property(e => e.SkillId)
                 .HasMaxLength(50)
                 .IsUnicode(false)
@@ -275,6 +279,10 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(500)
                 .IsUnicode(false)
                 .HasColumnName("url");
+
+            entity.HasOne(d => d.Course).WithMany(p => p.LearningResources)
+                .HasForeignKey(d => d.CourseId)
+                .HasConstraintName("FK_LearningResources_Courses");
 
             entity.HasOne(d => d.Skill).WithMany(p => p.LearningResources)
                 .HasForeignKey(d => d.SkillId)
@@ -545,6 +553,10 @@ public partial class AppDbContext : DbContext
                 .IsUnicode(false)
                 .HasDefaultValue("STUDENT")
                 .HasColumnName("role");
+            entity.Property(e => e.GeminiApiKey)
+                .HasMaxLength(255)
+                .IsUnicode(false)
+                .HasColumnName("gemini_api_key");
         });
 
         modelBuilder.Entity<UserRefreshToken>(entity =>

@@ -1,4 +1,4 @@
-﻿-- Kiểm tra và tạo Database trong SQL Server
+-- Kiểm tra và tạo Database trong SQL Server
 IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'SE_Career_Roadmap')
 BEGIN
     CREATE DATABASE SE_Career_Roadmap;
@@ -19,7 +19,8 @@ CREATE TABLE Users (
     role VARCHAR(20) DEFAULT 'STUDENT' CHECK (role IN ('STUDENT', 'STAFF', 'MENTOR')),
     oauth_provider VARCHAR(20) DEFAULT 'LOCAL' CHECK (oauth_provider IN ('GOOGLE', 'LOCAL')),
     oauth_id VARCHAR(255),
-    created_at DATETIME DEFAULT GETDATE()
+    created_at DATETIME DEFAULT GETDATE(),
+    gemini_api_key VARCHAR(255) NULL
 );
 
 -- ==========================================
@@ -91,9 +92,11 @@ CREATE TABLE Skill_Nodes (
 CREATE TABLE Learning_Resources (
     resource_id VARCHAR(50) PRIMARY KEY,
     skill_id VARCHAR(50) NOT NULL,
+    course_id VARCHAR(50) NOT NULL,
     title NVARCHAR(255) NOT NULL,
     url VARCHAR(500) NOT NULL,
-    FOREIGN KEY (skill_id) REFERENCES Skills(skill_id) ON DELETE CASCADE
+    FOREIGN KEY (skill_id) REFERENCES Skills(skill_id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES Courses(course_id) ON DELETE CASCADE
 );
 
 -- ==========================================

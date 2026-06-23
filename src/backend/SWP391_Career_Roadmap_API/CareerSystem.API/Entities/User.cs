@@ -21,6 +21,8 @@ public partial class User
 
     public DateTime? CreatedAt { get; set; }
 
+    public string? GeminiApiKey { get; set; }
+
     public virtual ICollection<AcademicRecord> AcademicRecords { get; set; } = new List<AcademicRecord>();
 
     public virtual GithubProfile? GithubProfile { get; set; }

@@ -1,5 +1,6 @@
 import React from "react";
 import type { RoadmapPreview } from "@/app/types";
+import type { ApiKeyStatus } from "@/app/services/apiKeyApi";
 import RoadmapTimeline from "./RoadmapTimeline";
 
 interface SidebarProps {
@@ -12,6 +13,9 @@ interface SidebarProps {
   setInput: (val: string) => void;
   onCancelRoadmap: () => void;
   onSaveRoadmap: () => void;
+  apiKeyStatus: ApiKeyStatus | null;
+  onOpenApiKeyModal: () => void;
+  onDeleteApiKey: () => void;
 }
 
 export default function MentorSidebar({
@@ -24,6 +28,9 @@ export default function MentorSidebar({
   setInput,
   onCancelRoadmap,
   onSaveRoadmap,
+  apiKeyStatus,
+  onOpenApiKeyModal,
+  onDeleteApiKey,
 }: SidebarProps) {
   return (
     <aside className="space-y-6">
@@ -118,14 +125,50 @@ export default function MentorSidebar({
         </div>
       </div>
 
-      <div className="bg-[#1b365d] rounded-2xl shadow-sm p-6 text-white">
+      <div className={`rounded-2xl shadow-sm p-6 text-white ${apiKeyStatus?.hasKey ? 'bg-[#006b5f]' : 'bg-[#1b365d]'}`}>
         <p className="text-xs uppercase tracking-widest text-white/60 font-bold">
           Advisement Status
         </p>
-        <h4 className="text-xl font-bold mt-2">Profile Ready</h4>
-        <p className="text-sm text-white/70 mt-2">
-          Your academic profile is ready for basic AI advisement.
-        </p>
+
+        {!apiKeyStatus?.hasKey ? (
+          <>
+            <h4 className="text-xl font-bold mt-2">AI Setup Required</h4>
+            <p className="text-sm text-white/70 mt-2 mb-4">
+              Your academic profile is ready, but you need to connect your Gemini API Key to enable the AI Mentor.
+            </p>
+            <button
+              type="button"
+              onClick={onOpenApiKeyModal}
+              className="w-full rounded-xl bg-white text-[#1b365d] px-4 py-2 font-semibold hover:bg-gray-100 transition"
+            >
+              Connect Gemini API
+            </button>
+          </>
+        ) : (
+          <>
+            <h4 className="text-xl font-bold mt-2">AI Ready</h4>
+            <div className="mt-3 rounded-lg bg-black/20 p-3">
+              <p className="text-xs text-white/60 font-medium">Connected Key</p>
+              <p className="text-sm font-mono mt-1">{apiKeyStatus.maskedKey}</p>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={onOpenApiKeyModal}
+                className="flex-1 rounded-xl border border-white/30 px-3 py-2 text-sm font-semibold hover:bg-white/10 transition"
+              >
+                Update
+              </button>
+              <button
+                type="button"
+                onClick={onDeleteApiKey}
+                className="flex-1 rounded-xl bg-red-500/20 text-red-100 border border-red-500/30 px-3 py-2 text-sm font-semibold hover:bg-red-500/40 transition"
+              >
+                Delete
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </aside>
   );

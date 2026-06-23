@@ -1,5 +1,6 @@
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
+using CareerSystem.API.Utilities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 
@@ -18,6 +19,7 @@ namespace CareerSystem.API.Controllers
         }
 
         [HttpPost("ask")]
+        [ValidateGeminiApiKey]
         public async Task<IActionResult> Ask([FromBody] MentorAskRequestDto request)
         {
             var result = await _mentorService.AskAsync(request);
@@ -29,6 +31,17 @@ namespace CareerSystem.API.Controllers
         {
             var history = await _mentorService.GetSessionHistoryAsync(userId);
             return Ok(history);
+        }
+
+        [HttpDelete("history/{userId}")]
+        public async Task<IActionResult> ClearChatHistory(string userId)
+        {
+            var success = await _mentorService.ClearSessionHistoryAsync(userId);
+            if (!success)
+            {
+                return NotFound(new { message = "No chat session found for this user." });
+            }
+            return Ok(new { message = "Chat history cleared successfully." });
         }
     }
 }

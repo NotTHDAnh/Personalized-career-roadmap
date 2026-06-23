@@ -38,7 +38,6 @@ namespace CareerSystem.API.Services.Implementations
                 return null;
             }
 
-            // If stored password hash is missing or verification fails, deny access
             if (string.IsNullOrWhiteSpace(user.PasswordHash) || string.IsNullOrEmpty(request.Password) || !PassHashValidation.VerifyPassword(request.Password, user.PasswordHash))
             {
                 return null;
@@ -154,6 +153,11 @@ namespace CareerSystem.API.Services.Implementations
                     Role = user.Role,
                 }
             };
+
+            var sessionData = await _mentorService.InitializeChatSessionAsync(user.UserId);
+            loginResponse.MentorSessionData = sessionData;
+
+            return loginResponse;
         }
         public string Login(LoginRequest request)
         {
