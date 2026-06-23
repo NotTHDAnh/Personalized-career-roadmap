@@ -105,7 +105,14 @@ export default function MentorChatSection({
                   : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
                 }`}
             >
-              <ReactMarkdown>
+              <ReactMarkdown
+                components={{
+                  p: ({ node, ...props }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
+                  ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 last:mb-0" {...props} />,
+                  ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 last:mb-0" {...props} />,
+                  li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                }}
+              >
                 {message.content}
               </ReactMarkdown>
             </div>
