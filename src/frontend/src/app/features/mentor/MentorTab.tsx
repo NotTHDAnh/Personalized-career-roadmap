@@ -432,6 +432,8 @@ export function MentorTab() {
           onSend={send}
           onKeyDown={handleKeyDown}
           onCreateRoadmap={handleCreateRoadmapClick}
+          onClearHistory={handleClearHistory}
+          loadingHistory={loadingHistory}
         />
 
       {recommendedCareers.length > 0 && (
