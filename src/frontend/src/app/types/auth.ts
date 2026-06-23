@@ -17,7 +17,9 @@ export type LoginUser = {
 
 export type LoginResponse = {
   accessToken: string;
+  refreshToken: string;
   user: LoginUser;
+  mentorSessionData?: any;
 };
 
 export type AppSession = {

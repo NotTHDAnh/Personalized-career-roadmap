@@ -3,13 +3,11 @@ using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
 using CareerSystem.API.Utilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace CareerSystem.API.Services.Implementations
 {
@@ -17,12 +15,14 @@ namespace CareerSystem.API.Services.Implementations
     {
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly IMentorService _mentorService;
 
-        // Constructor: Nhúng AppDbContext và IConfiguration
-        public AuthService(AppDbContext context, IConfiguration configuration)
+        // Constructor: Nhúng AppDbContext, IConfiguration và IMentorService
+        public AuthService(AppDbContext context, IConfiguration configuration, IMentorService mentorService)
         {
             _context = context;
             _configuration = configuration;
+            _mentorService = mentorService;
         }
 
         public async Task<LoginResponse?> LoginAsync(LoginRequest request)
@@ -45,7 +45,7 @@ namespace CareerSystem.API.Services.Implementations
             var accessToken = GenerateJwtToken(user);
             var refreshToken = await GenerateAndSaveRefreshToken(user.UserId);
 
-            return new LoginResponse
+            var loginResponse = new LoginResponse
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
@@ -57,6 +57,11 @@ namespace CareerSystem.API.Services.Implementations
                     Role = user.Role,
                 }
             };
+
+            var sessionData = await _mentorService.InitializeChatSessionAsync(user.UserId);
+            loginResponse.MentorSessionData = sessionData;
+
+            return loginResponse;
         }
 
         public async Task<LoginResponse?> LoginWithGoogleAsync(GoogleLoginRequest request)
@@ -89,22 +94,42 @@ namespace CareerSystem.API.Services.Implementations
                     var response = await httpClient.GetAsync($"https://oauth2.googleapis.com/tokeninfo?id_token={request.IdToken}");
                     if (!response.IsSuccessStatusCode)
                     {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"[AuthService] Google tokeninfo API failed. Status: {response.StatusCode}, Content: {errorContent}");
                         return null;
                     }
 
                     var jsonString = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[AuthService] Google tokeninfo response: {jsonString}");
                     using var doc = System.Text.Json.JsonDocument.Parse(jsonString);
                     var root = doc.RootElement;
 
-                    if (!root.TryGetProperty("email_verified", out var emailVerifiedProp) ||
-                        emailVerifiedProp.GetString() != "true")
+                    if (!root.TryGetProperty("email_verified", out var emailVerifiedProp))
                     {
+                        Console.WriteLine("[AuthService] Google tokeninfo missing 'email_verified' property.");
+                        return null;
+                    }
+
+                    bool isEmailVerified = false;
+                    if (emailVerifiedProp.ValueKind == System.Text.Json.JsonValueKind.True)
+                    {
+                        isEmailVerified = true;
+                    }
+                    else if (emailVerifiedProp.ValueKind == System.Text.Json.JsonValueKind.String && emailVerifiedProp.GetString() == "true")
+                    {
+                        isEmailVerified = true;
+                    }
+
+                    if (!isEmailVerified)
+                    {
+                        Console.WriteLine("[AuthService] Google account email is not verified.");
                         return null;
                     }
 
                     if (!root.TryGetProperty("email", out var emailProp) ||
                         string.IsNullOrWhiteSpace(emailProp.GetString()))
                     {
+                        Console.WriteLine("[AuthService] Google tokeninfo missing or empty 'email' property.");
                         return null;
                     }
                     email = emailProp.GetString()!;
@@ -118,8 +143,9 @@ namespace CareerSystem.API.Services.Implementations
                         googleSub = subProp.GetString() ?? string.Empty;
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Console.WriteLine($"[AuthService] Exception in Google token verification: {ex.Message}\n{ex.StackTrace}");
                     return null;
                 }
             }
@@ -127,6 +153,7 @@ namespace CareerSystem.API.Services.Implementations
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
             if (user == null)
             {
+                Console.WriteLine($"[AuthService] Google login failed: Email '{email}' does not exist in local database.");
                 return null;
             }
 
@@ -141,7 +168,7 @@ namespace CareerSystem.API.Services.Implementations
             var accessToken = GenerateJwtToken(user);
             var refreshToken = await GenerateAndSaveRefreshToken(user.UserId);
 
-            return new LoginResponse
+            var loginResponse = new LoginResponse
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,

@@ -197,7 +197,7 @@ export default function LoginScreen() {
             {/* Google OAuth Container */}
             <div className="w-full mb-8 flex flex-col items-center">
               <div id="google-signin-btn" className="w-full min-h-[44px] flex justify-center" />
-              {import.meta.env.DEV && (
+              {/* {import.meta.env.DEV && (
                 <button
                   type="button"
                   onClick={handleDevMockLogin}
@@ -205,7 +205,7 @@ export default function LoginScreen() {
                 >
                   [Dev Mode] Sign in with Mock Google Account
                 </button>
-              )}
+              )} */}
             </div>
 
             <div className="relative flex items-center gap-4 mb-3">
@@ -305,7 +305,7 @@ export default function LoginScreen() {
                 {loading ? "Signing In..." : "Sign In to Portal"}
               </Button>
             </form>
-
+{/* 
             <div className="mt-4 text-center">
               <p className="text-[14px] text-[#64748B]">
                 Don't have an account?{" "}
@@ -313,7 +313,7 @@ export default function LoginScreen() {
                   Sign up for free
                 </button>
               </p>
-            </div>
+            </div> */}
           </div>
         </section>
       </main>
