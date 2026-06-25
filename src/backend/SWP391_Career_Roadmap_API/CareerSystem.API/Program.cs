@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi;
+using OfficeOpenXml;
 
 namespace CareerSystem.API
 {
@@ -46,6 +47,18 @@ namespace CareerSystem.API
 
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.ICourseService,
                 CareerSystem.API.Services.Implementations.CourseService>();
+
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStudentImportService,
+                CareerSystem.API.Services.Implementations.StudentImportService>();
+
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.ICourseImportService,
+                CareerSystem.API.Services.Implementations.CourseImportService>();
+
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IAcademicRecordImportService,
+                CareerSystem.API.Services.Implementations.AcademicRecordImportService>();
+
+            // EPPlus License (NonCommercial cho mục đích học tập)
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
             // CORS
             builder.Services.AddCors(options =>
