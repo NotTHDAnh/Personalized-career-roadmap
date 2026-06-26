@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useAuth } from "../../../shared/contexts/AuthContext";
 import { authApi } from "./authApi";
 import AuthIntro from "./AuthIntro";
+import ForgotPasswordScreen from "./ForgotPasswordScreen";
 import type { LoginMode } from "../../types/auth";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -13,6 +14,7 @@ import { Checkbox } from "../../components/ui/checkbox";
 export default function LoginScreen() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const [showForgot, setShowForgot] = useState(false);
 
   const [mode, setMode] = useState<LoginMode>("student");
   const modeRef = useRef<LoginMode>(mode);
@@ -141,6 +143,10 @@ export default function LoginScreen() {
     }
   }
 
+  if (showForgot) {
+    return <ForgotPasswordScreen onBackToLogin={() => setShowForgot(false)} />;
+  }
+
   return (
     <div
       className="min-h-screen flex items-center justify-center p-2 sm:p-4 md:p-6 bg-[#F4F7F9] transition-colors duration-300"
@@ -258,7 +264,11 @@ export default function LoginScreen() {
                   </label>
                   <button
                     type="button"
-                    className="text-[13px] font-semibold text-[#3B28CC] hover:text-[#28189E]:text-[#a5b4fc] transition-colors"
+                    onClick={() => {
+                      setShowForgot(true);
+                      setError("");
+                    }}
+                    className="text-[13px] font-semibold text-[#3B28CC] hover:text-[#28189E] transition-colors cursor-pointer"
                   >
                     Forgot password?
                   </button>

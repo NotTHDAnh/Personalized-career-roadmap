@@ -16,13 +16,15 @@ namespace CareerSystem.API.Services.Implementations
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IMentorService _mentorService;
+        private readonly IEmailService _emailService;
 
-        // Constructor: Nhúng AppDbContext, IConfiguration và IMentorService
-        public AuthService(AppDbContext context, IConfiguration configuration, IMentorService mentorService)
+        // Constructor: Nhúng AppDbContext, IConfiguration, IMentorService và IEmailService
+        public AuthService(AppDbContext context, IConfiguration configuration, IMentorService mentorService, IEmailService emailService)
         {
             _context = context;
             _configuration = configuration;
             _mentorService = mentorService;
+            _emailService = emailService;
         }
 
         public async Task<LoginResponse?> LoginAsync(LoginRequest request)
@@ -303,8 +305,103 @@ namespace CareerSystem.API.Services.Implementations
             {
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
-                User = storedToken.User
+                User = new Entities.User
+                {
+                    UserId = storedToken.User.UserId,
+                    FullName = storedToken.User.FullName,
+                    Email = storedToken.User.Email,
+                    Role = storedToken.User.Role
+                }
             };
+        }
+
+        private string BuildForgotPasswordEmailBody(string fullName, string newPassword)
+        {
+            string template = $@"<div style=""font-family: 'Segoe UI', Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; background-color: #ffffff;"">
+                                <h3 style=""color: #4f46e5; margin-top: 0; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px;"">Khôi phục mật khẩu</h3>
+                                <p>Xin chào <strong>{fullName}</strong>,</p>
+                                <p>Hệ thống đã cấp lại mật khẩu cho tài khoản của bạn:</p>
+                                <div style=""background-color: #f3f4f6; border-radius: 6px; padding: 12px; text-align: center; margin: 20px 0; font-size: 22px; font-weight: bold; letter-spacing: 2px; color: #4f46e5; font-family: monospace;"">
+                                    {newPassword}
+                                </div>
+                                <div style=""border-top: 1px solid #f3f4f6; padding-top: 12px; margin-top: 20px; font-size: 11px; color: #9ca3af; text-align: center;"">
+                                    Email tự động từ Career Roadmap. Vui lòng không trả lời thư này.
+                                </div>
+                            </div>";
+
+            return template;
+        }
+
+        public async Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Email))
+            {
+                return false;
+            }
+
+            var emailLower = request.Email.ToLower();
+            // 1. Kiểm tra Email có tồn tại trong hệ thống hay không (AsNoTracking)
+            var userCheck = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == emailLower);
+
+            if (userCheck == null)
+            {
+                return false;
+            }
+
+            // 2. Tạo một mật khẩu ngẫu nhiên mới 
+            var newPassword = GenerateRandomPassword(8);
+
+            // 3. Băm mật khẩu mới dùng PassHashValidation.HashPassword và lưu vào DB
+            var passwordHash = PassHashValidation.HashPassword(newPassword);
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userCheck.UserId);
+            if (user == null)
+            {
+                return false;
+            }
+
+            user.PasswordHash = passwordHash;
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+
+            // 4. Gửi mail mật khẩu gốc (chưa hash) cho người dùng qua IEmailService
+            await _emailService.SendEmailAsync(
+                user.Email,
+                "Khôi phục mật khẩu - CareerSystem",
+                BuildForgotPasswordEmailBody(user.FullName, newPassword)
+            );
+
+            return true;
+        }
+
+        private static string GenerateRandomPassword(int length)
+        {
+            if (length < 4) length = 8;
+
+            const string upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            const string lower = "abcdefghijklmnopqrstuvwxyz";
+            const string digits = "0123456789";
+            const string specials = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+
+            var random = new Random();
+            var charList = new List<char>
+            {
+                upper[random.Next(upper.Length)],
+                lower[random.Next(lower.Length)],
+                digits[random.Next(digits.Length)],
+                specials[random.Next(specials.Length)]
+            };
+
+            string allChars = upper + lower + digits + specials;
+            for (int i = charList.Count; i < length; i++)
+            {
+                charList.Add(allChars[random.Next(allChars.Length)]);
+            }
+
+            // Tráo đổi ngẫu nhiên vị trí các ký tự để tránh đoán được quy luật
+            return new string(charList.OrderBy(_ => random.Next()).ToArray());
         }
     }
 }
