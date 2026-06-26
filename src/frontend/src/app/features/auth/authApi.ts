@@ -8,4 +8,6 @@ export const authApi = {
     apiClient.post<LoginResponse>("/auth/login", data),
   googleLogin: (idToken: string) =>
     apiClient.post<LoginResponse>("/auth/google-login", { idToken }),
+  forgotPassword: (email: string) =>
+    apiClient.post<{ message: string }>("/auth/forgot-password", { email }),
 };

@@ -5,6 +5,7 @@ using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
 using CareerSystem.API.Utilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using System.Drawing;
@@ -14,6 +15,8 @@ namespace CareerSystem.API.Services.Implementations
     public class StudentImportService : IStudentImportService
     {
         private readonly AppDbContext _context;
+        private readonly IEmailService _emailService;
+        private readonly ILogger<StudentImportService> _logger;
 
         // Regex đơn giản kiểm tra format email
         private static readonly Regex EmailRegex = new(
@@ -26,9 +29,11 @@ namespace CareerSystem.API.Services.Implementations
 
         private const int ColCount = 5;
 
-        public StudentImportService(AppDbContext context)
+        public StudentImportService(AppDbContext context, IEmailService emailService, ILogger<StudentImportService> logger)
         {
             _context = context;
+            _emailService = emailService;
+            _logger = logger;
         }
 
         /// <inheritdoc />
@@ -85,6 +90,7 @@ namespace CareerSystem.API.Services.Implementations
             var userIdsInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             var usersToAdd = new List<User>();
+            var usersWithPasswords = new List<(User User, string Password)>();
 
             for (int row = 2; row <= totalRows; row++)
             {
@@ -186,6 +192,7 @@ namespace CareerSystem.API.Services.Implementations
                 };
 
                 usersToAdd.Add(user);
+                usersWithPasswords.Add((user, password!));
                 result.SuccessCount++;
             }
 
@@ -194,6 +201,32 @@ namespace CareerSystem.API.Services.Implementations
             {
                 await _context.Users.AddRangeAsync(usersToAdd);
                 await _context.SaveChangesAsync();
+
+                // 6. Gửi email thông tin tài khoản cho sinh viên
+                foreach (var item in usersWithPasswords)
+                {
+                    try
+                    {
+                        var subject = "Thông tin tài khoản Career Orientation System";
+                        var body = $@"
+                            <h3>Chào {item.User.FullName},</h3>
+                            <p>Tài khoản của bạn trên hệ thống Career Orientation System đã được tạo thành công.</p>
+                            <p>Dưới đây là thông tin đăng nhập của bạn:</p>
+                            <ul>
+                                <li><strong>Email (Tên đăng nhập):</strong> {item.User.Email}</li>
+                                <li><strong>Mật khẩu:</strong> {item.Password}</li>
+                            </ul>
+                            <p>Vui lòng đăng nhập và đổi mật khẩu để bảo mật tài khoản.</p>
+                            <br/>
+                            <p>Trân trọng,<br/>Ban Quản Trị Hệ Thống</p>";
+
+                        await _emailService.SendEmailAsync(item.User.Email, subject, body);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Không thể gửi email thông tin tài khoản cho {item.User.Email}");
+                    }
+                }
             }
 
             return result;

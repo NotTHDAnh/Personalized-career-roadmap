@@ -59,17 +59,22 @@ namespace CareerSystem.API.Controllers
             }
             return Ok(res);
         }
-        
-        //public IActionResult Login([FromBody] LoginRequest request)
-        //{
-        //    var resultMessage = _authService.Login(request);
 
-        //    if (resultMessage.Contains("thành công"))
-        //    {
-        //        return Ok(new { message = resultMessage }); // Trả về mã 200 (Xanh lá)
-        //    }
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest("Email là bắt buộc.");
+            }
 
-        //    return Unauthorized(new { message = resultMessage }); // Trả về mã 401 (Lỗi đỏ)
-        //}
+            var result = await _authService.ForgotPasswordAsync(request);
+            if (!result)
+            {
+                return BadRequest("Email không tồn tại trong hệ thống.");
+            }
+
+            return Ok(new { message = "Mật khẩu mới đã được gửi vào Email của bạn." });
+        }
     }
 }

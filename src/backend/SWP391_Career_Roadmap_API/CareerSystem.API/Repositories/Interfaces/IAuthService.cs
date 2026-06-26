@@ -9,5 +9,6 @@ namespace CareerSystem.API.Services.Interfaces
         Task<LoginResponse?> LoginAsync(LoginRequest request);
         Task<LoginResponse?> LoginWithGoogleAsync(GoogleLoginRequest request);
         Task<LoginResponse?> RefreshTokenAsync(RefreshTokenRequest request);
+        Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request);
     }
 }
