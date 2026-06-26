@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, Trash2 } from "lucide-react";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import type { Message } from "@/app/types";
@@ -17,6 +17,8 @@ interface ChatSectionProps {
   onSend: (text: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onCreateRoadmap: () => void;
+  onClearHistory: () => void;
+  loadingHistory: boolean;
   hasActivePreview: boolean;
 }
 
@@ -52,6 +54,8 @@ export default function MentorChatSection({
   onSend,
   onKeyDown,
   onCreateRoadmap,
+  onClearHistory,
+  loadingHistory,
   hasActivePreview,
 }: ChatSectionProps) {
   return (
@@ -69,7 +73,7 @@ export default function MentorChatSection({
             Ask questions about your career direction, skill gaps and learning path.
           </p>
         </div>
-        {/* <Button
+        <Button
           type="button"
           variant="ghost"
           size="icon"
@@ -78,8 +82,12 @@ export default function MentorChatSection({
           title="Clear chat history"
           className="text-[#ba1a1a] hover:bg-[#ffdad6] hover:text-[#410002] rounded-xl shrink-0"
         >
-          <Trash2 className="w-5 h-5" />
-        </Button> */}
+          {loadingHistory ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Trash2 className="w-5 h-5" />
+          )}
+        </Button>
       </div>
 
       <div
@@ -97,7 +105,14 @@ export default function MentorChatSection({
                   : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
                 }`}
             >
-              <ReactMarkdown>
+              <ReactMarkdown
+                components={{
+                  p: ({ node, ...props }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
+                  ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 last:mb-0" {...props} />,
+                  ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 last:mb-0" {...props} />,
+                  li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                }}
+              >
                 {message.content}
               </ReactMarkdown>
             </div>

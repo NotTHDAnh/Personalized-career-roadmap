@@ -7,5 +7,7 @@ namespace CareerSystem.API.Services.Interfaces
         // Nhận vào khay LoginRequest, trả về một chuỗi thông báo (tạm thời)
         string Login(LoginRequest request);
         Task<LoginResponse?> LoginAsync(LoginRequest request);
+        Task<LoginResponse?> LoginWithGoogleAsync(GoogleLoginRequest request);
+        Task<LoginResponse?> RefreshTokenAsync(RefreshTokenRequest request);
     }
 }

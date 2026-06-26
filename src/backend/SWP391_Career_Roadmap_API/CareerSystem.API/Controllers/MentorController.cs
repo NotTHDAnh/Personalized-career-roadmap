@@ -2,11 +2,13 @@ using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
 using CareerSystem.API.Utilities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CareerSystem.API.Controllers
 {
     [ApiController]
     [Route("api/mentor")]
+    [Authorize]
     public class MentorController : ControllerBase
     {
         private readonly IMentorService _mentorService;

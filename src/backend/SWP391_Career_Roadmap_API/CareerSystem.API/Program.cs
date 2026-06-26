@@ -2,6 +2,11 @@
 using CareerSystem.API.Data;
 using CareerSystem.API.Services.Implementations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Microsoft.OpenApi;
+using OfficeOpenXml;
 
 namespace CareerSystem.API
 {
@@ -43,6 +48,18 @@ namespace CareerSystem.API
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.ICourseService,
                 CareerSystem.API.Services.Implementations.CourseService>();
 
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStudentImportService,
+                CareerSystem.API.Services.Implementations.StudentImportService>();
+
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.ICourseImportService,
+                CareerSystem.API.Services.Implementations.CourseImportService>();
+
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IAcademicRecordImportService,
+                CareerSystem.API.Services.Implementations.AcademicRecordImportService>();
+
+            // EPPlus License (NonCommercial cho mục đích học tập)
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
             // CORS
             builder.Services.AddCors(options =>
             {
@@ -55,9 +72,56 @@ namespace CareerSystem.API
                 });
             });
 
+            // JWT Authentication Configuration
+            var jwtSecret = builder.Configuration["JwtSettings:Secret"] ?? "nevergonnagiveyouupnevergonnaletyoudown";
+            var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "CareerSystemAPI";
+            var jwtAudience = builder.Configuration["JwtSettings:Audience"] ?? "CareerSystemClient";
+            var key = Encoding.UTF8.GetBytes(jwtSecret);
+
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.RequireHttpsMetadata = false;
+                options.SaveToken = true;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = true,
+                    ValidIssuer = jwtIssuer,
+                    ValidateAudience = true,
+                    ValidAudience = jwtAudience,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                };
+            });
+
             // Swagger
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "CareerSystem API", Version = "v1" });
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
+                    Name = "Authorization",
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "Bearer",
+                    BearerFormat = "JWT"
+                });
+                c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecuritySchemeReference("Bearer", document),
+                        new List<string>()
+                    }
+                });
+            });
 
             var app = builder.Build();
 
@@ -76,7 +140,7 @@ namespace CareerSystem.API
 
             app.UseCors("AllowAll");
 
-            // app.UseAuthentication();
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllers();

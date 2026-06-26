@@ -47,6 +47,7 @@ public partial class AppDbContext : DbContext
     public virtual DbSet<StudentSkill> StudentSkills { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
+    public virtual DbSet<UserRefreshToken> UserRefreshTokens { get; set; }
 
 //    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 //#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
@@ -556,6 +557,40 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(255)
                 .IsUnicode(false)
                 .HasColumnName("gemini_api_key");
+        });
+
+        modelBuilder.Entity<UserRefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.TokenId).HasName("PK__User_Ref__CB3C11494F3C8AA4");
+
+            entity.ToTable("User_Refresh_Tokens");
+
+            entity.Property(e => e.TokenId)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("token_id");
+            entity.Property(e => e.UserId)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("user_id");
+            entity.Property(e => e.RefreshToken)
+                .HasMaxLength(255)
+                .IsUnicode(false)
+                .HasColumnName("refresh_token");
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnType("datetime")
+                .HasColumnName("expires_at");
+            entity.Property(e => e.IsRevoked)
+                .HasDefaultValue(false)
+                .HasColumnName("is_revoked");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.User).WithMany(p => p.UserRefreshTokens)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("FK__User_Ref__user_i__5EBF139D");
         });
 
         OnModelCreatingPartial(modelBuilder);
