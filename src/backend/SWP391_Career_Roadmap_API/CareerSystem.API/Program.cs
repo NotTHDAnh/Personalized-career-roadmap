@@ -26,6 +26,8 @@ namespace CareerSystem.API
             // Services
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IAuthService,
                 CareerSystem.API.Services.Implementations.AuthService>();
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IEmailService,
+                CareerSystem.API.Services.Implementations.EmailService>();
 
             builder.Services.AddHttpClient<GithubService>();
 
