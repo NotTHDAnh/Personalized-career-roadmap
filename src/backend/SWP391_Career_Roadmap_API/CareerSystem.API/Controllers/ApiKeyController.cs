@@ -4,11 +4,13 @@ using CareerSystem.API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CareerSystem.API.Controllers
 {
     [Route("api/users/{userId}/gemini-key")]
     [ApiController]
+    [Authorize]
     public class ApiKeyController : ControllerBase
     {
         private readonly AppDbContext _context;
