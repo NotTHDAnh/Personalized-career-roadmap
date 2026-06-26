@@ -1,11 +1,13 @@
 using System.Threading.Tasks;
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CareerSystem.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class CourseController : ControllerBase
     {
         private readonly ICourseService _courseService;

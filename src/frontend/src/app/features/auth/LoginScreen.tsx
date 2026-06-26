@@ -83,21 +83,21 @@ export default function LoginScreen() {
       const userRole = result.user.role?.toUpperCase();
 
       if (currentMode === "student" && userRole !== "STUDENT") {
-        setError("Tài khoản Google này không thuộc nhóm tài khoản Student.");
+        setError("This account is not a student account.");
         return;
       }
       if (
         currentMode === "staff" &&
         !["STAFF", "ADMIN", "MENTOR"].includes(userRole ?? "")
       ) {
-        setError("Tài khoản Google này không thuộc nhóm tài khoản Staff/Admin/Mentor.");
+        setError("This account is not a staff account.");
         return;
       }
 
       login(result.accessToken, result.refreshToken, result.user, currentMode);
       navigate(currentMode === "staff" ? "/staff" : "/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Đăng nhập Google thất bại.");
+      setError(err instanceof Error ? err.message : "Login with google failed!");
     } finally {
       setLoading(false);
     }
