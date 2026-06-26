@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router";
 import { useAuth } from "../../shared/contexts/AuthContext";
+import { NotificationBell } from "../components/NotificationCenter/NotificationBell";
 import {
   BookOpen,
   Map,
   MessageCircle,
   LogOut,
-  Bell,
   GraduationCap,
   ChevronLeft,
   ChevronRight,
@@ -140,7 +140,7 @@ export function StudentDashboard() {
       <main className="flex-1 min-w-0 w-full flex flex-col h-screen overflow-hidden bg-[#F4F7F9] transition-colors duration-300">
         {/* Header */}
         <header
-          className="h-[68px] bg-[#F8F9FF] px-6 md:px-8 flex items-center justify-between shrink-0 shadow-[0_1px_2px_rgba(0,0,0,0.02)] border-b border-[#E2E8F0] z-10 transition-colors duration-300"
+          className="h-[68px] bg-[#F8F9FF] px-6 md:px-8 flex items-center justify-between shrink-0 shadow-[0_1px_2px_rgba(0,0,0,0.02)] border-b border-[#E2E8F0] z-50 transition-colors duration-300"
         >
           <div>
             <h2 className="text-[18px] font-bold text-[#0F172A]">
@@ -149,12 +149,7 @@ export function StudentDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[#E0E7FF] transition-colors text-[#64748B]"
-            >
-              <Bell size={18} />
-            </button>
+            <NotificationBell />
             <div className="w-9 h-9 rounded-full bg-white text-[#3B28CC] flex items-center justify-center font-bold text-[13px] shadow-sm border border-[#C7D2FE]">
               {initial}
             </div>

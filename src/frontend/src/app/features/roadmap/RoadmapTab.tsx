@@ -271,9 +271,15 @@ export default function MyRoadmaps() {
       apiClient.put("/Roadmap/update-nodes-status", {
         roadmapId: selectedRoadmapId,
         updates: updates
+      }).then(() => {
+        // Báo cho chuông thông báo biết dữ liệu đã thay đổi để cập nhật ngay lập tức
+        window.dispatchEvent(new Event('roadmap_updated'));
       }).catch((err) => {
         console.error("Lỗi cập nhật trạng thái node trên Database:", err);
       });
+    } else {
+      // Dù là preview cũng dispatch để UI cập nhật mượt mà
+      window.dispatchEvent(new Event('roadmap_updated'));
     }
   };
 
