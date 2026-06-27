@@ -3,7 +3,7 @@ import { Card } from "@/app/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Progress } from "@/app/components/ui/progress";
 import { Skeleton } from "@/app/components/ui/skeleton";
-import { TrendingUp, Code2, Plus } from "lucide-react";
+import { TrendingUp, Code2, Plus, Key } from "lucide-react";
 import { SkillTag } from "./components/SkillTag";
 import { StudentProfileCard } from "./components/StudentProfileCard";
 import { GpaInput } from "./components/GpaInput";
@@ -152,6 +152,32 @@ export default function ProfileTranscripts() {
                 </button>
               </div>
             )}
+          </Card>
+
+          {/* AI Key Guide Card */}
+          <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-6 flex flex-col transition-colors duration-300">
+            <div className="flex items-center gap-2 mb-4">
+              <Key className="w-5 h-5 text-[#3B28CC]" strokeWidth={2.5} />
+              <h4 className="text-[16px] font-bold text-[#0F172A]">Gemini API Key Guide</h4>
+            </div>
+            <div className="border-t border-[#E2E8F0] mb-5 w-full" />
+            
+            <ol className="list-decimal pl-4 space-y-2.5 text-[13px] text-[#334155] font-medium marker:text-[#64748B] marker:font-bold mb-6">
+              <li>Go to Google AI Studio</li>
+              <li>Sign in with your Google account</li>
+              <li>Open API Keys</li>
+              <li>Create a new API key</li>
+              <li>Copy the key and paste it into the AI Configuration in Staff Console (or settings)</li>
+            </ol>
+            
+            <a 
+              href="https://aistudio.google.com/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#E0E7FF] hover:border-[#C7D2FE] text-[#3B28CC] text-[13px] font-bold h-10 rounded-xl transition-colors w-full"
+            >
+              Open Google AI Studio
+            </a>
           </Card>
         </div>
       </div>

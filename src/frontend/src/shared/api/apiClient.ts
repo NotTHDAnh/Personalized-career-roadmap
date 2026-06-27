@@ -15,14 +15,22 @@ async function request<T>(
 ): Promise<T> {
   const token = localStorage.getItem("accessToken");
 
+  const isFormData = options.body instanceof FormData;
+  const defaultHeaders: Record<string, string> = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  
+  if (!isFormData) {
+    defaultHeaders["Content-Type"] = "application/json";
+  }
+
   let response: Response;
 
   try {
     response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...defaultHeaders,
         ...options.headers,
       },
     });
@@ -101,16 +109,18 @@ export const apiClient = {
   get: <T>(endpoint: string) =>
     request<T>(endpoint),
 
-  post: <T>(endpoint: string, body: unknown) =>
+  post: <T>(endpoint: string, body: unknown, customOptions?: RequestInit) =>
     request<T>(endpoint, {
       method: "POST",
-      body: JSON.stringify(body),
+      body: body instanceof FormData ? body : JSON.stringify(body),
+      ...customOptions,
     }),
 
-  put: <T>(endpoint: string, body: unknown) =>
+  put: <T>(endpoint: string, body: unknown, customOptions?: RequestInit) =>
     request<T>(endpoint, {
       method: "PUT",
-      body: JSON.stringify(body),
+      body: body instanceof FormData ? body : JSON.stringify(body),
+      ...customOptions,
     }),
 
   patch: <T>(endpoint: string, body?: unknown) =>

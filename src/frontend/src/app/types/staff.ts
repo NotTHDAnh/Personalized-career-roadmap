@@ -4,8 +4,10 @@
 export interface CourseFormData {
   courseName: string;
   courseCode: string;
-  duration: string;
+  credits: string;
+  totalStudyHours: string;
   hashtags: string;
+  outcomes: string;
 }
 
 export interface StaffCourse {

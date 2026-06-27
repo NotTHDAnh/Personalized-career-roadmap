@@ -2,6 +2,9 @@ import { createBrowserRouter, Navigate, Outlet } from "react-router";
 import LoginScreen from "./features/auth/LoginScreen";
 import { StudentDashboard } from "./layouts/StudentDashboard";
 import StaffPanel from "./features/staff/StaffPanel";
+import { StaffLayout } from "./layouts/StaffLayout";
+import { StaffStudentsView } from "./features/staff/StaffStudentsView";
+import { StaffCoursesView } from "./features/staff/StaffCoursesView";
 import ProfileTab from "./features/profile/ProfileTab";
 import RoadmapTab from "./features/roadmap/RoadmapTab";
 import { MentorTab } from "./features/mentor/MentorTab";
@@ -38,9 +41,15 @@ export const router = createBrowserRouter([
         path: "/staff",
         element: (
           <ProtectedRoute allowedRoles={["STAFF", "ADMIN", "MENTOR"]}>
-            <StaffPanel />
+            <StaffLayout />
           </ProtectedRoute>
         ),
+        children: [
+          { index: true, element: <Navigate to="dashboard" replace /> },
+          { path: "dashboard", element: <StaffPanel /> },
+          { path: "students", element: <StaffStudentsView /> },
+          { path: "courses", element: <StaffCoursesView /> },
+        ],
       },
       {
         path: "*",

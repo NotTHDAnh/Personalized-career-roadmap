@@ -1,121 +1,425 @@
 import { useState, useEffect } from "react";
-import { CloudUpload, FileSpreadsheet, LogOut } from "lucide-react";
-import { DragDropZone } from "./components/DragDropZone";
+import { 
+  CloudUpload, 
+  FileSpreadsheet, 
+  LogOut,
+  Users,
+  BookOpen,
+  Code2,
+  Briefcase,
+  Key,
+  Eye,
+  EyeOff,
+  Save,
+  Settings,
+  Plus,
+  Trash2
+} from "lucide-react";
 import { CourseForm } from "./components/CourseForm";
-import { Card, CardHeader, CardContent } from "@/app/components/ui/card";
+import { Card } from "@/app/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Button } from "@/app/components/ui/button";
-import { Badge } from "@/app/components/ui/badge";
 import { Skeleton } from "@/app/components/ui/skeleton";
-import { COLORS } from "@/shared/constants/colors";
+import { Input } from "@/app/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/app/components/ui/dialog";
 import { useAuth } from "@/shared/contexts/AuthContext";
 import { toast } from "sonner";
+import { apiClient } from "@/shared/api/apiClient";
+import { useRef } from "react";
+import { FileUploadModal } from "./components/FileUploadModal";
+
+interface StatCount {
+  students: number;
+  courses: number;
+  skills: number;
+}
 
 export default function StaffPanel() {
   const { logout } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ courseName: "", courseCode: "", duration: "", hashtags: "" });
+  
+  // Data States
+  const [stats, setStats] = useState<StatCount | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  
+  // Course Form State
+  const [form, setForm] = useState({ courseName: "", courseCode: "", credits: "", totalStudyHours: "", hashtags: "", outcomes: "" });
+  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
+  
+  // Table state
+  const [loadingTable, setLoadingTable] = useState(true);
+  
+  // File Import Modal State
+  const [uploadModalState, setUploadModalState] = useState<{isOpen: boolean, title: string, importType: 'students' | 'courses'}>({ isOpen: false, title: "", importType: 'students' });
+  
+  // AI Config State
+  const [aiKey, setAiKey] = useState("");
+  const [savedAiKey, setSavedAiKey] = useState<string | null>(null);
+  const [showKey, setShowKey] = useState(false);
+  const [isSavingKey, setIsSavingKey] = useState(false);
+
+  const fetchStats = async () => {
+    try {
+      setLoadingStats(true);
+      const [students, courses, skills] = await Promise.all([
+        apiClient.get<number>("/students/count").catch(() => 0),
+        apiClient.get<number>("/courses/count").catch(() => 0),
+        apiClient.get<number>("/skills/count").catch(() => 0),
+      ]);
+      setStats({ students, courses, skills });
+    } catch (error) {
+      console.error("Failed to fetch stats", error);
+      setStats({ students: 0, courses: 0, skills: 0 }); // Fallback on error
+    } finally {
+      setLoadingStats(false);
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 700);
-    return () => clearTimeout(timer);
+    // Simulate loading for table
+    const tableTimer = setTimeout(() => setLoadingTable(false), 700);
+    
+    // Load saved AI Key
+    const storedKey = localStorage.getItem("gemini_api_key");
+    if (storedKey) {
+      setSavedAiKey(storedKey);
+      setAiKey(storedKey);
+    }
+    
+    fetchStats();
+    return () => clearTimeout(tableTimer);
   }, []);
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAddCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.courseName.trim() || !form.courseCode.trim()) {
-      toast.error("Course Name and Course Code are required!");
+    if (!form.courseName.trim() || !form.courseCode.trim() || !form.hashtags.trim() || !form.outcomes.trim()) {
+      toast.error("Please fill in all required fields.");
       return;
     }
-    toast.success(`Successfully added course: ${form.courseName} (${form.courseCode})`);
-    setForm({ courseName: "", courseCode: "", duration: "", hashtags: "" });
+    
+    try {
+      await apiClient.post("/Staff/courses", {
+        CourseCode: form.courseCode.trim(),
+        CourseName: form.courseName.trim(),
+        Credits: parseInt(form.credits) || 3,
+        TotalStudyHours: parseInt(form.totalStudyHours) || 0,
+        Skills: form.hashtags.trim(),
+        Outcomes: form.outcomes.trim()
+      });
+      toast.success(`Successfully added course: ${form.courseName} (${form.courseCode})`);
+      setForm({ courseName: "", courseCode: "", credits: "", totalStudyHours: "", hashtags: "", outcomes: "" });
+      setIsCourseModalOpen(false);
+      fetchStats(); // Refresh stats after adding
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to add course");
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    toast.info(`Uploading ${file.name}...`);
+    // Here you would call apiClient.post for the file upload
+    setTimeout(() => {
+      toast.success(`${type} imported successfully!`);
+    }, 1000);
+    
+    // Reset input
+    e.target.value = '';
+  };
+
+  const formatMaskedKey = (key: string) => {
+    if (!key) return "";
+    if (key.length <= 10) return key;
+    return `${key.slice(0, 6)}...${key.slice(-4)}`;
+  };
+
+  const handleSaveAiKey = async () => {
+    if (!aiKey.trim()) {
+      toast.error("Please enter a valid API Key");
+      return;
+    }
+    
+    setIsSavingKey(true);
+    // Simulate API call to save key
+    setTimeout(() => {
+      localStorage.setItem("gemini_api_key", aiKey.trim());
+      setSavedAiKey(aiKey.trim());
+      toast.success("AI Configuration saved successfully");
+      setIsSavingKey(false);
+    }, 600);
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#F1F5F9" }}>
-      <header className="w-full px-8 py-4 flex items-center justify-between" style={{ background: COLORS.BLUE_PRIMARY }}>
-        <h1 className="text-white font-bold text-base">Staff Administration Panel — Data Entry Only</h1>
-        <Button onClick={logout} variant="ghost" className="flex items-center gap-2 text-sm text-white/70 hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">
-          <LogOut className="w-4 h-4" /> Sign Out
-        </Button>
-      </header>
-
-      <div className="flex-1 p-8 space-y-6">
-        <div className="grid grid-cols-2 gap-5">
-          <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col gap-5">
-            <h2 className="text-sm font-semibold text-gray-800">Student Account Upload</h2>
-            <DragDropZone text="Upload Student List (.CSV / .XLSX)" icon={CloudUpload} />
-          </Card>
-          <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col gap-5">
-            <h2 className="text-sm font-semibold text-gray-800">Course Batch Import</h2>
-            <DragDropZone text="Import Master Curriculum & Courses via File (.CSV / .XLSX)" icon={FileSpreadsheet} />
-          </Card>
+    <div className="h-full w-full overflow-y-auto p-4 md:p-6">
+      <div className="space-y-4 max-w-7xl mx-auto w-full">
+        {/* HEADER */}
+        <div className="mb-4">
+          <h1 className="text-[22px] font-bold tracking-tight text-[#0F172A] mb-1">Staff Dashboard</h1>
+          <p className="text-[13px] text-[#64748B]">Overview of system statistics and master data management.</p>
+        </div>
+        {/* OVERVIEW CARDS */}
+        <div className="grid grid-cols-3 gap-4">
+          <StatCard title="Students Imported" icon={Users} value={stats?.students} loading={loadingStats} color="blue" />
+          <StatCard title="Courses" icon={BookOpen} value={stats?.courses} loading={loadingStats} color="indigo" />
+          <StatCard title="Skills" icon={Code2} value={stats?.skills} loading={loadingStats} color="emerald" />
         </div>
 
-        <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col gap-5">
-          <h2 className="text-sm font-semibold text-gray-800">Manual Course Setup</h2>
-          <CourseForm form={form} setForm={setForm} onSubmit={handleAdd} />
-        </Card>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="col-span-2 space-y-4">
+            {/* DATA IMPORT SECTION */}
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-4 flex gap-4 transition-colors">
+                <div className="w-10 h-10 bg-[#E0E7FF] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <CloudUpload className="w-5 h-5 text-[#3B28CC]" />
+                </div>
+                <div className="flex-1 flex flex-col">
+                  <h3 className="text-[14px] font-bold text-[#0F172A] mb-1">Student Accounts</h3>
+                  <p className="text-[12px] text-[#64748B] mb-3 leading-relaxed flex-1">Upload .CSV or .XLSX list to batch import student accounts and profiles.</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setUploadModalState({ isOpen: true, title: "Student Accounts", importType: "students" })}
+                    className="w-full border-[#E2E8F0] text-[#3B28CC] hover:bg-[#E0E7FF] hover:text-[#3B28CC] hover:border-[#C7D2FE] text-[12px] h-8"
+                  >
+                    Select File
+                  </Button>
+                </div>
+              </Card>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between" style={{ background: "#F8FAFC" }}>
-            <div>
-              <h2 className="text-sm font-semibold text-gray-800">Master Verification Table</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Active school master data for alignment checking</p>
+              <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-4 flex gap-4 transition-colors">
+                <div className="w-10 h-10 bg-[#DCFCE7] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <FileSpreadsheet className="w-5 h-5 text-[#16A34A]" />
+                </div>
+                <div className="flex-1 flex flex-col">
+                  <h3 className="text-[14px] font-bold text-[#0F172A] mb-1">Curriculum & Courses</h3>
+                  <p className="text-[12px] text-[#64748B] mb-3 leading-relaxed flex-1">Import master curriculum, courses, skills, and roles via file.</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setUploadModalState({ isOpen: true, title: "Curriculum & Courses", importType: "courses" })}
+                    className="w-full border-[#E2E8F0] text-[#16A34A] hover:bg-[#DCFCE7] hover:text-[#16A34A] hover:border-[#bbf7d0] text-[12px] h-8"
+                  >
+                    Select File
+                  </Button>
+                </div>
+              </Card>
             </div>
-            {loading ? (
-              <Skeleton className="h-6 w-16 rounded-full" />
-            ) : (
-              <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-200 rounded-full px-3 py-1 text-xs">
-                2 Records
-              </Badge>
-            )}
-          </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-[#F8FAFC] border-b border-gray-100 hover:bg-transparent">
-                  {["Course Name", "Course Code", "Standard Duration (Weeks)", "Associated Skill Hashtags"].map((col) => (
-                    <TableHead key={col} className="px-6 py-3 text-left text-xs uppercase tracking-wider font-semibold text-[#64748B] h-auto">{col}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 2 }).map((_, i) => (
-                    <TableRow key={i} className="border-t border-gray-100">
-                      <TableCell><Skeleton className="h-5 w-44" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Skeleton className="h-5 w-12 rounded-full" />
-                          <Skeleton className="h-5 w-12 rounded-full" />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow className="border-t border-gray-100 hover:bg-gray-50/50">
-                    <TableCell className="px-6 py-4 text-sm text-gray-800 font-medium">Advanced Java Programming</TableCell>
-                    <TableCell className="px-6 py-4 text-sm font-mono text-gray-600">JA301</TableCell>
-                    <TableCell className="px-6 py-4 text-sm text-gray-600">8 Weeks</TableCell>
-                    <TableCell className="px-6 py-4">
-                      <div className="flex gap-2 flex-wrap">
-                        {["#OOP", "#Backend"].map((t) => (
-                          <Badge key={t} variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 rounded-full px-2.5 py-1 text-xs font-medium">
-                            {t}
-                          </Badge>
-                        ))}
+
+            {/* MASTER VERIFICATION TABLE */}
+            <div className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] overflow-hidden transition-colors duration-300">
+              <div className="px-4 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+                <div>
+                  <h3 className="text-[14px] text-[#0F172A] font-bold flex items-center gap-2">
+                    Master Verification Table
+                  </h3>
+                  <p className="text-[12px] text-[#64748B] mt-0.5 font-medium">Active school master data for alignment checking</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {loadingTable ? (
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                  ) : (
+                    <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
+                      2 Records
+                    </span>
+                  )}
+                  <Dialog open={isCourseModalOpen} onOpenChange={setIsCourseModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="bg-[#3B28CC] hover:bg-[#3B28CC]/90 text-white h-8 text-[12px] gap-1.5 rounded-full px-4">
+                        <Plus className="w-3.5 h-3.5" />
+                        Add Course
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Add Course Manually</DialogTitle>
+                      </DialogHeader>
+                      <div className="py-2">
+                        <CourseForm form={form} setForm={setForm} onSubmit={handleAddCourse} />
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] hover:bg-transparent">
+                      {["Course Name", "Course Code", "Standard Duration", "Associated Skills"].map((col) => (
+                        <TableHead key={col} className="px-4 py-2 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto">{col}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loadingTable ? (
+                      Array.from({ length: 2 }).map((_, i) => (
+                        <TableRow key={i} className="border-t border-[#E2E8F0]">
+                          <TableCell className="px-4 py-2"><Skeleton className="h-4 w-44" /></TableCell>
+                          <TableCell className="px-4 py-2"><Skeleton className="h-4 w-12" /></TableCell>
+                          <TableCell className="px-4 py-2"><Skeleton className="h-4 w-16" /></TableCell>
+                          <TableCell className="px-4 py-2">
+                            <div className="flex gap-2">
+                              <Skeleton className="h-5 w-12 rounded-full" />
+                              <Skeleton className="h-5 w-12 rounded-full" />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
+                        <TableCell className="px-4 py-2 text-[12px] text-[#0F172A] font-bold">Advanced Java Programming</TableCell>
+                        <TableCell className="px-4 py-2 text-[11px] font-mono text-[#64748B] font-medium">JA301</TableCell>
+                        <TableCell className="px-4 py-2 text-[11px] text-[#334155] font-medium">8 Weeks</TableCell>
+                        <TableCell className="px-4 py-2">
+                          <div className="flex gap-1.5 flex-wrap">
+                            {["OOP", "Backend"].map((t) => (
+                              <span key={t} className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]">
+                                #{t}
+                              </span>
+                            ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-span-1 space-y-4">
+            {/* AI CONFIGURATION SECTION */}
+            <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-5 flex flex-col transition-colors relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                <Settings className="w-24 h-24" />
+              </div>
+              
+              <div className="flex items-center justify-between mb-4 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-[#F8FAFC] flex items-center justify-center border border-[#E2E8F0]">
+                    <Key className="w-4 h-4 text-[#0F172A]" />
+                  </div>
+                  <h2 className="text-[15px] font-bold text-[#0F172A]">AI Configuration</h2>
+                </div>
+                {savedAiKey ? (
+                  <span className="bg-[#DCFCE7] text-[#16A34A] px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></span>
+                    Connected
+                  </span>
+                ) : (
+                  <span className="bg-[#FEF2F2] text-[#EF4444] px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444]"></span>
+                    Not Configured
+                  </span>
                 )}
-              </TableBody>
-            </Table>
+              </div>
+              
+              <p className="text-[12px] text-[#64748B] mb-4 leading-relaxed relative z-10">
+                Gemini API Key is required for AI-powered features such as Mentor Chat and Roadmap Generation.
+              </p>
+
+              <div className="mt-4 space-y-3 relative z-10">
+                {savedAiKey ? (
+                  <div className="bg-[#0F172A] rounded-xl p-3.5 flex items-center justify-between border border-[#1E293B]">
+                    <div>
+                      <p className="text-[11px] font-semibold text-[#64748B] mb-0.5">Connected Key</p>
+                      <p className="text-[13px] text-white font-mono font-medium tracking-wide">
+                        {formatMaskedKey(savedAiKey)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => {
+                          setAiKey("");
+                          setSavedAiKey(null);
+                          localStorage.removeItem("gemini_api_key");
+                          toast.success("API Key removed");
+                          setShowKey(false);
+                        }}
+                        className="p-2 text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#1E293B] rounded-lg transition-colors"
+                        title="Delete Key"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[#64748B] mb-1.5">
+                        Gemini API Key
+                      </label>
+                      <div className="relative">
+                        <Input 
+                          type={showKey ? "text" : "password"} 
+                          placeholder="AIzaSy..." 
+                          value={aiKey}
+                          onChange={(e) => setAiKey(e.target.value)}
+                          className="pr-10 text-[13px] bg-[#F8FAFC] border-[#E2E8F0] focus-visible:ring-[#3B28CC]"
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => setShowKey(!showKey)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#0F172A] transition-colors"
+                        >
+                          {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={handleSaveAiKey} 
+                      disabled={isSavingKey || !aiKey.trim()}
+                      className="w-full bg-[#3B28CC] hover:bg-[#3B28CC]/90 text-white gap-2 mt-2 h-9 text-[13px]"
+                    >
+                      <Save className="w-4 h-4" />
+                      {isSavingKey ? "Saving..." : "Save Key"}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </Card>
           </div>
         </div>
       </div>
+      <FileUploadModal 
+        isOpen={uploadModalState.isOpen} 
+        onClose={() => {
+          setUploadModalState(prev => ({ ...prev, isOpen: false }));
+          fetchStats(); // Refresh stats in case something was imported
+        }}
+        title={uploadModalState.title}
+        importType={uploadModalState.importType}
+      />
     </div>
   );
 }
+
+// Subcomponent for Stats
+function StatCard({ title, icon: Icon, value, loading, color }: { title: string, icon: any, value?: number, loading: boolean, color: "blue" | "indigo" | "emerald" | "amber" }) {
+  const colorMap = {
+    blue: "bg-[#EFF6FF] text-[#2563EB] border-[#BFDBFE]",
+    indigo: "bg-[#EEF2FF] text-[#4F46E5] border-[#C7D2FE]",
+    emerald: "bg-[#ECFDF5] text-[#10B981] border-[#A7F3D0]",
+    amber: "bg-[#FFFBEB] text-[#D97706] border-[#FDE68A]",
+  };
+  
+  return (
+    <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-5 flex flex-col transition-colors">
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${colorMap[color]}`}>
+          <Icon className="w-5 h-5" strokeWidth={2.5} />
+        </div>
+        <h3 className="text-[13px] font-bold text-[#64748B] uppercase tracking-wide">{title}</h3>
+      </div>
+      <div>
+        {loading ? (
+          <Skeleton className="h-8 w-20" />
+        ) : (
+          <div className="text-[32px] font-black text-[#0F172A] tracking-tight leading-none">
+            {value !== undefined ? value.toLocaleString() : "0"}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
