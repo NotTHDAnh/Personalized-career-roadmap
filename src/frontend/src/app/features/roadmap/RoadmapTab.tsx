@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Check, Lock, ChevronDown, Pencil, Save, Trash2, Briefcase, Loader2, Map, Plus, CalendarDays } from "lucide-react";
+import { Check, Lock, ChevronDown, ChevronUp, Pencil, Save, Trash2, Briefcase, Loader2, Map, Plus, CalendarDays } from "lucide-react";
 import { GoalNode } from "./components/GoalNode";
 import { RoadmapNode } from "./components/RoadmapNode";
 import { CourseCard } from "./components/CourseCard";
@@ -17,6 +17,7 @@ import { useMemo } from "react";
 import { RoadmapCanvas } from "./components/RoadmapCanvas";
 import { mapDtoToGraph } from "./core/roadmapAdapter";
 import { PhaseBasedLayoutEngine } from "./core/phaseBasedEngine";
+import { SkillAnalyticsDashboard } from "./components/SkillAnalyticsDashboard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -196,6 +197,7 @@ export default function MyRoadmaps() {
   const [roadmapData, setRoadmapData] = useState<any>(null); // State chứa dữ liệu thật
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showPhaseBoard, setShowPhaseBoard] = useState(true);
 
   const handleDeleteRoadmap = async () => {
     if (!selectedRoadmapId) return;
@@ -534,19 +536,20 @@ export default function MyRoadmaps() {
 
       {/* ── Section 2: Canvas and Goal ── */}
       <div className="flex gap-4">
-        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-colors duration-300">
+        <div className="flex-1 min-w-0 h-fit bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-colors duration-300">
           <div className="overflow-x-auto w-full">
-            <div style={{ width: containerMinWidth, minWidth: containerMinWidth }}>
+            <div style={{ width: containerMinWidth, minWidth: "100%" }}>
 
               {/* Zone label header — scrolls with the map */}
-              <div style={{ display: "flex", background: "white" }}>
+              <div style={{ display: "flex", width: "100%", background: "white" }}>
                 {zones.map(({ label, sub, textColor, bg }: { label: string, sub: string, textColor: string, bg: string }, i: number) => {
                   const zoneWidth = computedGraph?.zones?.[i]?.width || 300;
+                  const pct = totalSvgWidth > 0 ? (zoneWidth / totalSvgWidth) * 100 : 0;
                   return (
                     <div
                       key={label}
                       style={{
-                        width: zoneWidth + "px",
+                        width: `${pct}%`,
                         flexShrink: 0,
                         padding: "20px 0",
                         textAlign: "center",
@@ -570,7 +573,7 @@ export default function MyRoadmaps() {
               </div>
 
               {/* Map canvas */}
-              <div className="relative bg-[#F3F4F6] transition-colors duration-300" style={{ height: "180px" }}>
+              <div className="relative bg-[#F3F4F6] transition-colors duration-300" style={{ width: "100%", height: "180px" }}>
                 {(loading || !computedGraph) ? (
                   <div className="absolute inset-0 flex items-center justify-around px-12">
                     {Array.from({ length: 4 }).map((_, i) => (
@@ -595,6 +598,27 @@ export default function MyRoadmaps() {
       </div>
 
       {/* ── Section 3: Chronological Timeline ── */}
+      <div className="flex items-center justify-between mt-8 mb-2">
+        <h2 className="text-lg font-bold text-gray-800">Phase Details</h2>
+        <button
+          onClick={() => setShowPhaseBoard(!showPhaseBoard)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200"
+        >
+          {showPhaseBoard ? (
+            <>
+              Hide
+              <ChevronUp className="w-4 h-4" />
+            </>
+          ) : (
+            <>
+              Show
+              <ChevronDown className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </div>
+
+      {showPhaseBoard && (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-colors duration-300">
         <div className="w-full">
               {/* Timeline column headers */}
@@ -632,6 +656,11 @@ export default function MyRoadmaps() {
         </div>
         </div>
       </div>
+      )}
+
+      {roadmaps.length > 0 && (
+        <SkillAnalyticsDashboard roadmaps={roadmaps} />
+      )}
         </>
       )}
       
