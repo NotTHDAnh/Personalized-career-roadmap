@@ -77,6 +77,7 @@ namespace CareerSystem.API.Services.Implementations
                     courseName = c.CourseName,
                     credits = c.Credits,
                     totalStudyHours = c.TotalStudyHours,
+                    isFoundationalCourse = c.IsFoundationalCourse,
 
                     learningOutcomes = _context.CourseLearningOutcomes
                         .Where(clo => clo.CourseId == c.CourseId)
@@ -193,7 +194,10 @@ namespace CareerSystem.API.Services.Implementations
 
         public async Task<(CareerRole TargetRole, string PassedCoursesText, string CourseCatalogJson)> BuildRoadmapContextAsync(PersonalizedRoadmapRequest request)
         {
-            var targetRole = await _context.CareerRoles.FindAsync(request.TargetRoleId)
+            var targetRole = await _context.CareerRoles
+                .Include(cr => cr.RolePrerequisites)
+                    .ThenInclude(rp => rp.Skill)
+                .FirstOrDefaultAsync(cr => cr.RoleId == request.TargetRoleId)
                 ?? throw new Exception("Không tìm thấy nghề nghiệp mục tiêu.");
 
             var passedCourses = await _context.AcademicRecords

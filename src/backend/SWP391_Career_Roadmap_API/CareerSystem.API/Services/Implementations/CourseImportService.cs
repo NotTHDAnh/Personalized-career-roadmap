@@ -20,19 +20,19 @@ namespace CareerSystem.API.Services.Implementations
     public class CourseImportService : ICourseImportService
     {
         private readonly AppDbContext _context;
-        private readonly IGeminiService _geminiService;
+        private readonly IAiRecommendationService _aiRecommendationService;
         private readonly IConfiguration _configuration;
 
-        // Header tiêu chuẩn của file Excel import môn học (7 cột)
+        // Header tiêu chuẩn của file Excel import môn học (8 cột)
         private static readonly string[] ExpectedHeaders =
-            { "STT", "Mã môn học", "Tên môn học", "Số tín chỉ", "Tổng số giờ học", "Kỹ năng đầu ra", "Chuẩn đầu ra" };
+            { "STT", "Mã môn học", "Tên môn học", "Số tín chỉ", "Tổng số giờ học", "Kỹ năng đầu ra", "Chuẩn đầu ra", "Môn học nền tảng" };
 
-        private const int ColCount = 7;
+        private const int ColCount = 8;
 
-        public CourseImportService(AppDbContext context, IGeminiService geminiService, IConfiguration configuration)
+        public CourseImportService(AppDbContext context, IAiRecommendationService aiRecommendationService, IConfiguration configuration)
         {
             _context = context;
-            _geminiService = geminiService;
+            _aiRecommendationService = aiRecommendationService;
             _configuration = configuration;
         }
 
@@ -48,8 +48,8 @@ namespace CareerSystem.API.Services.Implementations
             if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Chỉ chấp nhận file định dạng .xlsx");
 
-            if (file.Length > 5 * 1024 * 1024) // 5MB
-                throw new ArgumentException("File không được vượt quá 5MB.");
+            if (file.Length > 10 * 1024 * 1024) // 10MB
+                throw new ArgumentException("File không được vượt quá 10MB.");
 
             // 2. Đọc file Excel
             using var stream = new MemoryStream();
@@ -151,7 +151,13 @@ namespace CareerSystem.API.Services.Implementations
             var newSkillsToRegister = new List<Skill>();
             if (missingSkillNames.Count > 0)
             {
-                var skillsForAiPayload = new List<object>();
+                if (string.IsNullOrWhiteSpace(apiKey))
+                {
+                    throw new ArgumentException(
+                        "File Excel chứa các kỹ năng mới chưa có trong hệ thống. " +
+                        "Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để hệ thống tự động phân loại các kỹ năng này.");
+                }
+
                 foreach (var name in missingSkillNames)
                 {
                     var newSkillId = $"SKL_{nextSkillNum++:D3}";
@@ -162,53 +168,18 @@ namespace CareerSystem.API.Services.Implementations
                         Category = "General" // Giá trị mặc định phòng hờ khi AI lỗi
                     };
                     newSkillsToRegister.Add(skill);
-                    skillsForAiPayload.Add(new { skillId = newSkillId, skillName = name });
                 }
 
                 if (!string.IsNullOrWhiteSpace(apiKey))
                 {
                     try
                     {
-                        string payloadJson = JsonSerializer.Serialize(skillsForAiPayload);
-                        string prompt = $@"
-Bạn là một chuyên gia phân loại kỹ năng trong ngành Công nghệ thông tin (IT).
-Nhiệm vụ của bạn là phân loại danh sách các kỹ năng dưới đây vào các danh mục (category) phù hợp nhất.
+                        var skillsToClassify = newSkillsToRegister.Select(s => (s.SkillId, s.SkillName)).ToList();
+                        var classifications = await _aiRecommendationService.ClassifySkillsAsync(skillsToClassify, apiKey);
 
-Các ví dụ mẫu:
-- ReactJS -> Frontend Development
-- ASP.NET Core -> Backend Development
-- Docker -> DevOps & Cloud
-- SQL Server -> Database Administration
-- Figma -> UI/UX Design
-
-Danh sách các kỹ năng cần phân loại:
-{payloadJson}
-
-Định dạng bắt buộc phải trả về là JSON như sau:
-{{
-  ""classifications"": [
-    {{
-      ""skillId"": ""SKL_001"",
-      ""skillName"": ""ReactJS"",
-      ""category"": ""Frontend Development""
-    }},
-    {{
-      ""skillId"": ""SKL_002"",
-      ""skillName"": ""Kubernetes"",
-      ""category"": ""DevOps & Cloud""
-    }}
-  ]
-}}
-";
-                        string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
-                        var responseObj = JsonSerializer.Deserialize<AiClassificationResponse>(aiJsonResponse, new JsonSerializerOptions
+                        if (classifications != null && classifications.Any())
                         {
-                            PropertyNameCaseInsensitive = true
-                        });
-
-                        if (responseObj?.Classifications != null)
-                        {
-                            foreach (var item in responseObj.Classifications)
+                            foreach (var item in classifications)
                             {
                                 var matchedSkill = newSkillsToRegister.FirstOrDefault(s => s.SkillId == item.SkillId);
                                 if (matchedSkill != null && !string.IsNullOrWhiteSpace(item.Category))
@@ -337,6 +308,17 @@ Danh sách các kỹ năng cần phân loại:
                     continue;
                 }
 
+                var isFoundationalText = worksheet.Cells[row, 8].Text?.Trim().ToLower();
+                bool isFoundational = false;
+                if (!string.IsNullOrWhiteSpace(isFoundationalText))
+                {
+                    isFoundational = isFoundationalText == "true" || 
+                                     isFoundationalText == "1" || 
+                                     isFoundationalText == "yes" || 
+                                     isFoundationalText == "có" || 
+                                     isFoundationalText == "x";
+                }
+
                 // Tạo mới Course
                 string newCourseId = $"CRS_{nextCourseNum++:D3}";
                 var course = new Course
@@ -345,7 +327,8 @@ Danh sách các kỹ năng cần phân loại:
                     CourseCode = courseCode!,
                     CourseName = courseName!,
                     Credits = credits,
-                    TotalStudyHours = totalHours
+                    TotalStudyHours = totalHours,
+                    IsFoundationalCourse = isFoundational
                 };
                 coursesToAdd.Add(course);
 
@@ -467,15 +450,14 @@ Danh sách các kỹ năng cần phân loại:
                 range.Style.Border.Bottom.Style = ExcelBorderStyle.Thick;
             }
 
-            // Dữ liệu mẫu (3 môn học)
+            // Dữ liệu minh hoạ (2 môn học mẫu)
             var sampleData = new object[,]
             {
-                { 1, "PRN211", "Basic Cross-Platform Application Programming", 3, 90, "C#, .NET, Entity Framework, LINQ", "Hiểu ngôn ngữ C# cơ bản; Lập trình hướng đối tượng với .NET; Truy vấn DB bằng Entity Framework Core; Sử dụng LINQ nâng cao" },
-                { 2, "PRN221", "Advanced Cross-Platform Application Programming", 3, 90, "C#, .NET, WPF, SignalR", "Lập trình desktop với WPF; Xây dựng ứng dụng thời gian thực bằng SignalR" },
-                { 3, "PRN231", "Web Application Development", 3, 90, "ASP.NET Core, RESTful API, Web API", "Xây dựng web app với ASP.NET Core; Thiết kế RESTful Web API chuẩn chỉnh" }
+                { 1, "PRJ301", "Java Web Application Development", 3, 90, "Servlet, JSP, MVC Architecture", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động bằng JSP và Servlet; Triển khai ứng dụng Web Java", "False" },
+                { 2, "CSD201", "Data Structures and Algorithms", 3, 90, "Data Structures, Algorithm Design & Analysis, OOP", "Cài đặt các cấu trúc dữ liệu cơ bản như Tree, Graph, Stack, Queue; Đánh giá độ phức tạp thuật toán", "True" }
             };
 
-            for (int row = 0; row < 3; row++)
+            for (int row = 0; row < 2; row++)
             {
                 for (int col = 0; col < ColCount; col++)
                 {
@@ -491,9 +473,10 @@ Danh sách các kỹ năng cần phân loại:
             worksheet.Column(5).Width = 18;  // Tổng số giờ học
             worksheet.Column(6).Width = 45;  // Kỹ năng đầu ra
             worksheet.Column(7).Width = 60;  // Chuẩn đầu ra
+            worksheet.Column(8).Width = 20;  // Môn học nền tảng
 
-            // Border cho toàn bộ bảng
-            using (var range = worksheet.Cells[1, 1, 4, ColCount])
+            // Border cho toàn bộ bảng (Header + dữ liệu mẫu)
+            using (var range = worksheet.Cells[1, 1, 3, ColCount])
             {
                 range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
                 range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
@@ -526,18 +509,5 @@ Danh sách các kỹ năng cần phân loại:
 
             return true;
         }
-    }
-
-    // Các class DTO nội bộ phục vụ deserialize JSON từ Gemini API
-    internal class AiClassificationResponse
-    {
-        public List<AiClassificationItem>? Classifications { get; set; }
-    }
-
-    internal class AiClassificationItem
-    {
-        public string SkillId { get; set; } = null!;
-        public string SkillName { get; set; } = null!;
-        public string Category { get; set; } = null!;
     }
 }

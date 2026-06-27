@@ -15,13 +15,13 @@ namespace CareerSystem.API.Services.Implementations
     public class CourseService : ICourseService
     {
         private readonly AppDbContext _context;
-        private readonly IGeminiService _geminiService;
+        private readonly IAiRecommendationService _aiRecommendationService;
         private readonly IConfiguration _configuration;
 
-        public CourseService(AppDbContext context, IGeminiService geminiService, IConfiguration configuration)
+        public CourseService(AppDbContext context, IAiRecommendationService aiRecommendationService, IConfiguration configuration)
         {
             _context = context;
-            _geminiService = geminiService;
+            _aiRecommendationService = aiRecommendationService;
             _configuration = configuration;
         }
 
@@ -47,6 +47,7 @@ namespace CareerSystem.API.Services.Implementations
                 CourseName = course.CourseName,
                 Credits = course.Credits,
                 TotalStudyHours = course.TotalStudyHours,
+                IsFoundationalCourse = course.IsFoundationalCourse,
                 SuggestedResources = course.LearningResources
                     .Select(lr => new LearningResourceDto
                     {
@@ -139,20 +140,6 @@ namespace CareerSystem.API.Services.Implementations
             var newSkillsToRegister = new List<Skill>();
             if (missingSkillNames.Count > 0)
             {
-                var skillsForAiPayload = new List<object>();
-                foreach (var name in missingSkillNames)
-                {
-                    var newSkillId = $"SKL_{nextSkillNum++:D3}";
-                    var skill = new Skill
-                    {
-                        SkillId = newSkillId,
-                        SkillName = name,
-                        Category = "General" // Mặc định nếu AI lỗi
-                    };
-                    newSkillsToRegister.Add(skill);
-                    skillsForAiPayload.Add(new { skillId = newSkillId, skillName = name });
-                }
-
                 // Lấy API key của Staff hoặc config hệ thống
                 string? apiKey = null;
                 if (!string.IsNullOrWhiteSpace(staffId))
@@ -165,50 +152,35 @@ namespace CareerSystem.API.Services.Implementations
                     apiKey = _configuration["AiSettings:ApiKey"];
                 }
 
+                if (string.IsNullOrWhiteSpace(apiKey))
+                {
+                    throw new ArgumentException(
+                        "Môn học chứa các kỹ năng mới chưa có trong hệ thống. " +
+                        "Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để hệ thống tự động phân loại các kỹ năng này.");
+                }
+
+                foreach (var name in missingSkillNames)
+                {
+                    var newSkillId = $"SKL_{nextSkillNum++:D3}";
+                    var skill = new Skill
+                    {
+                        SkillId = newSkillId,
+                        SkillName = name,
+                        Category = "General" // Mặc định nếu AI lỗi
+                    };
+                    newSkillsToRegister.Add(skill);
+                }
+
                 if (!string.IsNullOrWhiteSpace(apiKey))
                 {
                     try
                     {
-                        string payloadJson = JsonSerializer.Serialize(skillsForAiPayload);
-                        string prompt = $@"
-Bạn là một chuyên gia phân loại kỹ năng trong ngành Công nghệ thông tin (IT).
-Nhiệm vụ của bạn là phân loại danh sách các kỹ năng dưới đây vào các danh mục (category) phù hợp nhất.
+                        var skillsToClassify = newSkillsToRegister.Select(s => (s.SkillId, s.SkillName)).ToList();
+                        var classifications = await _aiRecommendationService.ClassifySkillsAsync(skillsToClassify, apiKey);
 
-Các ví dụ mẫu:
-- ReactJS -> Frontend Development
-- ASP.NET Core -> Backend Development
-- Docker -> DevOps & Cloud
-- SQL Server -> Database Administration
-- Figma -> UI/UX Design
-
-Danh sách các kỹ năng cần phân loại:
-{payloadJson}
-
-Định dạng bắt buộc phải trả về là JSON như sau:
-{{
-  ""classifications"": [
-    {{
-      ""skillId"": ""SKL_001"",
-      ""skillName"": ""ReactJS"",
-      ""category"": ""Frontend Development""
-    }},
-    {{
-      ""skillId"": ""SKL_002"",
-      ""skillName"": ""Kubernetes"",
-      ""category"": ""DevOps & Cloud""
-    }}
-  ]
-}}
-";
-                        string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
-                        var responseObj = JsonSerializer.Deserialize<AiClassificationResponseInternal>(aiJsonResponse, new JsonSerializerOptions
+                        if (classifications != null && classifications.Any())
                         {
-                            PropertyNameCaseInsensitive = true
-                        });
-
-                        if (responseObj?.Classifications != null)
-                        {
-                            foreach (var item in responseObj.Classifications)
+                            foreach (var item in classifications)
                             {
                                 var matchedSkill = newSkillsToRegister.FirstOrDefault(s => s.SkillId == item.SkillId);
                                 if (matchedSkill != null && !string.IsNullOrWhiteSpace(item.Category))
@@ -250,7 +222,8 @@ Danh sách các kỹ năng cần phân loại:
                 CourseCode = dto.CourseCode.Trim(),
                 CourseName = dto.CourseName.Trim(),
                 Credits = dto.Credits,
-                TotalStudyHours = dto.TotalStudyHours
+                TotalStudyHours = dto.TotalStudyHours,
+                IsFoundationalCourse = dto.IsFoundationalCourse
             };
 
             // 9. Tạo các CourseLearningOutcome kết nối Course & Skill
@@ -333,6 +306,7 @@ Danh sách các kỹ năng cần phân loại:
                 CourseName = newCourse.CourseName,
                 Credits = newCourse.Credits,
                 TotalStudyHours = newCourse.TotalStudyHours,
+                IsFoundationalCourse = newCourse.IsFoundationalCourse,
                 SuggestedResources = new List<LearningResourceDto>(),
                 LearningOutcomes = outcomesToAdd.Select(clo => new CourseLearningOutcomeDto
                 {
@@ -343,17 +317,5 @@ Danh sách các kỹ năng cần phân loại:
                 }).ToList()
             };
         }
-    }
-
-    internal class AiClassificationResponseInternal
-    {
-        public List<AiClassificationItemInternal>? Classifications { get; set; }
-    }
-
-    internal class AiClassificationItemInternal
-    {
-        public string SkillId { get; set; } = null!;
-        public string SkillName { get; set; } = null!;
-        public string Category { get; set; } = null!;
     }
 }

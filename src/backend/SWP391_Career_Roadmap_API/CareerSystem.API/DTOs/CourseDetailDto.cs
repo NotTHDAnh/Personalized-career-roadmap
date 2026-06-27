@@ -9,6 +9,7 @@ namespace CareerSystem.API.DTOs
         public string CourseName { get; set; } = null!;
         public int? Credits { get; set; }
         public int? TotalStudyHours { get; set; }
+        public bool IsFoundationalCourse { get; set; }
         public List<LearningResourceDto> SuggestedResources { get; set; } = new();
         public List<CourseLearningOutcomeDto> LearningOutcomes { get; set; } = new();
     }

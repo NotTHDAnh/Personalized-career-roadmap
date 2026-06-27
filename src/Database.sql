@@ -164,7 +164,8 @@ CREATE TABLE Courses (
     course_code VARCHAR(50) NOT NULL UNIQUE,
     course_name NVARCHAR(255) NOT NULL,
     credits INT DEFAULT 3,
-    total_study_hours INT DEFAULT 0 -- Phục vụ tính toán deadline (Mainflow 2)
+    total_study_hours INT DEFAULT 0, -- Phục vụ tính toán deadline (Mainflow 2)
+    is_foundational_course BIT NOT NULL DEFAULT 0
 );
 GO
 

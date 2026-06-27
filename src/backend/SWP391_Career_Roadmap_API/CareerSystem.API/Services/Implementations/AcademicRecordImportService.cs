@@ -42,8 +42,8 @@ namespace CareerSystem.API.Services.Implementations
             if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Chỉ chấp nhận file định dạng .xlsx");
 
-            if (file.Length > 5 * 1024 * 1024) // 5MB
-                throw new ArgumentException("File không được vượt quá 5MB.");
+            if (file.Length > 10 * 1024 * 1024) // 10MB
+                throw new ArgumentException("File không được vượt quá 10MB.");
 
             // 2. Đọc file Excel
             using var stream = new MemoryStream();
