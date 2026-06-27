@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { apiClient } from "@/shared/api/apiClient";
 import { useRef } from "react";
 import { FileUploadModal } from "./components/FileUploadModal";
+import { getApiKeyStatus, saveApiKey, deleteApiKey } from "../../services/apiKeyApi";
 
 interface StatCount {
   students: number;
@@ -35,7 +36,7 @@ interface StatCount {
 }
 
 export default function StaffPanel() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   
   // Data States
   const [stats, setStats] = useState<StatCount | null>(null);
@@ -56,6 +57,7 @@ export default function StaffPanel() {
   const [savedAiKey, setSavedAiKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
+  const [aiKeyError, setAiKeyError] = useState("");
 
   const fetchStats = async () => {
     try {
@@ -79,10 +81,15 @@ export default function StaffPanel() {
     const tableTimer = setTimeout(() => setLoadingTable(false), 700);
     
     // Load saved AI Key
-    const storedKey = localStorage.getItem("gemini_api_key");
-    if (storedKey) {
-      setSavedAiKey(storedKey);
-      setAiKey(storedKey);
+    if (user?.userId) {
+      getApiKeyStatus(user.userId)
+        .then((status) => {
+          if (status.hasKey && status.maskedKey) {
+            setSavedAiKey(status.maskedKey);
+            setAiKey(status.maskedKey);
+          }
+        })
+        .catch(console.error);
     }
     
     fetchStats();
@@ -110,7 +117,23 @@ export default function StaffPanel() {
       setIsCourseModalOpen(false);
       fetchStats(); // Refresh stats after adding
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to add course");
+      let errorData: any = err.response?.data;
+      if (!errorData) {
+        try {
+          errorData = JSON.parse(err.message);
+        } catch {
+          errorData = null;
+        }
+      }
+
+      if (errorData?.errors) {
+        const errorMessages = Object.values(errorData.errors).flat().join('\n');
+        toast.error(errorMessages);
+      } else if (errorData?.message || errorData?.title) {
+        toast.error(errorData.message || errorData.title);
+      } else {
+        toast.error(err.message || "Failed to add course");
+      }
     }
   };
 
@@ -135,19 +158,35 @@ export default function StaffPanel() {
   };
 
   const handleSaveAiKey = async () => {
+    setAiKeyError("");
     if (!aiKey.trim()) {
-      toast.error("Please enter a valid API Key");
+      setAiKeyError("Please enter a valid API Key");
       return;
     }
     
+    if (!user?.userId) {
+      toast.error("User not found");
+      return;
+    }
+
     setIsSavingKey(true);
-    // Simulate API call to save key
-    setTimeout(() => {
-      localStorage.setItem("gemini_api_key", aiKey.trim());
-      setSavedAiKey(aiKey.trim());
+    try {
+      await saveApiKey(user.userId, aiKey.trim());
+      setSavedAiKey(formatMaskedKey(aiKey.trim()));
       toast.success("AI Configuration saved successfully");
+    } catch (err: any) {
+      let msg = err.message || "Failed to save Gemini API key.";
+      try {
+        const errorData = JSON.parse(err.message);
+        if (errorData?.message) msg = errorData.message;
+        else if (errorData?.title) msg = errorData.title;
+      } catch {
+        // Fallback to original message
+      }
+      setAiKeyError(msg);
+    } finally {
       setIsSavingKey(false);
-    }, 600);
+    }
   };
 
   return (
@@ -289,36 +328,36 @@ export default function StaffPanel() {
 
           <div className="col-span-1 space-y-4">
             {/* AI CONFIGURATION SECTION */}
-            <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-5 flex flex-col transition-colors relative overflow-hidden">
+            <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-5 flex flex-col gap-0 transition-colors relative overflow-hidden h-full">
               <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                 <Settings className="w-24 h-24" />
               </div>
               
-              <div className="flex items-center justify-between mb-4 relative z-10">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-[#F8FAFC] flex items-center justify-center border border-[#E2E8F0]">
-                    <Key className="w-4 h-4 text-[#0F172A]" />
-                  </div>
-                  <h2 className="text-[15px] font-bold text-[#0F172A]">AI Configuration</h2>
+              <div className="flex items-start gap-3 mb-4 relative z-10">
+                <div className="w-8 h-8 rounded-lg bg-[#F8FAFC] flex items-center justify-center border border-[#E2E8F0] shrink-0 mt-0.5">
+                  <Key className="w-4 h-4 text-[#0F172A]" />
                 </div>
-                {savedAiKey ? (
-                  <span className="bg-[#DCFCE7] text-[#16A34A] px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></span>
-                    Connected
-                  </span>
-                ) : (
-                  <span className="bg-[#FEF2F2] text-[#EF4444] px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444]"></span>
-                    Not Configured
-                  </span>
-                )}
+                <div className="flex flex-col items-start gap-1.5">
+                  <h2 className="text-[15px] font-bold text-[#0F172A] whitespace-nowrap">AI Configuration</h2>
+                  {savedAiKey ? (
+                    <span className="bg-[#DCFCE7] text-[#16A34A] px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 whitespace-nowrap">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></span>
+                      Connected
+                    </span>
+                  ) : (
+                    <span className="bg-[#FEF2F2] text-[#EF4444] px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 whitespace-nowrap">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444]"></span>
+                      Not Configured
+                    </span>
+                  )}
+                </div>
               </div>
               
-              <p className="text-[12px] text-[#64748B] mb-4 leading-relaxed relative z-10">
+              <p className="text-[12px] text-[#64748B] mb-2 leading-relaxed relative z-10">
                 Gemini API Key is required for AI-powered features such as Mentor Chat and Roadmap Generation.
               </p>
 
-              <div className="mt-4 space-y-3 relative z-10">
+              <div className="mt-auto space-y-3 relative z-10">
                 {savedAiKey ? (
                   <div className="bg-[#0F172A] rounded-xl p-3.5 flex items-center justify-between border border-[#1E293B]">
                     <div>
@@ -329,12 +368,18 @@ export default function StaffPanel() {
                     </div>
                     <div className="flex items-center gap-1">
                       <button 
-                        onClick={() => {
-                          setAiKey("");
-                          setSavedAiKey(null);
-                          localStorage.removeItem("gemini_api_key");
-                          toast.success("API Key removed");
-                          setShowKey(false);
+                        onClick={async () => {
+                          if (user?.userId) {
+                            try {
+                              await deleteApiKey(user.userId);
+                              setAiKey("");
+                              setSavedAiKey(null);
+                              toast.success("API Key removed");
+                              setShowKey(false);
+                            } catch (error: any) {
+                              toast.error(error.response?.data?.message || "Failed to delete key");
+                            }
+                          }
                         }}
                         className="p-2 text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#1E293B] rounded-lg transition-colors"
                         title="Delete Key"
@@ -349,13 +394,21 @@ export default function StaffPanel() {
                       <label className="block text-[11px] font-semibold text-[#64748B] mb-1.5">
                         Gemini API Key
                       </label>
+                      {aiKeyError && (
+                        <div className="text-[11px] font-medium text-red-500 mb-1.5">
+                          {aiKeyError}
+                        </div>
+                      )}
                       <div className="relative">
                         <Input 
                           type={showKey ? "text" : "password"} 
                           placeholder="AIzaSy..." 
                           value={aiKey}
-                          onChange={(e) => setAiKey(e.target.value)}
-                          className="pr-10 text-[13px] bg-[#F8FAFC] border-[#E2E8F0] focus-visible:ring-[#3B28CC]"
+                          onChange={(e) => {
+                            setAiKey(e.target.value);
+                            if (aiKeyError) setAiKeyError("");
+                          }}
+                          className={`pr-10 text-[13px] bg-[#F8FAFC] focus-visible:ring-[#3B28CC] ${aiKeyError ? 'border-red-500' : 'border-[#E2E8F0]'}`}
                         />
                         <button 
                           type="button"

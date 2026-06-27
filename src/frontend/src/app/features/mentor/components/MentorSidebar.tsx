@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router";
 import type { RoadmapPreview } from "@/app/types";
 import type { ApiKeyStatus } from "@/app/services/apiKeyApi";
 import RoadmapTimeline from "./RoadmapTimeline";
@@ -32,6 +33,8 @@ export default function MentorSidebar({
   onOpenApiKeyModal,
   onDeleteApiKey,
 }: SidebarProps) {
+  const navigate = useNavigate();
+
   return (
     <aside className="space-y-6">
       <div className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm p-6">
@@ -125,7 +128,17 @@ export default function MentorSidebar({
         </div>
       </div>
 
-      <div className={`rounded-2xl shadow-sm p-6 text-white ${apiKeyStatus?.hasKey ? 'bg-[#006b5f]' : 'bg-[#1b365d]'}`}>
+      <div className={`rounded-2xl shadow-sm p-6 text-white ${apiKeyStatus?.hasKey ? 'bg-[#006b5f]' : 'bg-[#1b365d]'} relative`}>
+        <div className="absolute top-6 right-6">
+          <button 
+            type="button"
+            onClick={() => navigate('/dashboard/profile#api-key-guide')}
+            className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors font-bold text-xs"
+            title="How to get API Key"
+          >
+            ?
+          </button>
+        </div>
         <p className="text-xs uppercase tracking-widest text-white/60 font-bold">
           Advisement Status
         </p>

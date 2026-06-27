@@ -45,19 +45,19 @@ const MetricCard = ({ title, value, icon, trend, color }: any) => {
     green: "text-emerald-500 bg-emerald-50/80",
     purple: "text-purple-500 bg-purple-50/80",
   };
-  const trendColor = trend.startsWith("+") ? "text-emerald-600 bg-emerald-50" : "text-slate-500 bg-slate-50";
+  const trendColor = trend?.startsWith("+") ? "text-emerald-600 bg-emerald-50" : "text-slate-500 bg-slate-50";
 
   return (
-    <div className="bg-white rounded-[20px] p-5 shadow-sm border border-slate-100 flex items-start justify-between">
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-100/50 shadow-sm flex items-center justify-between group hover:shadow-md transition-all duration-300">
       <div>
-        <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">{title}</p>
-        <p className="text-[28px] font-black text-slate-800 mt-1">{value}</p>
-      </div>
-      <div className="flex flex-col items-end">
-        <div className={`p-2.5 rounded-[14px] ${colorMap[color]} mb-3 shadow-sm`}>
-          {icon}
+        <p className="text-[12px] font-bold text-slate-400 mb-0.5">{title}</p>
+        <div className="flex items-end gap-2">
+          <h4 className="text-xl font-black text-slate-800 tracking-tight">{value}</h4>
+          {trend && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${trendColor} mb-1`}>{trend}</span>}
         </div>
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${trendColor}`}>{trend}</span>
+      </div>
+      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${colorMap[color]} shadow-sm group-hover:scale-110 transition-transform duration-300`}>
+        {icon}
       </div>
     </div>
   );
@@ -144,11 +144,12 @@ export function SkillAnalyticsDashboard({ roadmaps }: SkillAnalyticsDashboardPro
       const flatNodes = roadmap?.phases?.flatMap((p: any) => p.nodes) || [];
       flatNodes.forEach((node: any) => {
         if (node.status === "COMPLETED" || node.status === "done") {
-          totalCompletedCourses++;
           const courseGpa = node.gpa || node.courseDetails?.gpa;
           const source = node.source || node.courseDetails?.source;
           const isUniversity = source === "university" || source === "UNIVERSITY";
-          const hasValidGpa = isUniversity && typeof courseGpa === "number";
+          const hasValidGpa = typeof courseGpa === "number";
+          
+          totalCompletedCourses++;
 
           const details = node.courseDetails;
           const dynamicSkills = details?.learningOutcomes && details.learningOutcomes.length > 0
@@ -169,13 +170,17 @@ export function SkillAnalyticsDashboard({ roadmaps }: SkillAnalyticsDashboardPro
       });
     });
 
+    const maxCount = Math.max(...Object.values(map).map(item => item.count), 1);
+
     const rawArray = Object.values(map).map(item => {
       const avgGpa = item.coursesWithGpa > 0 ? Number((item.totalGpa / item.coursesWithGpa).toFixed(1)) : null;
       let progress = 0;
       if (avgGpa !== null) {
-        progress = Math.round((avgGpa / 10) * 100);
+        const gpaScore = avgGpa / 10.0;
+        const freqScore = item.count / maxCount;
+        progress = Math.round((gpaScore * 0.7 + freqScore * 0.3) * 100);
       } else {
-        progress = Math.min(Math.round((item.count / 3) * 100), 100);
+        progress = Math.min(Math.round((item.count / Math.max(3, maxCount)) * 100), 100);
       }
       return {
         name: item.skillName,
@@ -218,18 +223,18 @@ export function SkillAnalyticsDashboard({ roadmaps }: SkillAnalyticsDashboardPro
   }
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 to-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white mt-8 overflow-hidden relative">
+    <div className="bg-gradient-to-br from-slate-50 to-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white mt-6 overflow-hidden relative">
       {/* Decorative blurred background element */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-blue-200/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="absolute top-0 right-0 w-48 h-48 bg-blue-200/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
       
       {/* Header and Tabs */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 relative z-10">
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-5 gap-4 relative z-10">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="w-5 h-5 text-blue-500" />
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Skill Analytics</h2>
+            <Sparkles className="w-4 h-4 text-blue-500" />
+            <h2 className="text-xl font-black text-slate-800 tracking-tight">Skill Analytics</h2>
           </div>
-          <p className="text-slate-500 text-sm font-medium">Your progress and mastery overview.</p>
+          <p className="text-slate-500 text-[13px] font-medium">Your progress and mastery overview.</p>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex bg-slate-100/80 p-1 rounded-xl shadow-inner">
@@ -267,37 +272,44 @@ export function SkillAnalyticsDashboard({ roadmaps }: SkillAnalyticsDashboardPro
       </div>
 
       {/* Top Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8 relative z-10">
-         <MetricCard title="Total Skills Mastered" value={overallMetrics.totalSkills} icon={<Activity className="w-5 h-5" />} trend="+12%" color="blue" />
-         <MetricCard title="Avg Mastery GPA" value={overallMetrics.globalAvgGpa} icon={<TrendingUp className="w-5 h-5" />} trend="+5%" color="green" />
-         <MetricCard title="Completed Courses" value={overallMetrics.totalCompleted} icon={<BookOpen className="w-5 h-5" />} trend="Steady" color="purple" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 relative z-10">
+         <MetricCard title="Total Skills Mastered" value={overallMetrics.totalSkills} icon={<Activity className="w-4 h-4" />} color="blue" />
+         <MetricCard title="Avg Mastery GPA" value={overallMetrics.globalAvgGpa} icon={<TrendingUp className="w-4 h-4" />} color="green" />
+         <MetricCard title="Completed Courses" value={overallMetrics.totalCompleted} icon={<BookOpen className="w-4 h-4" />} color="purple" />
       </div>
 
       {/* Main Charts Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 relative z-10">
         {/* Left: Bar Chart */}
-        <div className="lg:col-span-2 bg-white/60 backdrop-blur-sm rounded-3xl p-6 border border-slate-100 shadow-sm">
-           <div className="flex items-center justify-between mb-8">
-             <h3 className="text-base font-bold text-slate-800 tracking-tight">Skill Analysis (GPA & Frequency)</h3>
+        <div className="lg:col-span-2 bg-white/60 backdrop-blur-sm rounded-3xl p-5 border border-slate-100 shadow-sm">
+           <div className="flex items-center justify-between mb-5">
+             <h3 className="text-[14px] font-bold text-slate-800 tracking-tight">Skill Analysis (GPA & Frequency)</h3>
            </div>
-           <div className="h-[280px]">
+           <div className="h-[250px]">
              {stats.length > 0 ? (
                <ResponsiveContainer width="100%" height="100%">
-                 <ComposedChart data={stats.slice(0, 7)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                 <ComposedChart data={stats.slice(0, 7)} margin={{ top: 15, right: 10, left: -20, bottom: 0 }}>
                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#94A3B8", fontWeight: 600 }} dy={10} />
-                   <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#94A3B8", fontWeight: 600 }} />
-                   <YAxis yAxisId="right" orientation="right" domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#94A3B8", fontWeight: 600 }} />
+                   <XAxis 
+                     dataKey="name" 
+                     axisLine={false} 
+                     tickLine={false} 
+                     tick={false}
+                   />
+                   <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#94A3B8", fontWeight: 600 }} />
+                   <YAxis yAxisId="right" orientation="right" domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#94A3B8", fontWeight: 600 }} />
                    <Tooltip 
                      cursor={{ fill: "rgba(241, 245, 249, 0.5)" }} 
-                     contentStyle={{ borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }} 
+                     contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', padding: '6px 12px', fontSize: '12px' }} 
+                     labelStyle={{ fontSize: '13px', fontWeight: 'bold', color: '#1E293B', marginBottom: '2px' }}
+                     itemStyle={{ fontSize: '12px', fontWeight: '600', padding: 0 }}
                    />
-                   <Bar yAxisId="left" dataKey="count" name="Courses" radius={[8, 8, 0, 0]} maxBarSize={48}>
+                   <Bar yAxisId="left" dataKey="count" name="Courses" radius={[6, 6, 0, 0]} maxBarSize={28}>
                      {stats.slice(0, 7).map((entry, index) => (
                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                      ))}
                    </Bar>
-                   <Line yAxisId="right" type="monotone" dataKey="avgGpa" name="Avg GPA" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: "#10B981", strokeWidth: 2, stroke: "#FFF" }} activeDot={{ r: 6 }} connectNulls />
+                   <Line yAxisId="right" type="monotone" dataKey="avgGpa" name="Avg GPA" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3.5, fill: "#10B981", strokeWidth: 2, stroke: "#FFF" }} activeDot={{ r: 5 }} connectNulls />
                  </ComposedChart>
                </ResponsiveContainer>
              ) : (
@@ -307,15 +319,15 @@ export function SkillAnalyticsDashboard({ roadmaps }: SkillAnalyticsDashboardPro
         </div>
 
         {/* Right: Detailed List */}
-        <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col">
-          <h3 className="text-base font-bold text-slate-800 tracking-tight mb-5">Skill Breakdown</h3>
-          <div className="flex-1 overflow-y-auto pr-2 space-y-3 max-h-[290px] scrollbar-thin scrollbar-thumb-slate-200">
+        <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-5 border border-slate-100 shadow-sm flex flex-col">
+          <h3 className="text-[14px] font-bold text-slate-800 tracking-tight mb-4">Mastery Details (All)</h3>
+          <div className="flex-1 overflow-y-auto pr-2 space-y-2.5 max-h-[230px] scrollbar-thin scrollbar-thumb-slate-200">
             {stats.length > 0 ? stats.map((s, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3.5 bg-white rounded-2xl shadow-sm border border-slate-100/80 hover:shadow-md transition-shadow">
+              <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-2xl shadow-sm border border-slate-100/80 hover:shadow-md transition-shadow">
                 <div>
                   <p className="text-[13px] font-bold text-slate-800 mb-0.5">{s.name}</p>
                   <p className="text-[11px] font-semibold text-slate-400">
-                    {s.avgGpa ? `GPA: ${s.avgGpa}` : "External Resource"} • {s.count} courses
+                    {s.avgGpa ? `GPA: ${s.avgGpa} • ` : ""}{s.count} courses
                   </p>
                 </div>
                 <CircularProgress 

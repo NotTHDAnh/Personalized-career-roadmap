@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Filter, Plus, CloudUpload, ChevronLeft, ChevronRight, MoreHorizontal, ShieldCheck } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -22,12 +22,22 @@ const MOCK_STUDENTS = [
 
 export function StaffStudentsView() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const filteredStudents = MOCK_STUDENTS.filter(student => 
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / itemsPerPage));
+  const paginatedStudents = filteredStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Reset to page 1 when searching
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   return (
     <div className="h-full w-full overflow-y-auto p-6 md:p-8 flex flex-col bg-[#F4F7F9]">
@@ -49,10 +59,7 @@ export function StaffStudentsView() {
           </div>
           
           <div className="flex items-center gap-3">
-            <Button variant="outline" className="h-9 px-4 text-[13px] font-semibold text-[#334155] border-[#E2E8F0] hover:bg-white bg-white shadow-sm gap-2">
-              <CloudUpload className="w-4 h-4" />
-              Import Students
-            </Button>
+            {/* Import Students button removed per request */}
           </div>
         </div>
 
@@ -72,8 +79,8 @@ export function StaffStudentsView() {
 
         {/* Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-8">
-          {filteredStudents.length > 0 ? (
-            filteredStudents.map((student) => (
+          {paginatedStudents.length > 0 ? (
+            paginatedStudents.map((student) => (
             <Card key={student.id} className="bg-white border-[#E2E8F0] shadow-sm rounded-xl p-5 hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer">
               {/* Action Menu (...) */}
               <button className="absolute top-4 right-4 text-[#94A3B8] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#0F172A]">
@@ -119,22 +126,35 @@ export function StaffStudentsView() {
 
         {/* Pagination */}
         <div className="mt-auto pt-6 border-t border-[#E2E8F0] flex items-center justify-between">
-          <Button variant="ghost" className="text-[13px] font-semibold text-[#64748B] hover:text-[#0F172A] gap-1">
+          <Button 
+            variant="ghost" 
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            className={`${currentPage === 1 ? 'invisible' : ''} text-[13px] font-semibold text-[#64748B] hover:text-[#0F172A] gap-1`}
+          >
             <ChevronLeft className="w-4 h-4" />
             Previous
           </Button>
           
           <div className="flex items-center gap-1">
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#EFF4FF] text-[#3B28CC] text-[13px] font-bold">1</button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#64748B] text-[13px] font-semibold transition-colors">2</button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#64748B] text-[13px] font-semibold transition-colors">3</button>
-            <span className="text-[#94A3B8] px-1">...</span>
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#64748B] text-[13px] font-semibold transition-colors">8</button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#64748B] text-[13px] font-semibold transition-colors">9</button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#64748B] text-[13px] font-semibold transition-colors">10</button>
+            {Array.from({ length: totalPages }).map((_, idx) => (
+              <button 
+                key={idx}
+                onClick={() => setCurrentPage(idx + 1)}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg text-[13px] transition-colors
+                  ${currentPage === idx + 1 
+                    ? 'bg-[#EFF4FF] text-[#3B28CC] font-bold' 
+                    : 'hover:bg-gray-100 text-[#64748B] font-semibold'}`}
+              >
+                {idx + 1}
+              </button>
+            ))}
           </div>
 
-          <Button variant="ghost" className="text-[13px] font-semibold text-[#64748B] hover:text-[#0F172A] gap-1">
+          <Button 
+            variant="ghost" 
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            className={`${currentPage === totalPages ? 'invisible' : ''} text-[13px] font-semibold text-[#64748B] hover:text-[#0F172A] gap-1`}
+          >
             Next
             <ChevronRight className="w-4 h-4" />
           </Button>
