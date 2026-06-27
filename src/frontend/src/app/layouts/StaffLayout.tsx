@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router";
 import { useAuth } from "../../shared/contexts/AuthContext";
-import { NotificationBell } from "../components/NotificationCenter/NotificationBell";
 import {
+  LayoutDashboard,
+  Users,
   BookOpen,
-  Map,
-  MessageCircle,
   LogOut,
-  GraduationCap,
   ChevronLeft,
   ChevronRight,
+  ShieldCheck
 } from "lucide-react";
 
 type NavItem = {
@@ -20,33 +19,29 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   {
-    to: "/dashboard/profile",
-    label: "Profile",
+    to: "/staff/dashboard",
+    label: "Dashboard",
+    icon: <LayoutDashboard size={20} />,
+  },
+  {
+    to: "/staff/students",
+    label: "Students",
+    icon: <Users size={20} />,
+  },
+  {
+    to: "/staff/courses",
+    label: "Courses",
     icon: <BookOpen size={20} />,
-  },
-  {
-    to: "/dashboard/roadmap",
-    label: "Career Planner",
-    icon: <Map size={20} />,
-  },
-  {
-    to: "/dashboard/mentor",
-    label: "AI Mentor",
-    icon: <MessageCircle size={20} />,
   },
 ];
 
-export function StudentDashboard() {
+export function StaffLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  const displayName = user?.fullName || "Student";
+  const displayName = user?.fullName || "Staff Member";
   const initial = displayName.trim().split(/\s+/).at(-1)?.[0]?.toUpperCase() ?? "S";
-
-  const currentNav = navItems.find((item) =>
-    location.pathname.startsWith(item.to),
-  );
 
   return (
     <div
@@ -57,7 +52,7 @@ export function StudentDashboard() {
     >
       {/* ── Sidebar ── */}
       <aside
-        className={`fixed left-0 top-0 h-screen text-[#0F172A] flex flex-col z-40 transition-all duration-300 bg-[#EFF4FF] border-r border-[#E2E8F0] shadow-[4px_0_24px_rgba(0,0,0,0.02)] ${
+        className={`fixed left-0 top-0 h-screen text-white flex flex-col z-40 transition-all duration-300 bg-[#0B0F19] shadow-[4px_0_24px_rgba(0,0,0,0.05)] ${
           isSidebarOpen ? "w-[260px]" : "w-[80px]"
         }`}
       >
@@ -73,12 +68,12 @@ export function StudentDashboard() {
 
         {/* Logo */}
         <div className="p-6 flex items-center overflow-hidden h-[80px]">
-          <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-[#3B28CC]">
-            <GraduationCap size={28} />
+          <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-[#8B5CF6]">
+            <ShieldCheck size={28} />
           </div>
           <div className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${isSidebarOpen ? "max-w-[200px] opacity-100 ml-3" : "max-w-0 opacity-0 ml-0"}`}>
-            <h1 className="text-[18px] font-bold text-[#3B28CC] tracking-tight">DevRoadmap</h1>
-            <p className="text-[11px] text-[#64748B] font-medium">Attainable Mastery</p>
+            <h1 className="text-[18px] font-bold text-white tracking-tight">Staff Console</h1>
+            <p className="text-[11px] text-[#94A3B8] font-medium">Administration</p>
           </div>
         </div>
 
@@ -90,9 +85,9 @@ export function StudentDashboard() {
               to={item.to}
               className={({ isActive }) =>
                 `w-full flex items-center px-[14px] py-3 rounded-xl transition-all duration-300 overflow-hidden ${
-                  isActive
-                    ? "bg-[#DCFCE7] text-[#16A34A] font-bold shadow-sm"
-                    : "text-[#64748B] hover:bg-white hover:text-[#0F172A] font-semibold"
+                  isActive || (item.to === "/staff/dashboard" && location.pathname === "/staff")
+                    ? "bg-[#1E293B] text-white font-bold shadow-sm"
+                    : "text-[#94A3B8] hover:bg-[#1E293B]/50 hover:text-white font-medium"
                 }`
               }
               title={!isSidebarOpen ? item.label : undefined}
@@ -106,18 +101,18 @@ export function StudentDashboard() {
         </nav>
 
         {/* Footer / User Profile */}
-        <div className="p-4 mt-auto border-t border-[#E2E8F0]">
+        <div className="p-4 mt-auto border-t border-[#1E293B]">
           {/* User Info */}
           <div className="flex items-center px-1 mb-4 overflow-hidden">
-            <div className="w-10 h-10 rounded-full bg-white text-[#3B28CC] flex items-center justify-center font-bold text-[14px] flex-shrink-0 shadow-sm border border-[#C7D2FE]">
+            <div className="w-10 h-10 rounded-full bg-[#1E293B] text-white flex items-center justify-center font-bold text-[14px] flex-shrink-0 border border-[#334155]">
               {initial}
             </div>
             <div className={`flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ${isSidebarOpen ? "max-w-[150px] opacity-100 ml-3" : "max-w-0 opacity-0 ml-0"}`}>
-              <span className="text-[13px] font-bold text-[#0F172A] truncate">
+              <span className="text-[13px] font-bold text-white truncate">
                 {displayName}
               </span>
-              <span className="text-[11px] font-semibold text-[#16A34A]">
-                Student
+              <span className="text-[11px] font-semibold text-[#8B5CF6]">
+                Staff Member
               </span>
             </div>
           </div>
@@ -125,7 +120,7 @@ export function StudentDashboard() {
           {/* Logout */}
           <button
             onClick={logout}
-            className="w-full flex items-center px-[15px] py-2.5 rounded-xl text-[#64748B] hover:bg-[#FEF2F2] hover:text-[#EF4444] transition-all duration-300 overflow-hidden"
+            className="w-full flex items-center px-[15px] py-2.5 rounded-xl text-[#94A3B8] hover:bg-[#FEF2F2]/10 hover:text-[#EF4444] transition-all duration-300 overflow-hidden"
             title={!isSidebarOpen ? "Logout" : undefined}
           >
             <div className="flex-shrink-0 flex items-center justify-center w-[18px]"><LogOut size={18} /></div>
@@ -138,28 +133,7 @@ export function StudentDashboard() {
 
       {/* ── Main Content ── */}
       <main className="flex-1 min-w-0 w-full flex flex-col h-screen overflow-hidden bg-[#F4F7F9] transition-colors duration-300">
-        {/* Header */}
-        <header
-          className="h-[68px] bg-[#F8F9FF] px-6 md:px-8 flex items-center justify-between shrink-0 shadow-[0_1px_2px_rgba(0,0,0,0.02)] border-b border-[#E2E8F0] z-50 transition-colors duration-300"
-        >
-          <div>
-            <h2 className="text-[18px] font-bold text-[#0F172A]">
-              {currentNav?.label || "Dashboard"}
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <NotificationBell />
-            <div className="w-9 h-9 rounded-full bg-white text-[#3B28CC] flex items-center justify-center font-bold text-[13px] shadow-sm border border-[#C7D2FE]">
-              {initial}
-            </div>
-          </div>
-        </header>
-
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-auto">
-          <Outlet />
-        </div>
+        <Outlet />
       </main>
     </div>
   );

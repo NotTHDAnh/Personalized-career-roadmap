@@ -159,11 +159,11 @@ export default function LoginScreen() {
 
         <section className="flex-1 p-6 md:px-16 lg:px-20 md:py-8 flex flex-col justify-center bg-white transition-colors duration-300">
           <div className="max-w-[440px] mx-auto w-full">
-            <header className="mb-4 text-center md:text-left">
-              <h3 className="text-[26px] font-bold tracking-tight text-[#0F172A] mb-1">
+            <header className="mb-6 text-center md:text-left">
+              <h3 className="text-[28px] font-bold tracking-tight text-[#0F172A] mb-1">
                 Welcome Back
               </h3>
-              <p className="text-[14px] text-[#64748B]">
+              <p className="text-[15px] text-[#64748B]">
                 Please sign in to access your dashboard.
               </p>
             </header>
@@ -175,7 +175,7 @@ export default function LoginScreen() {
                 setMode(v as LoginMode);
                 setError("");
               }}
-              className="mb-4"
+              className="mb-5"
             >
               <TabsList className="relative flex w-full bg-[#F1F5F9] border border-[#E2E8F0] p-1.5 rounded-xl h-auto transition-colors">
                 <div
@@ -214,28 +214,26 @@ export default function LoginScreen() {
               )} */}
             </div>
 
-            <div className="relative flex items-center gap-4 mb-3">
+            <div className="relative flex items-center gap-4 mb-4 mt-1">
               <div className="flex-grow h-px bg-[#E2E8F0]" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#94A3B8]">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-[#94A3B8]">
                 or use email
               </span>
               <div className="flex-grow h-px bg-[#E2E8F0]" />
             </div>
 
-            {/* Error Placeholder to prevent layout shift */}
-            <div className="h-[42px] mb-3 w-full">
-              {error && (
-                <div className="h-full rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] text-red-700 shadow-sm animate-in fade-in flex items-center">
-                  {error}
-                </div>
-              )}
-            </div>
+            {/* Error Message */}
+            {error && (
+              <div className="mb-5 w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700 shadow-sm animate-in fade-in flex items-center">
+                {error}
+              </div>
+            )}
 
             {/* Form */}
-            <form className="space-y-2.5" onSubmit={handleLogin}>
+            <form className="space-y-4" onSubmit={handleLogin}>
               <div>
                 <label
-                  className="block text-[12px] font-semibold text-[#334155] mb-1.5"
+                  className="block text-[13px] font-semibold text-[#334155] mb-2"
                   htmlFor="login-email"
                 >
                   {mode === "student" ? "Email Address" : "Staff Identification ID"}
@@ -255,9 +253,9 @@ export default function LoginScreen() {
               </div>
 
               <div>
-                <div className="flex justify-between items-center mb-1.5">
+                <div className="flex justify-between items-center mb-2">
                   <label
-                    className="block text-[12px] font-semibold text-[#334155]"
+                    className="block text-[13px] font-semibold text-[#334155]"
                     htmlFor="login-password"
                   >
                     Password
@@ -296,11 +294,16 @@ export default function LoginScreen() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-3 pt-1 pb-1">
-                <Checkbox id="remember-me" defaultChecked className="rounded border-[#CBD5E1] text-[#3B28CC] focus:ring-[#3B28CC]" />
+              <div className="flex items-center gap-2 pt-1 pb-2">
+                <input
+                  type="checkbox"
+                  id="remember-me"
+                  defaultChecked
+                  className="w-[14px] h-[14px] rounded-[3px] border-[#CBD5E1] text-[#3B28CC] focus:ring-[#3B28CC] cursor-pointer transition-all"
+                />
                 <label
                   htmlFor="remember-me"
-                  className="text-[14px] font-medium leading-none cursor-pointer select-none text-[#475569]"
+                  className="text-[13px] font-medium cursor-pointer select-none text-[#64748B]"
                 >
                   Remember me on this device
                 </label>
@@ -309,7 +312,7 @@ export default function LoginScreen() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-10 mt-2 rounded-xl text-[14px] font-semibold text-white bg-[#3B28CC] hover:bg-[#28189E]:bg-[#4f46e5] shadow-[0_4px_14px_0_rgba(59,40,204,0.39)] transition-all"
+                className="w-full h-10 mt-1 rounded-xl text-[14px] font-semibold text-white bg-[#3B28CC] hover:bg-[#28189E] shadow-[0_4px_14px_0_rgba(59,40,204,0.39)] transition-all"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 {loading ? "Signing In..." : "Sign In to Portal"}

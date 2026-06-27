@@ -120,11 +120,10 @@ const NotificationItem: React.FC<{ notification: Notification; onClose: () => vo
 export const NotificationProvider: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  // Opens a notification and returns an ID for tracking purposes
   const openNotification = (type: Notification["type"], message: string) => {
     const id = Math.random().toString(36).substring(2, 9);
     const newNotif: Notification = { id, type, message };
-    setNotifications((prev) => [...prev, newNotif]);
+    setNotifications((prev) => [newNotif, ...prev]);
     return id; 
   };
 
