@@ -3,11 +3,12 @@ import { Card } from "@/app/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Progress } from "@/app/components/ui/progress";
 import { Skeleton } from "@/app/components/ui/skeleton";
-import { TrendingUp, Code2, Plus, Key } from "lucide-react";
+import { TrendingUp, Code2, Plus, Key, Github } from "lucide-react";
 import { SkillTag } from "./components/SkillTag";
 import { StudentProfileCard } from "./components/StudentProfileCard";
 import { GpaInput } from "./components/GpaInput";
 import { ErrorAlert } from "@/app/components/common/ErrorAlert";
+import { useNotification } from "@/shared/contexts/NotificationContext";
 
 const skills = [
   "JavaScript", "React", "TypeScript", "Next.js", "Tailwind CSS",
@@ -17,6 +18,28 @@ const skills = [
 export default function ProfileTranscripts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Notification hooks & state simulations
+  const { openNotification, updateNotification } = useNotification();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMode, setSyncMode] = useState<"success" | "error">("success");
+
+  const handleSyncToGithub = () => {
+    if (isSyncing) return;
+    
+    setIsSyncing(true);
+    // 1. Mở thông báo loading và lấy ID của toast
+    const notifId = openNotification("loading", "Syncing profile data with GitHub...");
+
+    setIsSyncing(false);
+    if (syncMode === "success") {
+        // 3a. Đồng bộ thành công
+      updateNotification(notifId, "success", "Syncing completed successfully! Your profile data is now up-to-date on GitHub.");
+    } else {
+        // 3b. Đồng bộ thất bại
+      updateNotification(notifId, "error", "Error: Failed to sync with GitHub. Please check your connection or try again later.");
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -42,13 +65,44 @@ export default function ProfileTranscripts() {
   return (
     <div className="p-6 md:p-8 space-y-6 min-h-full bg-transparent transition-colors duration-300">
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-[24px] font-bold tracking-tight text-[#0F172A] mb-1">
-          Profile & Transcript Management
-        </h2>
-        <p className="text-[13px] text-[#64748B]">
-          Workspace - Academic Year: 2024 - 2025
-        </p>
+      <div className="mb-6 flex justify-between items-center flex-wrap gap-4">
+        <div>
+          <h2 className="text-[24px] font-bold tracking-tight text-[#0F172A] mb-1">
+            Profile & Transcript Management
+          </h2>
+          <p className="text-[13px] text-[#64748B]">
+            Workspace - Academic Year: 2024 - 2025
+          </p>
+        </div>
+
+        {/* Syncing to GitHub Button & Simulator */}
+        <div className="flex items-center gap-3 bg-white border border-[#E2E8F0] px-3.5 py-2 rounded-2xl shadow-[0_2px_8px_-3px_rgba(6,81,237,0.05)]">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold border-r border-[#E2E8F0] pr-3 mr-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+            Simulate:
+            <select
+              value={syncMode}
+              onChange={(e) => setSyncMode(e.target.value as "success" | "error")}
+              className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+            >
+              <option value="success">Success (Happy)</option>
+              <option value="error">Fail (Unhappy)</option>
+            </select>
+          </div>
+
+          {/* Nút Đồng bộ GitHub */}
+          <button
+            onClick={handleSyncToGithub}
+            disabled={isSyncing}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all text-white shadow-sm hover:scale-[1.02] active:scale-[0.98] ${
+              isSyncing ? "opacity-75 cursor-not-allowed" : ""
+            }`}
+            style={{ background: "linear-gradient(to right, #3B28CC, #6366F1)" }}
+          >
+            <Github size={14} className={isSyncing ? "animate-spin" : ""} />
+            {isSyncing ? "Syncing..." : "Sync to GitHub"}
+          </button>
+        </div>
       </div>
 
       {/* ── TOP TIER: 2-column layout (Student Card | Stats) ── */}
