@@ -20,7 +20,7 @@ namespace CareerSystem.API.Services.Implementations
     public class CourseImportService : ICourseImportService
     {
         private readonly AppDbContext _context;
-        private readonly IGeminiService _geminiService;
+        private readonly IAiRecommendationService _aiRecommendationService;
         private readonly IConfiguration _configuration;
 
         // Header tiêu chuẩn của file Excel import môn học (7 cột)
@@ -29,10 +29,10 @@ namespace CareerSystem.API.Services.Implementations
 
         private const int ColCount = 7;
 
-        public CourseImportService(AppDbContext context, IGeminiService geminiService, IConfiguration configuration)
+        public CourseImportService(AppDbContext context, IAiRecommendationService aiRecommendationService, IConfiguration configuration)
         {
             _context = context;
-            _geminiService = geminiService;
+            _aiRecommendationService = aiRecommendationService;
             _configuration = configuration;
         }
 
@@ -151,7 +151,7 @@ namespace CareerSystem.API.Services.Implementations
             var newSkillsToRegister = new List<Skill>();
             if (missingSkillNames.Count > 0)
             {
-                var skillsForAiPayload = new List<object>();
+                var skillsToClassify = new List<SkillClassificationDto>();
                 foreach (var name in missingSkillNames)
                 {
                     var newSkillId = $"SKL_{nextSkillNum++:D3}";
@@ -162,71 +162,24 @@ namespace CareerSystem.API.Services.Implementations
                         Category = "General" // Giá trị mặc định phòng hờ khi AI lỗi
                     };
                     newSkillsToRegister.Add(skill);
-                    skillsForAiPayload.Add(new { skillId = newSkillId, skillName = name });
+                    skillsToClassify.Add(new SkillClassificationDto { SkillId = newSkillId, SkillName = name });
                 }
 
-                if (!string.IsNullOrWhiteSpace(apiKey))
+                try
                 {
-                    try
+                    var classifications = await _aiRecommendationService.ClassifySkillsAsync(skillsToClassify, apiKey ?? "");
+                    foreach (var cls in classifications)
                     {
-                        string payloadJson = JsonSerializer.Serialize(skillsForAiPayload);
-                        string prompt = $@"
-Bạn là một chuyên gia phân loại kỹ năng trong ngành Công nghệ thông tin (IT).
-Nhiệm vụ của bạn là phân loại danh sách các kỹ năng dưới đây vào các danh mục (category) phù hợp nhất.
-
-Các ví dụ mẫu:
-- ReactJS -> Frontend Development
-- ASP.NET Core -> Backend Development
-- Docker -> DevOps & Cloud
-- SQL Server -> Database Administration
-- Figma -> UI/UX Design
-
-Danh sách các kỹ năng cần phân loại:
-{payloadJson}
-
-Định dạng bắt buộc phải trả về là JSON như sau:
-{{
-  ""classifications"": [
-    {{
-      ""skillId"": ""SKL_001"",
-      ""skillName"": ""ReactJS"",
-      ""category"": ""Frontend Development""
-    }},
-    {{
-      ""skillId"": ""SKL_002"",
-      ""skillName"": ""Kubernetes"",
-      ""category"": ""DevOps & Cloud""
-    }}
-  ]
-}}
-";
-                        string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
-                        var responseObj = JsonSerializer.Deserialize<AiClassificationResponse>(aiJsonResponse, new JsonSerializerOptions
+                        var matchedSkill = newSkillsToRegister.FirstOrDefault(s => s.SkillId == cls.SkillId);
+                        if (matchedSkill != null && !string.IsNullOrWhiteSpace(cls.Category))
                         {
-                            PropertyNameCaseInsensitive = true
-                        });
-
-                        if (responseObj?.Classifications != null)
-                        {
-                            foreach (var item in responseObj.Classifications)
-                            {
-                                var matchedSkill = newSkillsToRegister.FirstOrDefault(s => s.SkillId == item.SkillId);
-                                if (matchedSkill != null && !string.IsNullOrWhiteSpace(item.Category))
-                                {
-                                    matchedSkill.Category = item.Category.Trim();
-                                }
-                            }
+                            matchedSkill.Category = cls.Category.Trim();
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        // Ghi nhận lỗi và fallback sử dụng category mặc định "General"
-                        Console.WriteLine($"[CourseImportService] AI classification failed: {ex.Message}. Fallback to default 'General'.");
-                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    Console.WriteLine("[CourseImportService] API Key is empty. Skip calling AI, fallback to 'General'.");
+                    Console.WriteLine($"[CourseImportService] AI classification failed: {ex.Message}. Fallback to default 'General'.");
                 }
 
                 // Cập nhật các kỹ năng mới vào cache để map ở bước sau
@@ -528,16 +481,5 @@ Danh sách các kỹ năng cần phân loại:
         }
     }
 
-    // Các class DTO nội bộ phục vụ deserialize JSON từ Gemini API
-    internal class AiClassificationResponse
-    {
-        public List<AiClassificationItem>? Classifications { get; set; }
-    }
 
-    internal class AiClassificationItem
-    {
-        public string SkillId { get; set; } = null!;
-        public string SkillName { get; set; } = null!;
-        public string Category { get; set; } = null!;
-    }
 }

@@ -21,7 +21,7 @@ namespace CareerSystem.Tests
     public class CourseImportServiceTests : IDisposable
     {
         private readonly AppDbContext _context;
-        private readonly Mock<IGeminiService> _mockGeminiService;
+        private readonly Mock<IAiRecommendationService> _mockAiRecommendationService;
         private readonly Mock<IConfiguration> _mockConfig;
         private readonly CourseImportService _service;
 
@@ -35,12 +35,12 @@ namespace CareerSystem.Tests
                 .Options;
 
             _context = new AppDbContext(options);
-            _mockGeminiService = new Mock<IGeminiService>();
+            _mockAiRecommendationService = new Mock<IAiRecommendationService>();
             _mockConfig = new Mock<IConfiguration>();
 
             _mockConfig.Setup(c => c["AiSettings:ApiKey"]).Returns("dummy-api-key");
 
-            _service = new CourseImportService(_context, _mockGeminiService.Object, _mockConfig.Object);
+            _service = new CourseImportService(_context, _mockAiRecommendationService.Object, _mockConfig.Object);
         }
 
         public void Dispose()
@@ -102,10 +102,12 @@ namespace CareerSystem.Tests
             };
             var file = CreateMockExcelFile("courses.xlsx", sampleData);
 
-            // Mock AI classification JSON
-            string aiResponse = "{\"classifications\": [{\"skillId\": \"SKL_001\", \"skillName\": \"Servlet\", \"category\": \"Java Web\"}, {\"skillId\": \"SKL_002\", \"skillName\": \"JSP\", \"category\": \"Java Web\"}]}";
-            _mockGeminiService.Setup(s => s.CallGeminiApiAsync(It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync(aiResponse);
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>
+                {
+                    new SkillClassificationDto { SkillId = "SKL_001", SkillName = "Servlet", Category = "Java Web" },
+                    new SkillClassificationDto { SkillId = "SKL_002", SkillName = "JSP", Category = "Java Web" }
+                });
 
             // Act
             var result = await _service.ImportCoursesFromExcelAsync(file, "staff-id");
@@ -154,7 +156,7 @@ namespace CareerSystem.Tests
             };
             var file = CreateMockExcelFile("courses.xlsx", sampleData);
 
-            _mockGeminiService.Setup(s => s.CallGeminiApiAsync(It.IsAny<string>(), It.IsAny<string>()))
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
                 .ThrowsAsync(new Exception("AI service error"));
 
             // Act
@@ -177,9 +179,12 @@ namespace CareerSystem.Tests
             };
             var file = CreateMockExcelFile("courses.xlsx", sampleData);
 
-            string aiResponse = "{\"classifications\": [{\"skillId\": \"SKL_001\", \"skillName\": \"Servlet\", \"category\": \"Java Web\"}, {\"skillId\": \"SKL_002\", \"skillName\": \"JSP\", \"category\": \"Java Web\"}]}";
-            _mockGeminiService.Setup(s => s.CallGeminiApiAsync(It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync(aiResponse);
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>
+                {
+                    new SkillClassificationDto { SkillId = "SKL_001", SkillName = "Servlet", Category = "Java Web" },
+                    new SkillClassificationDto { SkillId = "SKL_002", SkillName = "JSP", Category = "Java Web" }
+                });
 
             // Act
             var result = await _service.ImportCoursesFromExcelAsync(file, "staff-id");

@@ -227,5 +227,86 @@ namespace CareerSystem.API.Services.Implementations
             ex => new List<AiCourseRecommendationDto>(), // Fallback trả về danh sách rỗng để không làm crash luồng nghiệp vụ tạo roadmap
             nameof(GetRoadmapCoursesAsync));
         }
+
+        /// <summary>
+        /// Gửi danh sách kỹ năng mới cho AI phân loại danh mục (category) phù hợp nhất.
+        /// </summary>
+        public async Task<List<SkillClassificationDto>> ClassifySkillsAsync(List<SkillClassificationDto> skills, string apiKey)
+        {
+            if (skills == null || !skills.Any())
+                return new List<SkillClassificationDto>();
+
+            return await ExecuteAiActionWithFallbackAsync(async () =>
+            {
+                var skillsForAiPayload = skills.Select(s => new { skillId = s.SkillId, skillName = s.SkillName }).ToList();
+                string payloadJson = JsonSerializer.Serialize(skillsForAiPayload);
+
+                string prompt = $@"
+                    Bạn là một chuyên gia phân loại kỹ năng trong ngành Công nghệ thông tin (IT).
+                    Nhiệm vụ của bạn là phân loại danh sách các kỹ năng dưới đây vào các danh mục (category) phù hợp nhất.
+
+                    Các ví dụ mẫu:
+                    - ReactJS -> Frontend Development
+                    - ASP.NET Core -> Backend Development
+                    - Docker -> DevOps & Cloud
+                    - SQL Server -> Database Administration
+                    - Figma -> UI/UX Design
+
+                    Danh sách các kỹ năng cần phân loại:
+                    {payloadJson}
+
+                    Định dạng bắt buộc phải trả về là JSON như sau:
+                    {{
+                      ""classifications"": [
+                        {{
+                          ""skillId"": ""SKL_001"",
+                          ""skillName"": ""ReactJS"",
+                          ""category"": ""Frontend Development""
+                        }},
+                        {{
+                          ""skillId"": ""SKL_002"",
+                          ""skillName"": ""Kubernetes"",
+                          ""category"": ""DevOps & Cloud""
+                        }}
+                      ]
+                    }}";
+
+                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
+                aiJsonResponse = _geminiService.CleanJsonString(aiJsonResponse);
+
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var responseObj = JsonSerializer.Deserialize<AiClassificationResponseInternal>(aiJsonResponse, options);
+
+                var result = new List<SkillClassificationDto>();
+                if (responseObj?.Classifications != null)
+                {
+                    foreach (var item in responseObj.Classifications)
+                    {
+                        result.Add(new SkillClassificationDto
+                        {
+                            SkillId = item.SkillId,
+                            SkillName = item.SkillName,
+                            Category = item.Category ?? "General"
+                        });
+                    }
+                }
+                return result;
+            },
+            ex => skills.Select(s => new SkillClassificationDto { SkillId = s.SkillId, SkillName = s.SkillName, Category = "General" }).ToList(),
+            nameof(ClassifySkillsAsync));
+        }
+    }
+
+    // Các class DTO nội bộ phục vụ deserialize JSON từ Gemini API
+    internal class AiClassificationResponseInternal
+    {
+        public List<AiClassificationItemInternal>? Classifications { get; set; }
+    }
+
+    internal class AiClassificationItemInternal
+    {
+        public string SkillId { get; set; } = null!;
+        public string SkillName { get; set; } = null!;
+        public string Category { get; set; } = null!;
     }
 }

@@ -18,7 +18,7 @@ namespace CareerSystem.Tests
     public class CourseServiceTests : IDisposable
     {
         private readonly AppDbContext _context;
-        private readonly Mock<IGeminiService> _mockGeminiService;
+        private readonly Mock<IAiRecommendationService> _mockAiRecommendationService;
         private readonly Mock<IConfiguration> _mockConfig;
         private readonly CourseService _service;
 
@@ -30,13 +30,13 @@ namespace CareerSystem.Tests
                 .Options;
 
             _context = new AppDbContext(options);
-            _mockGeminiService = new Mock<IGeminiService>();
+            _mockAiRecommendationService = new Mock<IAiRecommendationService>();
             _mockConfig = new Mock<IConfiguration>();
 
             // Setup default api key config
             _mockConfig.Setup(c => c["AiSettings:ApiKey"]).Returns("dummy-api-key");
 
-            _service = new CourseService(_context, _mockGeminiService.Object, _mockConfig.Object);
+            _service = new CourseService(_context, _mockAiRecommendationService.Object, _mockConfig.Object);
         }
 
         public void Dispose()
@@ -60,11 +60,11 @@ namespace CareerSystem.Tests
                 Outcomes = "Test outcome description that is quite simple"
             };
 
-            // AI returns JSON classification string
-            string aiJsonResponse = "{\"classifications\": [{\"skillId\": \"SKL_001\", \"skillName\": \"New AI Skill\", \"category\": \"Advanced AI Category\"}]}";
-
-            _mockGeminiService.Setup(s => s.CallGeminiApiAsync(It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync(aiJsonResponse);
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>
+                {
+                    new SkillClassificationDto { SkillId = "SKL_001", SkillName = "New AI Skill", Category = "Advanced AI Category" }
+                });
 
             // Act
             var result = await _service.CreateCourseAsync(dto, "staff-id");
