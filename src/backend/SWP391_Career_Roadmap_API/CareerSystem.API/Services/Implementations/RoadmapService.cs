@@ -48,9 +48,9 @@ namespace CareerSystem.API.Services.Implementations
             };
             _context.Roadmaps.Add(newRoadmap);
 
-            // Lấy danh sách mã/id môn học đã học từ học bạ của sinh viên
+            // Lấy danh sách mã/id môn học đã học từ học bạ của sinh viên (chỉ lấy môn đã đạt điểm qua môn)
             var passedCourseIds = await _context.AcademicRecords
-                .Where(ar => ar.UserId == request.UserId)
+                .Where(ar => ar.UserId == request.UserId && ar.Gpa >= 5.0m)
                 .Select(ar => ar.CourseId)
                 .ToListAsync();
 
@@ -108,9 +108,12 @@ namespace CareerSystem.API.Services.Implementations
                     int daysRequired = (int)Math.Ceiling(totalHours / dailyHours);
                     currentDeadline = currentDeadline.AddDays(daysRequired);
 
-                    // Xác định trạng thái ban đầu dựa trên học bạ (chỉ dùng PENDING hoặc COMPLETED để khớp với CHECK constraint trong DB)
+                    // Kiểm tra xem môn học đã được hoàn thành chưa, nếu rồi thì không thêm vào lộ trình nữa
                     bool isCompleted = passedCourseIds.Contains(courseDb.CourseId);
-                    string initialStatus = isCompleted ? "COMPLETED" : "PENDING";
+                    if (isCompleted)
+                    {
+                        continue; // Bỏ qua môn học đã hoàn thành
+                    }
 
                     // 6.4. Khởi tạo Node học tập
                     var node = new SkillNode
@@ -120,7 +123,7 @@ namespace CareerSystem.API.Services.Implementations
                         SkillId = skillDb.SkillId,             // Nối với kỹ năng chuẩn
                         CourseId = courseDb.CourseId,          // Nối với môn học chuẩn
                         ParentNodeId = previousNodeId,         // Nối tiếp với môn học trước đó (A -> B -> C)
-                        Status = initialStatus,
+                        Status = "PENDING",
                         Deadline = currentDeadline,
                         AcademicLevel = rec.Level ?? "Beginner"
                     };
@@ -186,8 +189,7 @@ namespace CareerSystem.API.Services.Implementations
                     Status = computedStatus,
                     Deadline = sn.Deadline,
                     ParentNodeId = sn.ParentNodeId,
-                    AcademicLevel = sn.AcademicLevel,
-                    Gpa = gpa
+                    AcademicLevel = sn.AcademicLevel
                 });
             }
 
@@ -251,6 +253,11 @@ namespace CareerSystem.API.Services.Implementations
             var (targetRole, passedCoursesText, courseCatalogJson) = await _promptContextService.BuildRoadmapContextAsync(request);
             var recommendedCourses = await _aiRecommendationService.GetRoadmapCoursesAsync(targetRole, passedCoursesText, courseCatalogJson, user.GeminiApiKey);
 
+            var passedCourseIds = await _context.AcademicRecords
+                .Where(ar => ar.UserId == request.UserId && ar.Gpa >= 5.0m)
+                .Select(ar => ar.CourseId)
+                .ToListAsync();
+
             var targetRoleName = await _context.CareerRoles
                 .Where(r => r.RoleId == request.TargetRoleId)
                 .Select(r => r.RoleName)
@@ -274,6 +281,9 @@ namespace CareerSystem.API.Services.Implementations
 
                     var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == normalizedCode);
                     if (courseDb == null) continue;
+
+                    bool isCompleted = passedCourseIds.Contains(courseDb.CourseId);
+                    if (isCompleted) continue; // Bỏ qua môn học đã hoàn thành
 
                     int totalHours = courseDb.TotalStudyHours ?? 30;
                     int daysRequired = (int)Math.Ceiling(totalHours / (double)dailyHours);

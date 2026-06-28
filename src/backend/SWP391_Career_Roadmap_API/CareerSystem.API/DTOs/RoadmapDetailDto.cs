@@ -25,6 +25,5 @@ namespace CareerSystem.API.DTOs
         public DateOnly? Deadline { get; set; }
         public string? ParentNodeId { get; set; }
         public string? AcademicLevel { get; set; }
-        public decimal? Gpa { get; set; }
     }
 }
