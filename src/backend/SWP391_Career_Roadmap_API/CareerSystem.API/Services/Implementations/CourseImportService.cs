@@ -48,8 +48,8 @@ namespace CareerSystem.API.Services.Implementations
             if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Chỉ chấp nhận file định dạng .xlsx");
 
-            if (file.Length > 5 * 1024 * 1024) // 5MB
-                throw new ArgumentException("File không được vượt quá 5MB.");
+            if (file.Length > 10 * 1024 * 1024) // 10MB
+                throw new ArgumentException("File không được vượt quá 10MB.");
 
             // 2. Đọc file Excel
             using var stream = new MemoryStream();
@@ -95,7 +95,7 @@ namespace CareerSystem.API.Services.Implementations
                 var skillsText = worksheet.Cells[row, 6].Text?.Trim();
                 if (!string.IsNullOrWhiteSpace(skillsText))
                 {
-                    var tokens = skillsText.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                    var tokens = skillsText.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
                     foreach (var t in tokens)
                     {
                         var trimmed = t.Trim();
@@ -303,14 +303,14 @@ namespace CareerSystem.API.Services.Implementations
                 coursesToAdd.Add(course);
 
                 // Tạo các CourseLearningOutcome tương ứng
-                var tokens = skillsText!.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                var tokens = skillsText!.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(s => s.Trim())
                     .Where(s => !string.IsNullOrEmpty(s))
                     .ToList();
 
                 var descriptions = string.IsNullOrWhiteSpace(outcomesText)
                     ? new List<string>()
-                    : outcomesText.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                    : outcomesText.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
                         .Select(d => d.Trim())
                         .Where(d => !string.IsNullOrEmpty(d))
                         .ToList();

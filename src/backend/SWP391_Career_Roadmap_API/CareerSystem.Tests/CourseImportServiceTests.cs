@@ -98,7 +98,7 @@ namespace CareerSystem.Tests
             // Arrange
             var sampleData = new string[,]
             {
-                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet, JSP", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động" }
+                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động" }
             };
             var file = CreateMockExcelFile("courses.xlsx", sampleData);
 
@@ -152,7 +152,7 @@ namespace CareerSystem.Tests
             // Arrange
             var sampleData = new string[,]
             {
-                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet, JSP", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động" }
+                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động" }
             };
             var file = CreateMockExcelFile("courses.xlsx", sampleData);
 
@@ -175,7 +175,7 @@ namespace CareerSystem.Tests
             // Arrange
             var sampleData = new string[,]
             {
-                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet, JSP", "Hiểu MVC, phát phát; Phát triển Web" }
+                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu MVC, phát phát; Phát triển Web" }
             };
             var file = CreateMockExcelFile("courses.xlsx", sampleData);
 
@@ -200,15 +200,15 @@ namespace CareerSystem.Tests
             Assert.NotNull(servletSkill);
             var servletClo = clos.FirstOrDefault(c => c.SkillId == servletSkill.SkillId);
             Assert.NotNull(servletClo);
-            // Comma splits outcomes, so the first outcome is "Hiểu MVC"
-            Assert.Equal("Hiểu MVC", servletClo.OutcomeDescription);
+            // Semicolon splits outcomes, so the first outcome is "Hiểu MVC, phát phát"
+            Assert.Equal("Hiểu MVC, phát phát", servletClo.OutcomeDescription);
 
             var jspSkill = await _context.Skills.FirstOrDefaultAsync(s => s.SkillName == "JSP");
             Assert.NotNull(jspSkill);
             var jspClo = clos.FirstOrDefault(c => c.SkillId == jspSkill.SkillId);
             Assert.NotNull(jspClo);
-            // The second outcome is "phát phát"
-            Assert.Equal("phát phát", jspClo.OutcomeDescription);
+            // The second outcome is "Phát triển Web"
+            Assert.Equal("Phát triển Web", jspClo.OutcomeDescription);
         }
     }
 }
