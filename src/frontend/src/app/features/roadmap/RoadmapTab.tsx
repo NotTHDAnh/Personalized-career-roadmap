@@ -291,6 +291,7 @@ export default function MyRoadmaps() {
     async function fetchUserRoadmaps() {
       try {
         const data = await apiClient.get<any[]>(`/Roadmap/user/${userId}`);
+        data.reverse();
         if (data && data.length > 0) {
           setRoadmaps(data);
           setSelectedRoadmapId(data[0].roadmapId);
