@@ -83,5 +83,47 @@ namespace CareerSystem.Tests
             Assert.NotNull(savedClo.Skill);
             Assert.NotNull(savedClo.Course);
         }
+
+        [Fact]
+        public async Task CreateCourseAsync_SplitSkillsAndOutcomesBySemicolonOnly()
+        {
+            // Arrange
+            var dto = new CreateCourseDto
+            {
+                CourseCode = "CSD201",
+                CourseName = "Data Structures and Algorithms",
+                Credits = 10,
+                TotalStudyHours = 90,
+                IsFoundationalCourse = true,
+                Skills = "Data Structures; Algorithm Design & Analysis; OOP",
+                Outcomes = "Cài đặt các cấu trúc dữ liệu cơ bản như Tree, Graph, Stack, Queue; Đánh giá độ phức tạp thuật toán"
+            };
+
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>
+                {
+                    new SkillClassificationDto { SkillId = "SKL_001", SkillName = "Data Structures", Category = "General" },
+                    new SkillClassificationDto { SkillId = "SKL_002", SkillName = "Algorithm Design & Analysis", Category = "General" },
+                    new SkillClassificationDto { SkillId = "SKL_003", SkillName = "OOP", Category = "General" }
+                });
+
+            // Act
+            var result = await _service.CreateCourseAsync(dto, "staff-id");
+
+            // Assert
+            Assert.NotNull(result);
+            var clos = await _context.CourseLearningOutcomes.Where(c => c.CourseId == result.CourseId).ToListAsync();
+            Assert.Equal(3, clos.Count);
+
+            // First outcome should keep the commas: "Cài đặt các cấu trúc dữ liệu cơ bản như Tree, Graph, Stack, Queue"
+            var firstClo = clos.FirstOrDefault(c => c.Skill.SkillName == "Data Structures");
+            Assert.NotNull(firstClo);
+            Assert.Equal("Cài đặt các cấu trúc dữ liệu cơ bản như Tree, Graph, Stack, Queue", firstClo.OutcomeDescription);
+
+            // Second outcome should be: "Đánh giá độ phức tạp thuật toán"
+            var secondClo = clos.FirstOrDefault(c => c.Skill.SkillName == "Algorithm Design & Analysis");
+            Assert.NotNull(secondClo);
+            Assert.Equal("Đánh giá độ phức tạp thuật toán", secondClo.OutcomeDescription);
+        }
     }
 }

@@ -86,12 +86,12 @@ namespace CareerSystem.API.Services.Implementations
             }
 
             // 2. Tách kỹ năng và chuẩn đầu ra từ DTO
-            var skillTokens = dto.Skills.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+            var skillTokens = dto.Skills.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(s => s.Trim())
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();
 
-            var outcomeTokens = dto.Outcomes.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+            var outcomeTokens = dto.Outcomes.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(d => d.Trim())
                 .Where(d => !string.IsNullOrEmpty(d))
                 .ToList();
@@ -210,7 +210,7 @@ namespace CareerSystem.API.Services.Implementations
                 CourseName = dto.CourseName.Trim(),
                 Credits = dto.Credits,
                 TotalStudyHours = dto.TotalStudyHours,
-                IsFoundationalCourse = dto.IsFoundationalCourse
+                IsFoundationalCourse = dto.IsFoundationalCourse ?? false,
             };
 
             // 9. Tạo các CourseLearningOutcome kết nối Course & Skill

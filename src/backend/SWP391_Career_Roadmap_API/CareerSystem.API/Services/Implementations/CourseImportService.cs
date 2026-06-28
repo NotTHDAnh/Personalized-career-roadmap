@@ -23,11 +23,11 @@ namespace CareerSystem.API.Services.Implementations
         private readonly IAiRecommendationService _aiRecommendationService;
         private readonly IConfiguration _configuration;
 
-        // Header tiêu chuẩn của file Excel import môn học (7 cột)
+        // Header tiêu chuẩn của file Excel import môn học (8 cột)
         private static readonly string[] ExpectedHeaders =
-            { "STT", "Mã môn học", "Tên môn học", "Số tín chỉ", "Tổng số giờ học", "Kỹ năng đầu ra", "Chuẩn đầu ra" };
+            { "STT", "Mã môn học", "Tên môn học", "Số tín chỉ", "Tổng số giờ học", "Kỹ năng đầu ra", "Chuẩn đầu ra", "Môn học nền tảng" };
 
-        private const int ColCount = 7;
+        private const int ColCount = 8;
 
         public CourseImportService(AppDbContext context, IAiRecommendationService aiRecommendationService, IConfiguration configuration)
         {
@@ -151,6 +151,11 @@ namespace CareerSystem.API.Services.Implementations
             var newSkillsToRegister = new List<Skill>();
             if (missingSkillNames.Count > 0)
             {
+                if (string.IsNullOrWhiteSpace(apiKey))
+                {
+                    throw new ArgumentException("Phát hiện kỹ năng mới chưa có trong hệ thống. Vui lòng cấu hình Gemini API Key trước khi thực hiện import.");
+                }
+
                 var skillsToClassify = new List<SkillClassificationDto>();
                 foreach (var name in missingSkillNames)
                 {
@@ -201,14 +206,14 @@ namespace CareerSystem.API.Services.Implementations
 
             for (int row = 2; row <= totalRows; row++)
             {
+                var displayRow = row;
                 var courseCode = worksheet.Cells[row, 2].Text?.Trim();
                 var courseName = worksheet.Cells[row, 3].Text?.Trim();
                 var creditsStr = worksheet.Cells[row, 4].Text?.Trim();
                 var totalHoursStr = worksheet.Cells[row, 5].Text?.Trim();
                 var skillsText = worksheet.Cells[row, 6].Text?.Trim();
                 var outcomesText = worksheet.Cells[row, 7].Text?.Trim();
-
-                int displayRow = row - 1;
+                var isFoundationalStr = worksheet.Cells[row, 8].Text?.Trim();
 
                 // Bỏ qua dòng hoàn toàn trống
                 if (string.IsNullOrWhiteSpace(courseCode) &&
@@ -216,7 +221,8 @@ namespace CareerSystem.API.Services.Implementations
                     string.IsNullOrWhiteSpace(creditsStr) &&
                     string.IsNullOrWhiteSpace(totalHoursStr) &&
                     string.IsNullOrWhiteSpace(skillsText) &&
-                    string.IsNullOrWhiteSpace(outcomesText))
+                    string.IsNullOrWhiteSpace(outcomesText) &&
+                    string.IsNullOrWhiteSpace(isFoundationalStr))
                 {
                     continue;
                 }
@@ -277,6 +283,29 @@ namespace CareerSystem.API.Services.Implementations
                     errors.Add("Kỹ năng đầu ra không được để trống.");
                 }
 
+                // Validate Môn học nền tảng
+                bool isFoundational = false;
+                if (string.IsNullOrWhiteSpace(isFoundationalStr))
+                {
+                    errors.Add("Cột 'Môn học nền tảng' không được để trống.");
+                }
+                else
+                {
+                    var lower = isFoundationalStr.ToLowerInvariant();
+                    if (lower == "true" || lower == "có" || lower == "1" || lower == "yes")
+                    {
+                        isFoundational = true;
+                    }
+                    else if (lower == "false" || lower == "không" || lower == "0" || lower == "no")
+                    {
+                        isFoundational = false;
+                    }
+                    else
+                    {
+                        errors.Add("Giá trị cột 'Môn học nền tảng' không hợp lệ (chỉ chấp nhận: TRUE/FALSE, Có/Không, 1/0).");
+                    }
+                }
+
                 if (errors.Count > 0)
                 {
                     result.FailedCount++;
@@ -298,7 +327,8 @@ namespace CareerSystem.API.Services.Implementations
                     CourseCode = courseCode!,
                     CourseName = courseName!,
                     Credits = credits,
-                    TotalStudyHours = totalHours
+                    TotalStudyHours = totalHours,
+                    IsFoundationalCourse = isFoundational
                 };
                 coursesToAdd.Add(course);
 
@@ -423,9 +453,9 @@ namespace CareerSystem.API.Services.Implementations
             // Dữ liệu mẫu (3 môn học)
             var sampleData = new object[,]
             {
-                { 1, "PRN211", "Basic Cross-Platform Application Programming", 3, 90, "C#, .NET, Entity Framework, LINQ", "Hiểu ngôn ngữ C# cơ bản; Lập trình hướng đối tượng với .NET; Truy vấn DB bằng Entity Framework Core; Sử dụng LINQ nâng cao" },
-                { 2, "PRN221", "Advanced Cross-Platform Application Programming", 3, 90, "C#, .NET, WPF, SignalR", "Lập trình desktop với WPF; Xây dựng ứng dụng thời gian thực bằng SignalR" },
-                { 3, "PRN231", "Web Application Development", 3, 90, "ASP.NET Core, RESTful API, Web API", "Xây dựng web app với ASP.NET Core; Thiết kế RESTful Web API chuẩn chỉnh" }
+                { 1, "PRN211", "Basic Cross-Platform Application Programming", 3, 90, "C#; .NET; Entity Framework; LINQ", "Hiểu ngôn ngữ C# cơ bản; Lập trình hướng đối tượng với .NET; Truy vấn DB bằng Entity Framework Core; Sử dụng LINQ nâng cao", "False" },
+                { 2, "PRN221", "Advanced Cross-Platform Application Programming", 3, 90, "C#; .NET; WPF; SignalR", "Lập trình desktop với WPF; Xây dựng ứng dụng thời gian thực bằng SignalR", "False" },
+                { 3, "PRN231", "Web Application Development", 3, 90, "ASP.NET Core; RESTful API; Web API", "Xây dựng web app với ASP.NET Core; Thiết kế RESTful Web API chuẩn chỉnh", "False" }
             };
 
             for (int row = 0; row < 3; row++)
@@ -444,6 +474,7 @@ namespace CareerSystem.API.Services.Implementations
             worksheet.Column(5).Width = 18;  // Tổng số giờ học
             worksheet.Column(6).Width = 45;  // Kỹ năng đầu ra
             worksheet.Column(7).Width = 60;  // Chuẩn đầu ra
+            worksheet.Column(8).Width = 25;  // Môn học nền tảng
 
             // Border cho toàn bộ bảng
             using (var range = worksheet.Cells[1, 1, 4, ColCount])
@@ -459,6 +490,7 @@ namespace CareerSystem.API.Services.Implementations
             worksheet.Column(2).Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
             worksheet.Column(4).Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
             worksheet.Column(5).Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            worksheet.Column(8).Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
 
             worksheet.Row(1).Height = 25;
 

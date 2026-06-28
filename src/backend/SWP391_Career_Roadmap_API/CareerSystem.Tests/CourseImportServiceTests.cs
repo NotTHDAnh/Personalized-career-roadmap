@@ -57,7 +57,7 @@ namespace CareerSystem.Tests
                 var worksheet = package.Workbook.Worksheets.Add("Sheet1");
                 
                 // Write headers
-                string[] expectedHeaders = { "STT", "Mã môn học", "Tên môn học", "Số tín chỉ", "Tổng số giờ học", "Kỹ năng đầu ra", "Chuẩn đầu ra" };
+                string[] expectedHeaders = { "STT", "Mã môn học", "Tên môn học", "Số tín chỉ", "Tổng số giờ học", "Kỹ năng đầu ra", "Chuẩn đầu ra", "Môn học nền tảng" };
                 for (int i = 0; i < expectedHeaders.Length; i++)
                 {
                     worksheet.Cells[1, i + 1].Value = expectedHeaders[i];
@@ -98,7 +98,7 @@ namespace CareerSystem.Tests
             // Arrange
             var sampleData = new string[,]
             {
-                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động" }
+                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động", "Không" }
             };
             var file = CreateMockExcelFile("courses.xlsx", sampleData);
 
@@ -152,7 +152,7 @@ namespace CareerSystem.Tests
             // Arrange
             var sampleData = new string[,]
             {
-                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động" }
+                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động", "Không" }
             };
             var file = CreateMockExcelFile("courses.xlsx", sampleData);
 
@@ -175,7 +175,7 @@ namespace CareerSystem.Tests
             // Arrange
             var sampleData = new string[,]
             {
-                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu MVC, phát phát; Phát triển Web" }
+                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu MVC, phát phát; Phát triển Web", "Không" }
             };
             var file = CreateMockExcelFile("courses.xlsx", sampleData);
 
@@ -209,6 +209,73 @@ namespace CareerSystem.Tests
             Assert.NotNull(jspClo);
             // The second outcome is "Phát triển Web"
             Assert.Equal("Phát triển Web", jspClo.OutcomeDescription);
+        }
+
+        [Fact]
+        public async Task ImportCoursesFromExcelAsync_NewSkillsAndNoApiKey_ThrowsArgumentException()
+        {
+            // Arrange
+            _mockConfig.Setup(c => c["AiSettings:ApiKey"]).Returns(string.Empty);
+
+            var sampleData = new string[,]
+            {
+                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động", "Không" }
+            };
+            var file = CreateMockExcelFile("courses.xlsx", sampleData);
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() => _service.ImportCoursesFromExcelAsync(file, "staff-id"));
+            Assert.Contains("Phát hiện kỹ năng mới chưa có trong hệ thống", ex.Message);
+        }
+
+        [Fact]
+        public async Task ImportCoursesFromExcelAsync_NoNewSkillsAndNoApiKey_Succeeds()
+        {
+            // Arrange
+            _mockConfig.Setup(c => c["AiSettings:ApiKey"]).Returns(string.Empty);
+
+            _context.Skills.Add(new Skill { SkillId = "SKL_001", SkillName = "Servlet", Category = "Java Web" });
+            _context.Skills.Add(new Skill { SkillId = "SKL_002", SkillName = "JSP", Category = "Java Web" });
+            await _context.SaveChangesAsync();
+
+            var sampleData = new string[,]
+            {
+                { "1", "PRJ301", "Java Web Application Development", "3", "90", "Servlet; JSP", "Hiểu kiến trúc MVC; Phát triển ứng dụng Web động", "Không" }
+            };
+            var file = CreateMockExcelFile("courses.xlsx", sampleData);
+
+            // Act
+            var result = await _service.ImportCoursesFromExcelAsync(file, "staff-id");
+
+            // Assert
+            Assert.Equal(1, result.SuccessCount);
+            Assert.Equal(0, result.FailedCount);
+        }
+
+        [Fact]
+        public async Task ImportCoursesFromExcelAsync_FoundationalCourseMappedToTrue()
+        {
+            // Arrange
+            var sampleData = new string[,]
+            {
+                { "1", "MAE101", "Mathematics", "3", "45", "Maths", "Math outcome", "Có" }
+            };
+            var file = CreateMockExcelFile("courses.xlsx", sampleData);
+
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>
+                {
+                    new SkillClassificationDto { SkillId = "SKL_001", SkillName = "Maths", Category = "Mathematics" }
+                });
+
+            // Act
+            var result = await _service.ImportCoursesFromExcelAsync(file, "staff-id");
+
+            // Assert
+            Assert.Equal(1, result.SuccessCount);
+            var course = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == "MAE101");
+            Assert.NotNull(course);
+            Assert.True(course.IsFoundationalCourse);
         }
     }
 }
