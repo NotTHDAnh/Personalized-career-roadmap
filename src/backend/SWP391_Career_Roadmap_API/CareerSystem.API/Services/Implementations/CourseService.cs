@@ -47,6 +47,7 @@ namespace CareerSystem.API.Services.Implementations
                 CourseName = course.CourseName,
                 Credits = course.Credits,
                 TotalStudyHours = course.TotalStudyHours,
+                IsFoundationalCourse = course.IsFoundationalCourse,
                 SuggestedResources = course.LearningResources
                     .Select(lr => new LearningResourceDto
                     {
@@ -250,7 +251,8 @@ Danh sách các kỹ năng cần phân loại:
                 CourseCode = dto.CourseCode.Trim(),
                 CourseName = dto.CourseName.Trim(),
                 Credits = dto.Credits,
-                TotalStudyHours = dto.TotalStudyHours
+                TotalStudyHours = dto.TotalStudyHours,
+                IsFoundationalCourse = dto.IsFoundationalCourse
             };
 
             // 9. Tạo các CourseLearningOutcome kết nối Course & Skill
@@ -333,6 +335,7 @@ Danh sách các kỹ năng cần phân loại:
                 CourseName = newCourse.CourseName,
                 Credits = newCourse.Credits,
                 TotalStudyHours = newCourse.TotalStudyHours,
+                IsFoundationalCourse = newCourse.IsFoundationalCourse,
                 SuggestedResources = new List<LearningResourceDto>(),
                 LearningOutcomes = outcomesToAdd.Select(clo => new CourseLearningOutcomeDto
                 {

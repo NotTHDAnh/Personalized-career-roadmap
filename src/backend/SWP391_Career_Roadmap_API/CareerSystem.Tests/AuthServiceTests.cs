@@ -1,11 +1,14 @@
 using System;
 using System.Threading.Tasks;
 using Xunit;
+using Moq;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Implementations;
+using CareerSystem.API.Services.Interfaces;
 using CareerSystem.API.Utilities;
 
 namespace CareerSystem.Tests
@@ -13,6 +16,9 @@ namespace CareerSystem.Tests
     public class AuthServiceTests : IDisposable
     {
         private readonly AppDbContext _context;
+        private readonly Mock<IConfiguration> _mockConfig;
+        private readonly Mock<IMentorService> _mockMentorService;
+        private readonly Mock<IEmailService> _mockEmailService;
         private readonly AuthService _service;
 
         public AuthServiceTests()
@@ -22,7 +28,18 @@ namespace CareerSystem.Tests
                 .Options;
 
             _context = new AppDbContext(options);
-            _service = new AuthService(_context);
+            _mockConfig = new Mock<IConfiguration>();
+            _mockMentorService = new Mock<IMentorService>();
+            _mockEmailService = new Mock<IEmailService>();
+
+            // Setup default configuration values
+            _mockConfig.Setup(c => c["JwtSettings:Secret"]).Returns("nevergonnagiveyouupnevergonnaletyoudown");
+            _mockConfig.Setup(c => c["JwtSettings:Issuer"]).Returns("CareerSystemAPI");
+            _mockConfig.Setup(c => c["JwtSettings:Audience"]).Returns("CareerSystemClient");
+            _mockConfig.Setup(c => c["JwtSettings:ExpiryInMinutes"]).Returns("15");
+            _mockConfig.Setup(c => c["JwtSettings:RefreshExpiryInDays"]).Returns("7");
+
+            _service = new AuthService(_context, _mockConfig.Object, _mockMentorService.Object, _mockEmailService.Object);
 
             SeedData();
         }

@@ -157,6 +157,9 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.TotalStudyHours)
                 .HasDefaultValue(0)
                 .HasColumnName("total_study_hours");
+            entity.Property(e => e.IsFoundationalCourse)
+                .HasDefaultValue(false)
+                .HasColumnName("is_foundational_course");
         });
 
         modelBuilder.Entity<CourseLearningOutcome>(entity =>

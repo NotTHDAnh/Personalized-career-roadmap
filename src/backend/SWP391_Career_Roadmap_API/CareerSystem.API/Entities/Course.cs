@@ -15,6 +15,8 @@ public partial class Course
 
     public int? TotalStudyHours { get; set; }
 
+    public bool IsFoundationalCourse { get; set; } = false;
+
     public virtual ICollection<AcademicRecord> AcademicRecords { get; set; } = new List<AcademicRecord>();
 
     public virtual ICollection<CourseLearningOutcome> CourseLearningOutcomes { get; set; } = new List<CourseLearningOutcome>();
