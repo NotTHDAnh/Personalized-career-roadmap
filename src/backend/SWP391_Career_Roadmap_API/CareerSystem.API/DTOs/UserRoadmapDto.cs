@@ -4,5 +4,6 @@ namespace CareerSystem.API.DTOs
     {
         public string RoadmapId { get; set; } = string.Empty;
         public string TargetRoleName { get; set; } = string.Empty;
+        public System.DateTime? CreatedAt { get; set; }
     }
 }

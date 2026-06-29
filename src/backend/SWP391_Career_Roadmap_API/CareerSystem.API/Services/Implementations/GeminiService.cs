@@ -12,6 +12,10 @@ namespace CareerSystem.API.Services.Implementations
     {
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
+        private const int MaxRetryAttempts = 3;
+        private const int InitialRetryDelayMs = 1000;
+        private const int MarkdownJsonPrefixLength = 7;
+        private const int MarkdownPrefixLength = 7;
 
         public GeminiService(HttpClient httpClient, IConfiguration configuration)
         {
@@ -61,8 +65,8 @@ namespace CareerSystem.API.Services.Implementations
             };
 
             // CẤU HÌNH TỰ ĐỘNG THỬ LẠI (RETRY CONTROLLER)
-            int maxRetries = 3; // Số lần thử lại tối đa khi gặp lỗi tạm thời
-            int delayMs = 1000; // Độ trễ ban đầu (1 giây)
+            int maxRetries = MaxRetryAttempts; // Số lần thử lại tối đa khi gặp lỗi tạm thời
+            int delayMs = InitialRetryDelayMs; // Độ trễ ban đầu (1 giây)
             HttpResponseMessage? response = null;
 
             // Vòng lặp tự động thử lại khi gặp lỗi tạm thời (HTTP 429, 503, 504, 500 hoặc sự cố mạng)
@@ -147,11 +151,11 @@ namespace CareerSystem.API.Services.Implementations
 
             // Loại bỏ ký tự ```json ở đầu chuỗi
             if (text.StartsWith("```json"))
-                text = text.Substring(7);
+                text = text.Substring(MarkdownJsonPrefixLength);
 
             // Loại bỏ ký tự ``` ở đầu chuỗi (nếu có)
             if (text.StartsWith("```"))
-                text = text.Substring(3);
+                text = text.Substring(MarkdownPrefixLength);
 
             // Loại bỏ ký tự ``` ở cuối chuỗi
             if (text.EndsWith("```"))
