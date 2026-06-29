@@ -8,6 +8,7 @@ import { SkillTag } from "./components/SkillTag";
 import { StudentProfileCard } from "./components/StudentProfileCard";
 import { GpaInput } from "./components/GpaInput";
 import { ErrorAlert } from "@/app/components/common/ErrorAlert";
+import { AddCourseModal } from "./components/AddCourseModal";
 
 const skills = [
   "JavaScript", "React", "TypeScript", "Next.js", "Tailwind CSS",
@@ -17,6 +18,9 @@ const skills = [
 export default function ProfileTranscripts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Add course modal state
+  const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -146,7 +150,7 @@ export default function ProfileTranscripts() {
                 {skills.slice(0, 5).map((s) => (
                   <SkillTag key={s} label={s} />
                 ))}
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#F1F5F9]:bg-slate-700 transition-colors text-[12px] font-semibold text-[#3B28CC]">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#F1F5F9] transition-colors text-[12px] font-semibold text-[#3B28CC]">
                   <Plus size={14} strokeWidth={3} />
                   Add Skill
                 </button>
@@ -191,18 +195,32 @@ export default function ProfileTranscripts() {
             </h3>
             <p className="text-[12px] text-[#64748B] mt-0.5 font-medium">Active Semester · Currently Enrolled</p>
           </div>
-          {loading ? (
-            <Skeleton className="h-5 w-14 rounded-full" />
-          ) : (
-            <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
-              2 Active
-            </span>
-          )}
+          
+          <div className="flex items-center gap-3">
+            {!loading && (
+              <button 
+                onClick={() => {
+                  setIsAddCourseOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#3B28CC] hover:bg-[#3B28CC]/90 transition-all text-[11px] font-bold text-white shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Plus size={12} strokeWidth={3} />
+                Add Course
+              </button>
+            )}
+            {loading ? (
+              <Skeleton className="h-5 w-14 rounded-full" />
+            ) : (
+              <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
+                2 Active
+              </span>
+            )}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] hover:bg-transparent:bg-transparent">
+              <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] hover:bg-transparent">
                 <TableHead className="w-[25%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Name</TableHead>
                 <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Code</TableHead>
                 <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Duration</TableHead>
@@ -225,7 +243,7 @@ export default function ProfileTranscripts() {
                 ))
               ) : (
                 <>
-                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
+                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
                     <TableCell className="px-5 py-3 align-top">
                       <div className="flex flex-col items-start gap-1">
                         <span className="text-[13px] text-[#0F172A] font-bold">Advanced Java Programming</span>
@@ -252,7 +270,7 @@ export default function ProfileTranscripts() {
                       </span>
                     </TableCell>
                   </TableRow>
-                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
+                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
                     <TableCell className="px-5 py-3 align-top text-[13px] text-[#0F172A] font-bold">
                       Database Management Systems
                     </TableCell>
@@ -301,7 +319,7 @@ export default function ProfileTranscripts() {
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] hover:bg-transparent:bg-transparent">
+              <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] hover:bg-transparent">
                 <TableHead className="w-[25%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Name</TableHead>
                 <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Code</TableHead>
                 <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Duration</TableHead>
@@ -324,7 +342,7 @@ export default function ProfileTranscripts() {
                 ))
               ) : (
                 <>
-                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
+                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
                     <TableCell className="px-5 py-3 align-top">
                       <div className="flex flex-col items-start gap-1">
                         <span className="text-[13px] text-[#0F172A] font-bold">Introduction to Programming</span>
@@ -348,7 +366,7 @@ export default function ProfileTranscripts() {
                       </span>
                     </TableCell>
                   </TableRow>
-                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
+                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
                     <TableCell className="px-5 py-3 align-top text-[13px] text-[#0F172A] font-bold">
                       Web Foundations (External)
                     </TableCell>
@@ -376,6 +394,9 @@ export default function ProfileTranscripts() {
           </Table>
         </div>
       </div>
+
+      {/* Add Course Modal Dialog Component */}
+      <AddCourseModal isOpen={isAddCourseOpen} onClose={() => setIsAddCourseOpen(false)} />
     </div>
   );
 }
