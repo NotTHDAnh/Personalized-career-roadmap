@@ -11,6 +11,7 @@ namespace CareerSystem.API.Services.Implementations
         private readonly AppDbContext _context;
         private readonly IAiRecommendationService _aiRecommendationService;
         private readonly IPromptContextService _promptContextService;
+        private const decimal DefaultDailyStudyHours = 2.0m;
 
         public RoadmapService(AppDbContext context, IAiRecommendationService aiRecommendationService, IPromptContextService promptContextService)
         {
@@ -65,7 +66,7 @@ namespace CareerSystem.API.Services.Implementations
                 var seenCourseCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                 //Tránh lỗi chia cho 0 nếu sinh viên nhập DailyStudyHours = 0
-                decimal dailyHours = request.DailyStudyHours > 0 ? (decimal)request.DailyStudyHours : 2.0m;
+                decimal dailyHours = request.DailyStudyHours > 0 ? (decimal)request.DailyStudyHours : DefaultDailyStudyHours;
 
                 foreach (var rec in recommendedCourses)
                 {
@@ -263,7 +264,7 @@ namespace CareerSystem.API.Services.Implementations
                 DateOnly currentDeadline = DateOnly.FromDateTime(DateTime.Now);
                 string? previousNodeId = null;
                 var seenCourseCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                decimal dailyHours = request.DailyStudyHours > 0 ? (decimal)request.DailyStudyHours : 2.0m;
+                decimal dailyHours = request.DailyStudyHours > 0 ? (decimal)request.DailyStudyHours : DefaultDailyStudyHours;
 
                 foreach (var rec in recommendedCourses)
                 {
@@ -415,10 +416,12 @@ namespace CareerSystem.API.Services.Implementations
         {
             return await _context.Roadmaps
                 .Where(r => r.UserId == userId)
+                .OrderBy(r => r.CreatedAt)
                 .Select(r => new UserRoadmapDto
                 {
                     RoadmapId = r.RoadmapId,
-                    TargetRoleName = r.TargetRole != null ? r.TargetRole.RoleName : "Lộ trình cá nhân"
+                    TargetRoleName = r.TargetRole != null ? r.TargetRole.RoleName : "Lộ trình cá nhân",
+                    CreatedAt = r.CreatedAt
                 })
                 .ToListAsync();
         }

@@ -41,7 +41,7 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
 
             const details = dtoNode.courseDetails;
             const dynamicSkills = details?.learningOutcomes && details.learningOutcomes.length > 0
-                ? details.learningOutcomes.map((lo: any) => lo.skillName)
+                ? Array.from(new Set(details.learningOutcomes.map((lo: any) => lo.skillName) as string[]))
                 : ["#Coding", "#System"];
 
             nodes.push({
