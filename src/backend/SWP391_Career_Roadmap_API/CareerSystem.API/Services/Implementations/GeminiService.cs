@@ -15,7 +15,7 @@ namespace CareerSystem.API.Services.Implementations
         private const int MaxRetryAttempts = 3;
         private const int InitialRetryDelayMs = 1000;
         private const int MarkdownJsonPrefixLength = 7;
-        private const int MarkdownPrefixLength = 7;
+        private const int MarkdownPrefixLength = 3;
 
         public GeminiService(HttpClient httpClient, IConfiguration configuration)
         {
