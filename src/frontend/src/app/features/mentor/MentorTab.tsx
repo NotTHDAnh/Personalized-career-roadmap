@@ -27,6 +27,7 @@ import { Loader2 } from "lucide-react";
 import RoadmapTimeline from "./components/RoadmapTimeline";
 import MentorChatSection from "./components/MentorChatSection";
 import MentorSidebar from "./components/MentorSidebar";
+import { parseApiError, isApiKeyError, isApiKeyExpiredOrOutOfQuota } from "@/shared/utils/errorHelper";
 
 function formatMentorResponse(response: any) {
   const answer = response.answer || response.Answer;
@@ -261,7 +262,20 @@ export function MentorTab() {
 
       setMessages((prev) => [...prev, aiMsg]);
     } catch (error: any) {
-      if (error.message?.includes("Gemini API Key")) {
+      const parsedError = parseApiError(error);
+      if (isApiKeyError(parsedError)) {
+        if (isApiKeyExpiredOrOutOfQuota(parsedError)) {
+          openNotification(
+            "error",
+            "Your Gemini API Key is invalid, expired, or out of quota. Please configure a new one."
+          );
+          setApiKeyStatus(prev => prev ? { ...prev, isExpired: true } : { hasKey: true, isExpired: true });
+        } else {
+          openNotification(
+            "warning",
+            "Please configure your Gemini API Key to use this feature."
+          );
+        }
         setPendingAction(() => () => void performAskMentor(text));
         setIsApiKeyModalOpen(true);
       } else {
@@ -330,7 +344,20 @@ export function MentorTab() {
 
       openNotification("success", "Roadmap preview generated successfully!");
     } catch (error: any) {
-      if (error.message?.includes("Gemini API Key")) {
+      const parsedError = parseApiError(error);
+      if (isApiKeyError(parsedError)) {
+        if (isApiKeyExpiredOrOutOfQuota(parsedError)) {
+          openNotification(
+            "error",
+            "Your Gemini API Key is invalid, expired, or out of quota. Please configure a new one."
+          );
+          setApiKeyStatus(prev => prev ? { ...prev, isExpired: true } : { hasKey: true, isExpired: true });
+        } else {
+          openNotification(
+            "warning",
+            "Please configure your Gemini API Key to use this feature."
+          );
+        }
         setPendingAction(() => () => void performCreateRoadmap(hoursToUse));
         setIsApiKeyModalOpen(true);
       } else {

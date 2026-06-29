@@ -28,6 +28,7 @@ import { apiClient } from "@/shared/api/apiClient";
 import { useRef } from "react";
 import { FileUploadModal } from "./components/FileUploadModal";
 import { getApiKeyStatus, saveApiKey, deleteApiKey } from "../../services/apiKeyApi";
+import { parseApiError } from "@/shared/utils/errorHelper";
 
 interface StatCount {
   students: number;
@@ -175,14 +176,8 @@ export default function StaffPanel() {
       setSavedAiKey(formatMaskedKey(aiKey.trim()));
       toast.success("AI Configuration saved successfully");
     } catch (err: any) {
-      let msg = err.message || "Failed to save Gemini API key.";
-      try {
-        const errorData = JSON.parse(err.message);
-        if (errorData?.message) msg = errorData.message;
-        else if (errorData?.title) msg = errorData.title;
-      } catch {
-        // Fallback to original message
-      }
+      const parsedError = parseApiError(err);
+      const msg = parsedError.detail || parsedError.message || "Failed to save Gemini API key.";
       setAiKeyError(msg);
     } finally {
       setIsSavingKey(false);

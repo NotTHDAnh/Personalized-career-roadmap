@@ -128,7 +128,13 @@ export default function MentorSidebar({
         </div>
       </div>
 
-      <div className={`rounded-2xl shadow-sm p-6 text-white ${apiKeyStatus?.hasKey ? 'bg-[#006b5f]' : 'bg-[#1b365d]'} relative`}>
+      <div className={`rounded-2xl shadow-sm p-6 text-white ${
+        !apiKeyStatus?.hasKey 
+          ? 'bg-[#1b365d]' 
+          : apiKeyStatus.isExpired 
+            ? 'bg-[#b91c1c]' 
+            : 'bg-[#006b5f]'
+      } relative`}>
         <div className="absolute top-6 right-6">
           <button 
             type="button"
@@ -155,6 +161,20 @@ export default function MentorSidebar({
               className="w-full rounded-xl bg-white text-[#1b365d] px-4 py-2 font-semibold hover:bg-gray-100 transition"
             >
               Connect Gemini API
+            </button>
+          </>
+        ) : apiKeyStatus.isExpired ? (
+          <>
+            <h4 className="text-xl font-bold mt-2">AI Key Expired</h4>
+            <p className="text-sm text-white/70 mt-2 mb-4">
+              Your Gemini API Key is invalid or has run out of quota. Please update it to resume advisement.
+            </p>
+            <button
+              type="button"
+              onClick={onOpenApiKeyModal}
+              className="w-full rounded-xl bg-white text-[#b91c1c] px-4 py-2 font-semibold hover:bg-gray-100 transition"
+            >
+              Update Gemini API Key
             </button>
           </>
         ) : (
