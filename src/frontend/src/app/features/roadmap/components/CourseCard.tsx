@@ -29,8 +29,8 @@ export function CourseCard({ node }: { node: CourseNode }) {
         </span>
       </div>
       <div className="flex flex-wrap gap-1">
-        {node.skills.map((s) => (
-          <span key={s} className="px-1.5 py-0.5 rounded-full" style={{ background: COLORS.BLUE_BADGE_BG, color: COLORS.BLUE_BADGE_TEXT, border: `1px solid ${COLORS.BLUE_BADGE_BORDER}`, fontSize: "0.62rem" }}>
+        {node.skills.map((s, idx) => (
+          <span key={`${s}-${idx}`} className="px-1.5 py-0.5 rounded-full" style={{ background: COLORS.BLUE_BADGE_BG, color: COLORS.BLUE_BADGE_TEXT, border: `1px solid ${COLORS.BLUE_BADGE_BORDER}`, fontSize: "0.62rem" }}>
             {s}
           </span>
         ))}

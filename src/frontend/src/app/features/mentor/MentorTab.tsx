@@ -78,6 +78,8 @@ async function askMentor(message: string, userId: string): Promise<MentorAskResp
 //     },
 //   ]);
 
+const DEFAULT_DAILY_STUDY_HOURS = 2;
+
 export function MentorTab() {
   const { user } = useAuth();
   const { openNotification } = useNotification();
@@ -306,7 +308,7 @@ export function MentorTab() {
 
   async function performCreateRoadmap(hoursToUse?: number) {
     const activeRoleId = targetRole?.id;
-    const finalHours = hoursToUse || dailyStudyHours || 2;
+    const finalHours = hoursToUse || dailyStudyHours || DEFAULT_DAILY_STUDY_HOURS;
     if (!activeRoleId || creatingRoadmap) return;
 
     setCreatingRoadmap(true);

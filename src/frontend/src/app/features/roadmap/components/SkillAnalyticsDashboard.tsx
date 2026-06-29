@@ -14,19 +14,23 @@ interface SkillAnalyticsDashboardProps {
 
 const COLORS = ["#38BDF8", "#818CF8", "#34D399", "#FBBF24", "#F472B6", "#A78BFA", "#60A5FA"];
 
+const PROGRESS_CIRCLE_RADIUS = 18;
+const SKILL_EXCELLENT_THRESHOLD = 80;
+const SKILL_GOOD_THRESHOLD = 50;
+
 const CircularProgress = ({ value, label }: { value: number, label: string | number }) => {
-  const radius = 18;
+  const radius = PROGRESS_CIRCLE_RADIUS;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (value / 100) * circumference;
   
-  const color = value >= 80 ? "#10B981" : value >= 50 ? "#3B82F6" : "#F59E0B";
+  const color = value >= SKILL_EXCELLENT_THRESHOLD ? "#10B981" : value >= SKILL_GOOD_THRESHOLD ? "#3B82F6" : "#F59E0B";
 
   return (
     <div className="relative flex items-center justify-center">
       <svg width="44" height="44" className="transform -rotate-90">
-        <circle cx="22" cy="22" r="18" stroke="#F1F5F9" strokeWidth="4" fill="transparent" />
+        <circle cx="22" cy="22" r={PROGRESS_CIRCLE_RADIUS} stroke="#F1F5F9" strokeWidth="4" fill="transparent" />
         <circle 
-          cx="22" cy="22" r="18" 
+          cx="22" cy="22" r={PROGRESS_CIRCLE_RADIUS} 
           stroke={color} strokeWidth="4" fill="transparent" 
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
@@ -174,13 +178,16 @@ export function SkillAnalyticsDashboard({ roadmaps }: SkillAnalyticsDashboardPro
 
     const rawArray = Object.values(map).map(item => {
       const avgGpa = item.coursesWithGpa > 0 ? Number((item.totalGpa / item.coursesWithGpa).toFixed(1)) : null;
+      const MAX_GPA_SCALE = 10.0;
+      const MIN_DAMPING_COUNT = 3;
+
       let progress = 0;
       if (avgGpa !== null) {
-        const gpaScore = avgGpa / 10.0;
+        const gpaScore = avgGpa / MAX_GPA_SCALE;
         const freqScore = item.count / maxCount;
         progress = Math.round((gpaScore * 0.7 + freqScore * 0.3) * 100);
       } else {
-        progress = Math.min(Math.round((item.count / Math.max(3, maxCount)) * 100), 100);
+        progress = Math.min(Math.round((item.count / Math.max(MIN_DAMPING_COUNT, maxCount)) * 100), 100);
       }
       return {
         name: item.skillName,

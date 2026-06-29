@@ -24,6 +24,10 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 // ==========================================
 // 2. CHILD COMPONENT: INDIVIDUAL TOAST ITEM (Toast Item)
 // ==========================================
+const TOAST_EXIT_ANIMATION_DELAY_MS = 3700;
+const TOAST_AUTO_CLOSE_MS = 4000;
+const TOAST_MANUAL_CLOSE_MS = 300;
+
 const NotificationItem: React.FC<{ notification: Notification; onClose: () => void }> = ({
   notification,
   onClose,
@@ -35,8 +39,8 @@ const NotificationItem: React.FC<{ notification: Notification; onClose: () => vo
     if (notification.type === "loading") return;
 
     // If it is a completed status (success, error, warning, info), automatically close after 4 seconds
-    const exitTimer = setTimeout(() => setIsExiting(true), 3700);
-    const closeTimer = setTimeout(() => onClose(), 4000);
+    const exitTimer = setTimeout(() => setIsExiting(true), TOAST_EXIT_ANIMATION_DELAY_MS);
+    const closeTimer = setTimeout(() => onClose(), TOAST_AUTO_CLOSE_MS);
 
     return () => {
       clearTimeout(exitTimer);
@@ -46,7 +50,7 @@ const NotificationItem: React.FC<{ notification: Notification; onClose: () => vo
 
   const handleManualClose = () => {
     setIsExiting(true);
-    setTimeout(onClose, 300);
+    setTimeout(onClose, TOAST_MANUAL_CLOSE_MS);
   };
 
   // Minimalist layout theme setup: dark background, white text, and bordered pixel icon based on reference
