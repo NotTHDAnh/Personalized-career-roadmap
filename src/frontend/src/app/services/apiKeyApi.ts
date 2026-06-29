@@ -3,6 +3,7 @@ import { apiClient } from "../../shared/api/apiClient";
 export type ApiKeyStatus = {
     hasKey: boolean;
     maskedKey?: string | null;
+    isExpired?: boolean;
 };
 
 export function getApiKeyStatus(userId: string): Promise<ApiKeyStatus> {

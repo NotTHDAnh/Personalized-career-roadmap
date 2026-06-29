@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { saveApiKey } from "../../services/apiKeyApi";
+import { parseApiError } from "@/shared/utils/errorHelper";
 
 type ApiKeyModalProps = {
     isOpen: boolean;
@@ -36,9 +37,9 @@ export function ApiKeyModal({
             setApiKey("");
             onSuccess?.();
             onClose();
-        } catch (err) {
-            const message =
-                err instanceof Error ? err.message : "Failed to save Gemini API key.";
+        } catch (err: any) {
+            const parsedError = parseApiError(err);
+            const message = parsedError.detail || parsedError.message || "Failed to save Gemini API key.";
             setError(message);
         } finally {
             setSaving(false);

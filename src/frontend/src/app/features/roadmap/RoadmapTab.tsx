@@ -666,7 +666,7 @@ export default function MyRoadmaps() {
       )}
 
       {roadmaps.length > 0 && (
-        <SkillAnalyticsDashboard roadmaps={roadmaps} />
+        <SkillAnalyticsDashboard roadmaps={roadmaps} activeRoadmapData={roadmapData} />
       )}
         </>
       )}

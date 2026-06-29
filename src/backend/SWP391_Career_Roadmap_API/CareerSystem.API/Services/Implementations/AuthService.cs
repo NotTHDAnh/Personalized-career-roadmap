@@ -384,24 +384,18 @@ namespace CareerSystem.API.Services.Implementations
             const string lower = "abcdefghijklmnopqrstuvwxyz";
             const string digits = "0123456789";
             const string specials = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+            var password = new char[length];
 
-            var random = new Random();
-            var charList = new List<char>
+            pass[0] = upper[RandomNumberGenerator.GetInt32(upper.Length)];
+            pass[1] = lower[RandomNumberGenerator.GetInt32(upper.Length)];
+            pass[2] = digits[RandomNumberGenerator.GetInt32(upper.Length)];
+            pass[3] = specials[RandomNumberGenerator.GetInt32(upper.Length)];
+            for(int i = 4;i < length;++i)
             {
-                upper[random.Next(upper.Length)],
-                lower[random.Next(lower.Length)],
-                digits[random.Next(digits.Length)],
-                specials[random.Next(specials.Length)]
-            };
-
-            string allChars = upper + lower + digits + specials;
-            for (int i = charList.Count; i < length; i++)
-            {
-                charList.Add(allChars[random.Next(allChars.Length)]);
+              password[i] = allChars[RandomNumberGenerator.GetInt32(allChars.Length)];
             }
 
-            // Tráo đổi ngẫu nhiên vị trí các ký tự để tránh đoán được quy luật
-            return new string(charList.OrderBy(_ => random.Next()).ToArray());
+            return new string(password.OrderBy(x => Guild.NewGuid()).toArray());
         }
     }
 }

@@ -10,6 +10,7 @@ interface RoadmapInfo {
 
 interface SkillAnalyticsDashboardProps {
   roadmaps: RoadmapInfo[];
+  activeRoadmapData?: any;
 }
 
 const COLORS = ["#38BDF8", "#818CF8", "#34D399", "#FBBF24", "#F472B6", "#A78BFA", "#60A5FA"];
@@ -63,7 +64,7 @@ const MetricCard = ({ title, value, icon, trend, color }: any) => {
   );
 };
 
-export function SkillAnalyticsDashboard({ roadmaps }: SkillAnalyticsDashboardProps) {
+export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAnalyticsDashboardProps) {
   const [activeTab, setActiveTab] = useState<"overall" | "roadmap">("overall");
   const [selectedRoadmapId, setSelectedRoadmapId] = useState<string>("");
   const [allRoadmapDetails, setAllRoadmapDetails] = useState<any[]>([]);
@@ -133,12 +134,50 @@ export function SkillAnalyticsDashboard({ roadmaps }: SkillAnalyticsDashboardPro
   }, [roadmaps]);
 
   const { stats, overallMetrics } = useMemo(() => {
+    // Gộp trạng thái mới nhất từ activeRoadmapData vào danh sách allRoadmapDetails
+    // giúp biểu đồ kỹ năng cập nhật tức thì (reactive) mà không cần tải lại trang.
+    const mergedDetails = allRoadmapDetails.map(roadmap => {
+      if (activeRoadmapData && roadmap.roadmapId === activeRoadmapData.roadmapId) {
+        // Tạo bảng tra cứu nhanh (lookup map) cho các môn học đang hoạt động
+        const activeNodesMap: Record<string, any> = {};
+        if (activeRoadmapData.phases) {
+          activeRoadmapData.phases.forEach((p: any) => {
+            if (p.nodes) {
+              p.nodes.forEach((n: any) => {
+                if (n.nodeId) activeNodesMap[n.nodeId] = n;
+              });
+            }
+          });
+        }
+
+        // Duyệt qua các giai đoạn/môn học gốc và ghi đè bằng dữ liệu trạng thái mới từ UI
+        return {
+          ...roadmap,
+          phases: roadmap.phases?.map((p: any) => ({
+            ...p,
+            nodes: p.nodes?.map((n: any) => {
+              const activeNode = activeNodesMap[n.nodeId];
+              if (activeNode) {
+                return {
+                  ...n,
+                  status: activeNode.status, // Ghi đè trạng thái (ví dụ: COMPLETED)
+                  gpa: activeNode.gpa        // Ghi đè điểm số GPA
+                };
+              }
+              return n;
+            })
+          }))
+        };
+      }
+      return roadmap;
+    });
+
     const map: Record<string, { skillName: string; count: number; totalGpa: number; coursesWithGpa: number }> = {};
     let totalCompletedCourses = 0;
     
     const roadmapsToAnalyze = activeTab === "overall" 
-      ? allRoadmapDetails 
-      : allRoadmapDetails.filter(r => r.roadmapId === selectedRoadmapId);
+      ? mergedDetails 
+      : mergedDetails.filter(r => r.roadmapId === selectedRoadmapId);
 
     roadmapsToAnalyze.forEach(roadmap => {
       const flatNodes = roadmap?.phases?.flatMap((p: any) => p.nodes) || [];
@@ -209,7 +248,7 @@ export function SkillAnalyticsDashboard({ roadmaps }: SkillAnalyticsDashboardPro
         totalCompleted: totalCompletedCourses
       }
     };
-  }, [allRoadmapDetails, activeTab, selectedRoadmapId]);
+  }, [allRoadmapDetails, activeTab, selectedRoadmapId, activeRoadmapData]);
 
   if (loading) {
     return (
