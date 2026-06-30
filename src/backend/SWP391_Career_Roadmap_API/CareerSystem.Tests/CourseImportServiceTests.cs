@@ -23,6 +23,7 @@ namespace CareerSystem.Tests
         private readonly AppDbContext _context;
         private readonly Mock<IAiRecommendationService> _mockAiRecommendationService;
         private readonly Mock<IConfiguration> _mockConfig;
+        private readonly Mock<IGeminiService> _mockGeminiService;
         private readonly CourseImportService _service;
 
         public CourseImportServiceTests()
@@ -37,10 +38,14 @@ namespace CareerSystem.Tests
             _context = new AppDbContext(options);
             _mockAiRecommendationService = new Mock<IAiRecommendationService>();
             _mockConfig = new Mock<IConfiguration>();
+            _mockGeminiService = new Mock<IGeminiService>();
 
             _mockConfig.Setup(c => c["AiSettings:ApiKey"]).Returns("dummy-api-key");
 
-            _service = new CourseImportService(_context, _mockAiRecommendationService.Object, _mockConfig.Object);
+            _mockGeminiService.Setup(s => s.ValidateApiKeyAsync(It.IsAny<string>()))
+                .ReturnsAsync((string key) => !string.IsNullOrWhiteSpace(key) && key == "dummy-api-key");
+
+            _service = new CourseImportService(_context, _mockAiRecommendationService.Object, _mockConfig.Object, _mockGeminiService.Object);
         }
 
         public void Dispose()

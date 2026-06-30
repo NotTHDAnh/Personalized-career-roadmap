@@ -22,6 +22,7 @@ namespace CareerSystem.API.Services.Implementations
         private readonly AppDbContext _context;
         private readonly IAiRecommendationService _aiRecommendationService;
         private readonly IConfiguration _configuration;
+        private readonly IGeminiService _geminiService;
 
         // Header tiêu chuẩn của file Excel import môn học (8 cột)
         private static readonly string[] ExpectedHeaders =
@@ -29,11 +30,12 @@ namespace CareerSystem.API.Services.Implementations
 
         private const int ColCount = 8;
 
-        public CourseImportService(AppDbContext context, IAiRecommendationService aiRecommendationService, IConfiguration configuration)
+        public CourseImportService(AppDbContext context, IAiRecommendationService aiRecommendationService, IConfiguration configuration, IGeminiService geminiService)
         {
             _context = context;
             _aiRecommendationService = aiRecommendationService;
             _configuration = configuration;
+            _geminiService = geminiService;
         }
 
         /// <inheritdoc />
@@ -151,7 +153,7 @@ namespace CareerSystem.API.Services.Implementations
             var newSkillsToRegister = new List<Skill>();
             if (missingSkillNames.Count > 0)
             {
-                if (string.IsNullOrWhiteSpace(apiKey))
+                if (!(await _geminiService.ValidateApiKeyAsync(apiKey ?? "")))
                 {
                     throw new ArgumentException("Phát hiện kỹ năng mới chưa có trong hệ thống. Vui lòng cấu hình Gemini API Key trước khi thực hiện import.");
                 }
