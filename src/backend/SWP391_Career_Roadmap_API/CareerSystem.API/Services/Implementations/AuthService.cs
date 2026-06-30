@@ -384,18 +384,19 @@ namespace CareerSystem.API.Services.Implementations
             const string lower = "abcdefghijklmnopqrstuvwxyz";
             const string digits = "0123456789";
             const string specials = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+            const string allChars = upper + lower + digits + specials;
             var password = new char[length];
 
-            pass[0] = upper[RandomNumberGenerator.GetInt32(upper.Length)];
-            pass[1] = lower[RandomNumberGenerator.GetInt32(upper.Length)];
-            pass[2] = digits[RandomNumberGenerator.GetInt32(upper.Length)];
-            pass[3] = specials[RandomNumberGenerator.GetInt32(upper.Length)];
-            for(int i = 4;i < length;++i)
+            password[0] = upper[RandomNumberGenerator.GetInt32(upper.Length)];
+            password[1] = lower[RandomNumberGenerator.GetInt32(upper.Length)];
+            password[2] = digits[RandomNumberGenerator.GetInt32(upper.Length)];
+            password[3] = specials[RandomNumberGenerator.GetInt32(upper.Length)];
+            for (int i = 4; i < length; ++i)
             {
-              password[i] = allChars[RandomNumberGenerator.GetInt32(allChars.Length)];
+                password[i] = allChars[RandomNumberGenerator.GetInt32(allChars.Length)];
             }
 
-            return new string(password.OrderBy(x => Guild.NewGuid()).toArray());
+            return new string(password.OrderBy(x => Guid.NewGuid()).ToArray());
         }
     }
 }
