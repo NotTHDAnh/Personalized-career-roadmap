@@ -335,15 +335,15 @@ namespace CareerSystem.API.Services.Implementations
                 coursesToAdd.Add(course);
 
                 // Tạo các CourseLearningOutcome tương ứng
-                var tokens = skillsText!.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => s.Trim())
+                var tokens = skillsText!.Split(new[] { ',', ';', '、' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => s.Trim().Replace("\n", " ").Replace("\r", " "))
                     .Where(s => !string.IsNullOrEmpty(s))
                     .ToList();
 
                 var descriptions = string.IsNullOrWhiteSpace(outcomesText)
                     ? new List<string>()
-                    : outcomesText.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
-                        .Select(d => d.Trim())
+                    : outcomesText.Split(new[] { ';', '、', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(d => d.Trim().Replace("\n", " ").Replace("\r", " "))
                         .Where(d => !string.IsNullOrEmpty(d))
                         .ToList();
 

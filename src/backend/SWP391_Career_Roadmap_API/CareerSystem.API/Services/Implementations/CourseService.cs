@@ -86,13 +86,13 @@ namespace CareerSystem.API.Services.Implementations
             }
 
             // 2. Tách kỹ năng và chuẩn đầu ra từ DTO
-            var skillTokens = dto.Skills.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim())
+            var skillTokens = dto.Skills.Split(new[] { ',', ';', '、' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().Replace("\n", " ").Replace("\r", " "))
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();
 
-            var outcomeTokens = dto.Outcomes.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(d => d.Trim())
+            var outcomeTokens = dto.Outcomes.Split(new[] { ',', ';', '、' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(d => d.Trim().Replace("\n", " ").Replace("\r", " "))
                 .Where(d => !string.IsNullOrEmpty(d))
                 .ToList();
 
