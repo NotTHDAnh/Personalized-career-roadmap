@@ -124,6 +124,7 @@ namespace CareerSystem.API.Services.Implementations
                     8. Chỉ dùng GitHub Repo nếu có.
                     9. Nếu GitHub Repo trống hoặc là [], hãy bỏ qua hoàn toàn phần phân tích GitHub và tuyệt đối không nhắc đến việc thiếu GitHub trong câu trả lời.
                     10. Dùng chatHistory để hiểu ngữ cảnh trước đó, vị dụ target role đã được nhắc tới trước đó.
+                    11. Đánh giá kết quả học tập của sinh viên dựa trên điểm số (GPA) và số lần thi (`examAttempts` trong `passedCourse`). Hãy xem xét rằng sinh viên có số lần thi ít hơn (`examAttempts` thấp hơn) thì được đánh giá là học tốt hơn/tiếp thu nhanh hơn sinh viên thi nhiều lần (`examAttempts` cao hơn) trong việc tư vấn.
 
                     Định dạng bắt buộc, chỉ trả JSON:
                     {{
@@ -203,6 +204,7 @@ namespace CareerSystem.API.Services.Implementations
                        - ""Intermediate"": Các môn học core/cơ sở ngành, lập trình chuyên sâu, cơ sở mạng/hệ điều hành hoặc thiết kế web/di động (ví dụ: PRJ301, FER202, HSF302, PRM393, SDN302).
                        - ""Advanced"": Các môn chuyên ngành nâng cao, khai phá dữ liệu, AI/Machine Learning nâng cao hoặc dự án thực hành lớn (ví dụ: AIL303m, DSC302, SWP391).
                     8. Tuyệt đối không được đề xuất trùng lặp bất kỳ môn học nào (mỗi courseCode chỉ xuất hiện tối đa một lần trong toàn bộ lộ trình). Một môn học chỉ được gán cho duy nhất 1 trình độ (level) phù hợp nhất.
+                    9. Khi phân tích năng lực hiện tại của sinh viên từ danh sách các môn đã hoàn thành, hãy chú ý đến GPA và số lần thi (Exam Attempts). Sinh viên có số lần thi ít hơn (ví dụ: Exam Attempts = 1) được xem là có năng lực tiếp thu tốt hơn và phản ánh thế mạnh của họ so với các môn có số lần thi nhiều hơn.
 
                    Định dạng bắt buộc, chỉ trả JSON:
                     [

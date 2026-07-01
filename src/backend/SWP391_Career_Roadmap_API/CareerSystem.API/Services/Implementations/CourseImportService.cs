@@ -97,7 +97,7 @@ namespace CareerSystem.API.Services.Implementations
                 var skillsText = worksheet.Cells[row, 6].Text?.Trim();
                 if (!string.IsNullOrWhiteSpace(skillsText))
                 {
-                    var tokens = skillsText.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                    var tokens = skillsText.Split(new[] { ',', ';', '、' }, StringSplitOptions.RemoveEmptyEntries);
                     foreach (var t in tokens)
                     {
                         var trimmed = t.Trim();

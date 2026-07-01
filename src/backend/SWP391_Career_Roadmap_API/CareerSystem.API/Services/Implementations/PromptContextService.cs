@@ -131,7 +131,8 @@ namespace CareerSystem.API.Services.Implementations
                 {
                     courseCode = a.Course.CourseCode,
                     courseName = a.Course.CourseName,
-                    gpa = a.Gpa
+                    gpa = a.Gpa,
+                    examAttempts = a.ExamAttempts ?? 1
                 }).ToListAsync();
 
             // Get Course + Learning OutCome, Skill from cache for contexting the AI
@@ -200,10 +201,17 @@ namespace CareerSystem.API.Services.Implementations
             var passedCourses = await _context.AcademicRecords
                 .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m)
                 .Include(a => a.Course)
-                .Select(a => a.Course.CourseCode)
+                .Select(a => new
+                {
+                    a.Course.CourseCode,
+                    a.Gpa,
+                    ExamAttempts = a.ExamAttempts ?? 1
+                })
                 .ToListAsync();
 
-            string passedCoursesText = passedCourses.Any() ? string.Join(", ", passedCourses) : "Chưa có môn nào";
+            string passedCoursesText = passedCourses.Any() 
+                ? string.Join(", ", passedCourses.Select(c => $"{c.CourseCode} (GPA: {c.Gpa}, Exam Attempts: {c.ExamAttempts})")) 
+                : "Chưa có môn nào";
 
             // Lấy toàn bộ course + learning outcomes + skills từ cache
             var courseCatalogJson = await GetRoadmapCatalogJsonAsync();
