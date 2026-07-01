@@ -124,6 +124,7 @@ namespace CareerSystem.API.Services.Implementations
                     8. Chỉ dùng GitHub Repo nếu có.
                     9. Nếu GitHub Repo trống hoặc là [], hãy bỏ qua hoàn toàn phần phân tích GitHub và tuyệt đối không nhắc đến việc thiếu GitHub trong câu trả lời.
                     10. Dùng chatHistory để hiểu ngữ cảnh trước đó, vị dụ target role đã được nhắc tới trước đó.
+                    11. Đánh giá kết quả học tập của sinh viên dựa trên điểm số (GPA) và số lần thi (`examAttempts` trong `passedCourse`). Hãy xem xét rằng sinh viên có số lần thi ít hơn (`examAttempts` thấp hơn) thì được đánh giá là học tốt hơn/tiếp thu nhanh hơn sinh viên thi nhiều lần (`examAttempts` cao hơn) trong việc tư vấn.
 
                     Định dạng bắt buộc, chỉ trả JSON:
                     {{
@@ -183,45 +184,27 @@ namespace CareerSystem.API.Services.Implementations
                     COURSE_CATALOG_JSON:
                     {courseCatalogJson}
 
-                    Dưới đây là danh sách các môn học nền tảng/chung bắt buộc cho tất cả sinh viên ngành Software Engineering (SE) (chỉ chọn nếu sinh viên CHƯA hoàn thành và môn đó CÓ TỒN TẠI trong COURSE_CATALOG_JSON):
-                    - CSI106 (Nhập môn Khoa học máy tính)
-                    - PRF192 (Kỹ thuật lập trình)
-                    - MAE101 (Toán cho ngành kỹ thuật)
-                    - MAD101 (Toán rời rạc)
-                    - CEA201 (Kiến trúc máy tính)
-                    - PRO192 (Lập trình hướng đối tượng)
-                    - DBI202 (Hệ quản trị cơ sở dữ liệu)
-                    - OSG202 (Hệ điều hành)
-                    - CNA201 (Mạng máy tính)
-                    - LAB211 (Thực hành OOP)
-                    - SWE202c (Nhập môn kỹ nghệ phần mềm)
-                    - SWR302 (Kỹ nghệ yêu cầu phần mềm)
-                    - SWP391 (Dự án phát triển phần mềm)
-                    - MAS291 (Xác suất thống kê)
-                    - SSL101c (Kỹ năng mềm)
-                    - NWC204 (Mạng máy tính)
-                    - CSD201 (Cấu trúc dữ liệu và giải thuật)
-                    - IOT102 (Internet vạn vật)
-                    - SSG104 (Kỹ năng giao tiếp)
-                    - SWT301 (Kiểm thử phần mềm)
-                    - ITE302c (Đạo đức nghề nghiệp)
+                    Trong COURSE_CATALOG_JSON, mỗi môn học có một trường boolean `isFoundationalCourse`.
+                    Nếu `isFoundationalCourse` là true, môn học đó là môn học nền tảng/chung bắt buộc cho tất cả sinh viên ngành Software Engineering (SE).
 
                     Yêu cầu đề xuất lộ trình:
-                    1. Lộ trình học tập đề xuất phải bao gồm cả hai nhóm môn học sau:
-                       - Các môn học nền tảng/chung của ngành SE nêu trên (nếu môn đó có trong COURSE_CATALOG_JSON và sinh viên CHƯA hoàn thành).
+                    1. Bắt buộc đề xuất tất cả các môn học nền tảng (môn có `isFoundationalCourse` là true trong COURSE_CATALOG_JSON) mà sinh viên CHƯA hoàn thành (chưa có trong danh sách các môn đã hoàn thành). Sinh viên chỉ được phép bỏ qua môn nền tảng nếu môn học đó đã được hoàn thành.
+                    2. Lộ trình học tập đề xuất phải bao gồm cả hai nhóm môn học sau:
+                       - Toàn bộ các môn học nền tảng chưa hoàn thành nêu trên.
                        - Các môn học chuyên ngành phù hợp trực tiếp để đạt được mục tiêu nghề nghiệp '{targetRole.RoleName}' (đối chiếu các kỹ năng cần thiết của role này).
-                    2. Không chọn môn sinh viên đã hoàn thành (đã có trong danh sách các môn đã hoàn thành).
-                    3. Sắp xếp thứ tự các môn học theo một trình tự thời gian logic:
-                       - Các môn đại cương/nền tảng (như CSI106, PRF192, PRO192, MAD101, DBI202, CSD201, SSL101c, SSG104, ITE302c) phải học trước.
+                    3. Không chọn môn sinh viên đã hoàn thành (đã có trong danh sách các môn đã hoàn thành).
+                    4. Sắp xếp thứ tự các môn học theo một trình tự thời gian logic:
+                       - Các môn đại cương/nền tảng (các môn có `isFoundationalCourse` là true hoặc các môn cơ bản Beginner) phải học trước.
                        - Các môn cơ sở ngành/chuyên ngành và nâng cao hơn học tiếp theo.
-                       - Môn dự án thực hành lớn (SWP391) phải nằm ở cuối lộ trình.
-                    4. Không bịa courseCode hay skillId. Mỗi item phải sử dụng đúng courseCode và skillId tồn tại trong COURSE_CATALOG_JSON.
-                    5. Nếu một môn có nhiều learning outcomes, chọn skillId phù hợp nhất.
-                    6. Phân loại trình độ (level) cho từng môn học được chọn dựa trên các quy tắc sau:
-                       - ""Beginner"": Các môn nền tảng/cơ bản đại cương (ví dụ: CSI106, PRF192, PRO192, MAD101, DBI202, CSD201, SSL101c, SSG104, ITE302c).
+                       - Môn dự án thực hành lớn (SWP391 hoặc có mã SWP391) phải nằm ở cuối lộ trình.
+                    5. Không bịa courseCode hay skillId. Mỗi item phải sử dụng đúng courseCode và skillId tồn tại trong COURSE_CATALOG_JSON.
+                    6. Nếu một môn có nhiều learning outcomes, chọn skillId phù hợp nhất.
+                    7. Phân loại trình độ (level) cho từng môn học được chọn dựa trên các quy tắc sau:
+                       - ""Beginner"": Các môn nền tảng/cơ bản đại cương (ví dụ: các môn có `isFoundationalCourse` là true, hoặc các môn nhập môn như CSI106, PRF192, PRO192, MAD101, DBI202, CSD201, SSL101c, SSG104, ITE302c).
                        - ""Intermediate"": Các môn học core/cơ sở ngành, lập trình chuyên sâu, cơ sở mạng/hệ điều hành hoặc thiết kế web/di động (ví dụ: PRJ301, FER202, HSF302, PRM393, SDN302).
                        - ""Advanced"": Các môn chuyên ngành nâng cao, khai phá dữ liệu, AI/Machine Learning nâng cao hoặc dự án thực hành lớn (ví dụ: AIL303m, DSC302, SWP391).
-                    7. Tuyệt đối không được đề xuất trùng lặp bất kỳ môn học nào (mỗi courseCode chỉ xuất hiện tối đa một lần trong toàn bộ lộ trình). Một môn học chỉ được gán cho duy nhất 1 trình độ (level) phù hợp nhất.
+                    8. Tuyệt đối không được đề xuất trùng lặp bất kỳ môn học nào (mỗi courseCode chỉ xuất hiện tối đa một lần trong toàn bộ lộ trình). Một môn học chỉ được gán cho duy nhất 1 trình độ (level) phù hợp nhất.
+                    9. Khi phân tích năng lực hiện tại của sinh viên từ danh sách các môn đã hoàn thành, hãy chú ý đến GPA và số lần thi (Exam Attempts). Sinh viên có số lần thi ít hơn (ví dụ: Exam Attempts = 1) được xem là có năng lực tiếp thu tốt hơn và phản ánh thế mạnh của họ so với các môn có số lần thi nhiều hơn.
 
                    Định dạng bắt buộc, chỉ trả JSON:
                     [
@@ -246,5 +229,86 @@ namespace CareerSystem.API.Services.Implementations
             ex => new List<AiCourseRecommendationDto>(), // Fallback trả về danh sách rỗng để không làm crash luồng nghiệp vụ tạo roadmap
             nameof(GetRoadmapCoursesAsync));
         }
+
+        /// <summary>
+        /// Gửi danh sách kỹ năng mới cho AI phân loại danh mục (category) phù hợp nhất.
+        /// </summary>
+        public async Task<List<SkillClassificationDto>> ClassifySkillsAsync(List<SkillClassificationDto> skills, string apiKey)
+        {
+            if (skills == null || !skills.Any())
+                return new List<SkillClassificationDto>();
+
+            return await ExecuteAiActionWithFallbackAsync(async () =>
+            {
+                var skillsForAiPayload = skills.Select(s => new { skillId = s.SkillId, skillName = s.SkillName }).ToList();
+                string payloadJson = JsonSerializer.Serialize(skillsForAiPayload);
+
+                string prompt = $@"
+                    Bạn là một chuyên gia phân loại kỹ năng trong ngành Công nghệ thông tin (IT).
+                    Nhiệm vụ của bạn là phân loại danh sách các kỹ năng dưới đây vào các danh mục (category) phù hợp nhất.
+
+                    Các ví dụ mẫu:
+                    - ReactJS -> Frontend Development
+                    - ASP.NET Core -> Backend Development
+                    - Docker -> DevOps & Cloud
+                    - SQL Server -> Database Administration
+                    - Figma -> UI/UX Design
+
+                    Danh sách các kỹ năng cần phân loại:
+                    {payloadJson}
+
+                    Định dạng bắt buộc phải trả về là JSON như sau:
+                    {{
+                      ""classifications"": [
+                        {{
+                          ""skillId"": ""SKL_001"",
+                          ""skillName"": ""ReactJS"",
+                          ""category"": ""Frontend Development""
+                        }},
+                        {{
+                          ""skillId"": ""SKL_002"",
+                          ""skillName"": ""Kubernetes"",
+                          ""category"": ""DevOps & Cloud""
+                        }}
+                      ]
+                    }}";
+
+                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
+                aiJsonResponse = _geminiService.CleanJsonString(aiJsonResponse);
+
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var responseObj = JsonSerializer.Deserialize<AiClassificationResponseInternal>(aiJsonResponse, options);
+
+                var result = new List<SkillClassificationDto>();
+                if (responseObj?.Classifications != null)
+                {
+                    foreach (var item in responseObj.Classifications)
+                    {
+                        result.Add(new SkillClassificationDto
+                        {
+                            SkillId = item.SkillId,
+                            SkillName = item.SkillName,
+                            Category = item.Category ?? "General"
+                        });
+                    }
+                }
+                return result;
+            },
+            ex => skills.Select(s => new SkillClassificationDto { SkillId = s.SkillId, SkillName = s.SkillName, Category = "General" }).ToList(),
+            nameof(ClassifySkillsAsync));
+        }
+    }
+
+    // Các class DTO nội bộ phục vụ deserialize JSON từ Gemini API
+    internal class AiClassificationResponseInternal
+    {
+        public List<AiClassificationItemInternal>? Classifications { get; set; }
+    }
+
+    internal class AiClassificationItemInternal
+    {
+        public string SkillId { get; set; } = null!;
+        public string SkillName { get; set; } = null!;
+        public string Category { get; set; } = null!;
     }
 }

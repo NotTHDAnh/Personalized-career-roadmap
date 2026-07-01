@@ -15,13 +15,13 @@ namespace CareerSystem.API.Services.Implementations
     public class CourseService : ICourseService
     {
         private readonly AppDbContext _context;
-        private readonly IGeminiService _geminiService;
+        private readonly IAiRecommendationService _aiRecommendationService;
         private readonly IConfiguration _configuration;
 
-        public CourseService(AppDbContext context, IGeminiService geminiService, IConfiguration configuration)
+        public CourseService(AppDbContext context, IAiRecommendationService aiRecommendationService, IConfiguration configuration)
         {
             _context = context;
-            _geminiService = geminiService;
+            _aiRecommendationService = aiRecommendationService;
             _configuration = configuration;
         }
 
@@ -47,6 +47,7 @@ namespace CareerSystem.API.Services.Implementations
                 CourseName = course.CourseName,
                 Credits = course.Credits,
                 TotalStudyHours = course.TotalStudyHours,
+                IsFoundationalCourse = course.IsFoundationalCourse,
                 SuggestedResources = course.LearningResources
                     .Select(lr => new LearningResourceDto
                     {
@@ -85,13 +86,13 @@ namespace CareerSystem.API.Services.Implementations
             }
 
             // 2. Tách kỹ năng và chuẩn đầu ra từ DTO
-            var skillTokens = dto.Skills.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim())
+            var skillTokens = dto.Skills.Split(new[] { ',', ';', '、' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().Replace("\n", " ").Replace("\r", " "))
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();
 
-            var outcomeTokens = dto.Outcomes.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(d => d.Trim())
+            var outcomeTokens = dto.Outcomes.Split(new[] { ',', ';', '、' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(d => d.Trim().Replace("\n", " ").Replace("\r", " "))
                 .Where(d => !string.IsNullOrEmpty(d))
                 .ToList();
 
@@ -139,7 +140,7 @@ namespace CareerSystem.API.Services.Implementations
             var newSkillsToRegister = new List<Skill>();
             if (missingSkillNames.Count > 0)
             {
-                var skillsForAiPayload = new List<object>();
+                var skillsToClassify = new List<SkillClassificationDto>();
                 foreach (var name in missingSkillNames)
                 {
                     var newSkillId = $"SKL_{nextSkillNum++:D3}";
@@ -150,7 +151,7 @@ namespace CareerSystem.API.Services.Implementations
                         Category = "General" // Mặc định nếu AI lỗi
                     };
                     newSkillsToRegister.Add(skill);
-                    skillsForAiPayload.Add(new { skillId = newSkillId, skillName = name });
+                    skillsToClassify.Add(new SkillClassificationDto { SkillId = newSkillId, SkillName = name });
                 }
 
                 // Lấy API key của Staff hoặc config hệ thống
@@ -165,63 +166,21 @@ namespace CareerSystem.API.Services.Implementations
                     apiKey = _configuration["AiSettings:ApiKey"];
                 }
 
-                if (!string.IsNullOrWhiteSpace(apiKey))
+                try
                 {
-                    try
+                    var classifications = await _aiRecommendationService.ClassifySkillsAsync(skillsToClassify, apiKey ?? "");
+                    foreach (var cls in classifications)
                     {
-                        string payloadJson = JsonSerializer.Serialize(skillsForAiPayload);
-                        string prompt = $@"
-Bạn là một chuyên gia phân loại kỹ năng trong ngành Công nghệ thông tin (IT).
-Nhiệm vụ của bạn là phân loại danh sách các kỹ năng dưới đây vào các danh mục (category) phù hợp nhất.
-
-Các ví dụ mẫu:
-- ReactJS -> Frontend Development
-- ASP.NET Core -> Backend Development
-- Docker -> DevOps & Cloud
-- SQL Server -> Database Administration
-- Figma -> UI/UX Design
-
-Danh sách các kỹ năng cần phân loại:
-{payloadJson}
-
-Định dạng bắt buộc phải trả về là JSON như sau:
-{{
-  ""classifications"": [
-    {{
-      ""skillId"": ""SKL_001"",
-      ""skillName"": ""ReactJS"",
-      ""category"": ""Frontend Development""
-    }},
-    {{
-      ""skillId"": ""SKL_002"",
-      ""skillName"": ""Kubernetes"",
-      ""category"": ""DevOps & Cloud""
-    }}
-  ]
-}}
-";
-                        string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
-                        var responseObj = JsonSerializer.Deserialize<AiClassificationResponseInternal>(aiJsonResponse, new JsonSerializerOptions
+                        var matchedSkill = newSkillsToRegister.FirstOrDefault(s => s.SkillId == cls.SkillId);
+                        if (matchedSkill != null && !string.IsNullOrWhiteSpace(cls.Category))
                         {
-                            PropertyNameCaseInsensitive = true
-                        });
-
-                        if (responseObj?.Classifications != null)
-                        {
-                            foreach (var item in responseObj.Classifications)
-                            {
-                                var matchedSkill = newSkillsToRegister.FirstOrDefault(s => s.SkillId == item.SkillId);
-                                if (matchedSkill != null && !string.IsNullOrWhiteSpace(item.Category))
-                                {
-                                    matchedSkill.Category = item.Category.Trim();
-                                }
-                            }
+                            matchedSkill.Category = cls.Category.Trim();
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[CourseService] AI classification failed: {ex.Message}. Fallback to default 'General'.");
-                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CourseService] AI classification failed: {ex.Message}. Fallback to default 'General'.");
                 }
 
                 // Đưa các skill mới vào cache map để dùng lúc sinh outcomes
@@ -250,7 +209,8 @@ Danh sách các kỹ năng cần phân loại:
                 CourseCode = dto.CourseCode.Trim(),
                 CourseName = dto.CourseName.Trim(),
                 Credits = dto.Credits,
-                TotalStudyHours = dto.TotalStudyHours
+                TotalStudyHours = dto.TotalStudyHours,
+                IsFoundationalCourse = dto.IsFoundationalCourse ?? false,
             };
 
             // 9. Tạo các CourseLearningOutcome kết nối Course & Skill
@@ -333,6 +293,7 @@ Danh sách các kỹ năng cần phân loại:
                 CourseName = newCourse.CourseName,
                 Credits = newCourse.Credits,
                 TotalStudyHours = newCourse.TotalStudyHours,
+                IsFoundationalCourse = newCourse.IsFoundationalCourse,
                 SuggestedResources = new List<LearningResourceDto>(),
                 LearningOutcomes = outcomesToAdd.Select(clo => new CourseLearningOutcomeDto
                 {
@@ -345,15 +306,5 @@ Danh sách các kỹ năng cần phân loại:
         }
     }
 
-    internal class AiClassificationResponseInternal
-    {
-        public List<AiClassificationItemInternal>? Classifications { get; set; }
-    }
 
-    internal class AiClassificationItemInternal
-    {
-        public string SkillId { get; set; } = null!;
-        public string SkillName { get; set; } = null!;
-        public string Category { get; set; } = null!;
-    }
 }

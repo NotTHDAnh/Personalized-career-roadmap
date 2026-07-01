@@ -166,18 +166,37 @@ namespace CareerSystem.API.Services.Implementations
 
         public string CleanJsonString(string text)
         {
-            // Tìm vị trí của dấu ngoặc vuông mở '[' đầu tiên và đóng ']' cuối cùng
-            int startIndex = text.IndexOf('[');
-            int endIndex = text.LastIndexOf(']');
+            if (string.IsNullOrWhiteSpace(text))
+                return string.Empty;
 
-            // Nếu tìm thấy mảng JSON, chỉ cắt lấy đúng phần đó, bỏ toàn bộ chữ rác
-            if (startIndex >= 0 && endIndex >= startIndex)
+            text = text.Trim();
+
+            // Tìm dấu ngoặc nhọn '{' và ngoặc vuông '[' đầu tiên
+            int firstBrace = text.IndexOf('{');
+            int firstBracket = text.IndexOf('[');
+
+            // Tìm dấu ngoặc nhọn '}' và ngoặc vuông ']' cuối cùng
+            int lastBrace = text.LastIndexOf('}');
+            int lastBracket = text.LastIndexOf(']');
+
+            // Nếu là JSON Object (dấu { xuất hiện trước hoặc không có [)
+            if (firstBrace >= 0 && (firstBracket < 0 || firstBrace < firstBracket))
             {
-                return text.Substring(startIndex, endIndex - startIndex + 1);
+                if (lastBrace >= firstBrace)
+                {
+                    return text.Substring(firstBrace, lastBrace - firstBrace + 1);
+                }
+            }
+            // Nếu là JSON Array (dấu [ xuất hiện trước hoặc không có {)
+            else if (firstBracket >= 0)
+            {
+                if (lastBracket >= firstBracket)
+                {
+                    return text.Substring(firstBracket, lastBracket - firstBracket + 1);
+                }
             }
 
-            // Nếu không có dấu ngoặc vuông nào, trả về chuỗi gốc đã cắt khoảng trắng
-            return text.Trim();
+            return text;
         }
 
         public async Task<bool> ValidateApiKeyAsync(string apiKey)

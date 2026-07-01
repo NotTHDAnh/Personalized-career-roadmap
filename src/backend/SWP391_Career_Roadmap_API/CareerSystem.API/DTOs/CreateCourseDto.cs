@@ -21,6 +21,9 @@ namespace CareerSystem.API.DTOs
         [Range(0, 500, ErrorMessage = "Tổng số giờ học phải từ 0 đến 500.")]
         public int TotalStudyHours { get; set; } = 0;
 
+        [Required(ErrorMessage = "Trường môn học nền tảng là bắt buộc.")]
+        public bool? IsFoundationalCourse { get; set; }
+
         [Required(ErrorMessage = "Kỹ năng đầu ra không được để trống.")]
         public string Skills { get; set; } = null!;
 
