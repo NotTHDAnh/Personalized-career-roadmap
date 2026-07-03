@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { apiClient } from "@/shared/api/apiClient";
+import { parseApiError } from "@/shared/utils/errorHelper";
 
 interface FileUploadModalProps {
   isOpen: boolean;
@@ -166,7 +167,8 @@ export function FileUploadModal({ isOpen, onClose, title, importType, acceptedTy
       } catch (err: any) {
         hasError = true;
         setFiles(prev => prev.map(f => f.id === upload.id ? { ...f, status: "error" } : f));
-        toast.error(`Failed to import ${upload.file.name}: ${err.response?.data?.message || err.message}`);
+        const parsedError = parseApiError(err);
+        toast.error(`Failed to import ${upload.file.name}: ${err.response?.data?.message || parsedError.message}`);
       }
     }
 
