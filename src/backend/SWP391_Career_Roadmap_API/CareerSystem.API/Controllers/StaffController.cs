@@ -1,7 +1,11 @@
 using CareerSystem.API.Services.Interfaces;
+using CareerSystem.API.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using System.Threading.Tasks;
+using System;
 namespace CareerSystem.API.Controllers
 {
     [Route("api/[controller]")]
@@ -13,14 +17,18 @@ namespace CareerSystem.API.Controllers
         private readonly ICourseImportService _courseImportService;
         private readonly ICourseService _courseService;
 
+        private readonly AppDbContext _context;
+
         public StaffController(
             IStudentImportService studentImportService, 
             ICourseImportService courseImportService, 
-            ICourseService courseService)
+            ICourseService courseService,
+            AppDbContext context)
         {
             _studentImportService = studentImportService;
             _courseImportService = courseImportService;
             _courseService = courseService;
+            _context = context;
         }
 
         /// <summary>
@@ -137,6 +145,80 @@ namespace CareerSystem.API.Controllers
             {
                 return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
             }
+        }
+
+        /// <summary>
+        /// Retrieves a list of all students for the Staff Console.
+        /// GET: api/Staff/students
+        /// </summary>
+        [HttpGet("students")]
+        public async Task<IActionResult> GetStudents()
+        {
+            var students = await _context.Users
+                .Where(u => u.Role == "STUDENT")
+                .Include(u => u.StudentSkills)
+                    .ThenInclude(ss => ss.Skill)
+                .Include(u => u.Roadmaps)
+                    .ThenInclude(r => r.TargetRole)
+                .Select(u => new CareerSystem.API.DTOs.StudentResponseDto
+                {
+                    Id = u.UserId,
+                    Name = u.FullName,
+                    Role = u.Roadmaps.OrderByDescending(r => r.CreatedAt).Select(r => r.TargetRole.RoleName).FirstOrDefault() ?? "Chưa xác định",
+                    Code = u.UserId,
+                    Tags = u.StudentSkills.Select(ss => ss.Skill.SkillName).Take(3).ToList(),
+                    Date = u.CreatedAt.HasValue ? u.CreatedAt.Value.ToString("dd-MMM-yyyy") : "N/A",
+                    // Use a placeholder avatar for now
+                    Avatar = $"https://api.dicebear.com/7.x/initials/svg?seed={Uri.EscapeDataString(u.FullName)}&backgroundColor=0F172A&textColor=ffffff"
+                })
+                .ToListAsync();
+
+            return Ok(students);
+        }
+
+        /// <summary>
+        /// Retrieves counts of students, courses, and skills for the Staff Dashboard.
+        /// GET: api/Staff/dashboard/stats
+        /// </summary>
+        [HttpGet("dashboard/stats")]
+        public async Task<IActionResult> GetDashboardStats()
+        {
+            var studentCount = await _context.Users.CountAsync(u => u.Role == "STUDENT");
+            var courseCount = await _context.Courses.CountAsync();
+            var skillCount = await _context.Skills.CountAsync();
+
+            var stats = new CareerSystem.API.DTOs.DashboardStatsDto
+            {
+                Students = studentCount,
+                Courses = courseCount,
+                Skills = skillCount
+            };
+
+            return Ok(stats);
+        }
+
+        /// <summary>
+        /// Retrieves a list of all courses for the Staff Console.
+        /// GET: api/Staff/courses
+        /// </summary>
+        [HttpGet("courses")]
+        public async Task<IActionResult> GetCourses()
+        {
+            var courses = await _context.Courses
+                .Include(c => c.CourseLearningOutcomes)
+                    .ThenInclude(clo => clo.Skill)
+                .Select(c => new CareerSystem.API.DTOs.CourseResponseDto
+                {
+                    CourseId = c.CourseId,
+                    CourseCode = c.CourseCode,
+                    CourseName = c.CourseName,
+                    Credits = c.Credits ?? 3,
+                    TotalStudyHours = c.TotalStudyHours ?? 0,
+                    Skills = c.CourseLearningOutcomes.Select(clo => clo.Skill.SkillName).ToList()
+                })
+                .ToListAsync();
+
+            return Ok(courses);
         }
     }
 }

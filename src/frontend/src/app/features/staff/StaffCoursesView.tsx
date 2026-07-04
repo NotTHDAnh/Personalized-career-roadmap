@@ -2,15 +2,43 @@ import { useState, useEffect } from "react";
 import { Search, ShieldCheck, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { MOCK_COURSES } from "../../data/mockData";
+import { apiClient } from "@/shared/api/apiClient";
+import { Skeleton } from "@/app/components/ui/skeleton";
+import { toast } from "sonner";
 
+interface Course {
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  credits: number;
+  totalStudyHours: number;
+  skills: string[];
+}
 export function StaffCoursesView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
+  const [coursesData, setCoursesData] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setIsLoading(true);
+        const data = await apiClient.get<Course[]>("/Staff/courses");
+        setCoursesData(data);
+      } catch (error) {
+        toast.error("Failed to fetch courses data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCourses();
+  }, []);
+
   // Filter courses by code, name, or associated skills
-  const filteredCourses = MOCK_COURSES.filter(course =>
+  const filteredCourses = coursesData.filter(course =>
     course.courseCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
     course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     course.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -33,7 +61,7 @@ export function StaffCoursesView() {
           <div>
             <div className="flex items-center gap-2 text-[12px] text-[#64748B] font-semibold mb-2">
               <ShieldCheck className="w-3.5 h-3.5 text-[#3B28CC]" />
-              <span>Organisation</span>
+              <span>Dashboard</span>
               <span>›</span>
               <span className="text-[#3B28CC]">Courses Directory</span>
             </div>
@@ -82,7 +110,22 @@ export function StaffCoursesView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {paginatedCourses.length > 0 ? (
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="border-t border-[#E2E8F0]">
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-48" /></td>
+                      <td className="px-6 py-4 text-center"><Skeleton className="h-4 w-12 mx-auto" /></td>
+                      <td className="px-6 py-4 text-center"><Skeleton className="h-4 w-12 mx-auto" /></td>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2">
+                          <Skeleton className="h-5 w-16 rounded-md" />
+                          <Skeleton className="h-5 w-16 rounded-md" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : paginatedCourses.length > 0 ? (
                   paginatedCourses.map((course) => (
                     <tr key={course.courseId} className="hover:bg-[#F8FAFC]/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-[13px] font-mono font-bold text-[#3B28CC]">
