@@ -6,6 +6,7 @@ import { RoadmapNode } from "./components/RoadmapNode";
 import { CourseCard } from "./components/CourseCard";
 import { Skeleton } from "@/app/components/ui/skeleton";
 import { ErrorAlert } from "@/app/components/common/ErrorAlert";
+import confetti from "canvas-confetti";
 
 import { COLORS } from "@/shared/constants/colors";
 import type { NodeState, CourseNode } from "@/app/types";
@@ -66,6 +67,7 @@ export default function MyRoadmaps() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPhaseBoard, setShowPhaseBoard] = useState(true);
+  const [showCongratModal, setShowCongratModal] = useState(false);
 
   const handleDeleteRoadmap = async () => {
     if (!selectedRoadmapId) return;
@@ -124,6 +126,21 @@ export default function MyRoadmaps() {
           : node
       ),
     }));
+
+    // Tính toán lại xem đã đạt 100% chưa
+    const updatedFlatNodes = updatedPhases.flatMap((p: any) => p.nodes);
+    const completedCount = updatedFlatNodes.filter((n: any) => n.status === "COMPLETED" || n.status === "done").length;
+    const totalCount = updatedFlatNodes.length;
+
+    if (totalCount > 0 && completedCount === totalCount && newDtoStatus === "COMPLETED") {
+      confetti({
+        particleCount: 200,
+        spread: 100,
+        origin: { y: 0.6 },
+        zIndex: 9999
+      });
+      setShowCongratModal(true);
+    }
 
     setRoadmapData({
       ...roadmapData,
@@ -295,6 +312,19 @@ export default function MyRoadmaps() {
 
     return { totalCourses, totalHours, progress };
   }, [roadmapData]);
+
+  //chúc mừng mỗi khi load roadmap
+  // useEffect(() => {
+  //   if (stats.progress === 100) {
+  //     confetti({
+  //       particleCount: 200,
+  //       spread: 100,
+  //       origin: { y: 0.6 },
+  //       zIndex: 9999
+  //     });
+  //     setShowCongratModal(true);
+  //   }
+  // }, [stats.progress, selectedRoadmapId]);
 
   // 1. Chạy Layout Engine để chuyển DTO thành Graph có tọa độ
   const computedGraph = useMemo(() => {
@@ -567,6 +597,35 @@ export default function MyRoadmaps() {
               ) : (
                 "Delete"
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Congratulation Dialog */}
+      <AlertDialog open={showCongratModal} onOpenChange={setShowCongratModal}>
+        <AlertDialogContent className="sm:max-w-md p-8 rounded-2xl border-none shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+          <AlertDialogHeader className="text-left space-y-4">
+            <div className="flex justify-start">
+              <div className="w-12 h-12 bg-[#4CAF50] text-white rounded-full flex items-center justify-center shadow-sm">
+                <Check className="w-7 h-7 stroke-[2.5]" />
+              </div>
+            </div>
+            <div className="space-y-2 text-left">
+              <AlertDialogTitle className="text-[28px] font-bold text-gray-900 tracking-tight text-left">
+                Congratulations!
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-left text-[15px] text-gray-600 leading-relaxed">
+                You have successfully completed all the courses in the <strong>{roadmapData?.targetRoleName}</strong> roadmap. Keep up the great work and conquer new goals!
+              </AlertDialogDescription>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-start mt-6">
+            <AlertDialogAction 
+              onClick={() => setShowCongratModal(false)}
+              className="bg-[#1F2937] text-white hover:bg-black px-5 py-2.5 rounded-lg font-medium transition-colors"
+            >
+              Your dashboard
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
