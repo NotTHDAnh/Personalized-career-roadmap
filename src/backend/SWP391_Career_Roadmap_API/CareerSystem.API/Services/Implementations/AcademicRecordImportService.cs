@@ -67,7 +67,7 @@ namespace CareerSystem.API.Services.Implementations
                 throw new ArgumentException("File Excel không chứa dữ liệu bảng điểm nào (chỉ có header).");
 
             // 4. Lấy danh sách Môn học hiện có trong DB để kiểm tra mã môn học nhập vào
-            var existingCourses = await _context.Courses.ToListAsync();
+            var existingCourses = await _context.Courses.Where(c => c.IsActive).ToListAsync();
             var existingCourseMap = existingCourses.ToDictionary(c => c.CourseCode, c => c, StringComparer.OrdinalIgnoreCase);
 
             // 5. Lấy danh sách điểm hiện tại của sinh viên này để xác định thêm mới hay cập nhật

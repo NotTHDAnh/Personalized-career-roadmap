@@ -288,5 +288,73 @@ namespace CareerSystem.Tests
             Assert.Single(dbClos);
             Assert.Equal("Old outcome description", dbClos[0].OutcomeDescription);
         }
+
+        [Fact]
+        public async Task DeleteCourseAsync_Succeeds_SetsIsActiveToFalse()
+        {
+            // Arrange
+            var course = new Course
+            {
+                CourseId = "CRS_001",
+                CourseCode = "CRS101",
+                CourseName = "Test Course",
+                IsActive = true
+            };
+            _context.Courses.Add(course);
+            await _context.SaveChangesAsync();
+
+            // Act
+            var result = await _service.DeleteCourseAsync("CRS_001");
+
+            // Assert
+            Assert.True(result);
+            var dbCourse = await _context.Courses.FindAsync("CRS_001");
+            Assert.NotNull(dbCourse);
+            Assert.False(dbCourse.IsActive); // Soft deleted
+        }
+
+        [Fact]
+        public async Task DeleteCourseAsync_CourseNotFoundOrAlreadyDeleted_ReturnsFalse()
+        {
+            // Arrange
+            var course = new Course
+            {
+                CourseId = "CRS_001",
+                CourseCode = "CRS101",
+                CourseName = "Test Course",
+                IsActive = false // Already deleted
+            };
+            _context.Courses.Add(course);
+            await _context.SaveChangesAsync();
+
+            // Act
+            var resultNonExistent = await _service.DeleteCourseAsync("NON_EXISTENT");
+            var resultAlreadyDeleted = await _service.DeleteCourseAsync("CRS_001");
+
+            // Assert
+            Assert.False(resultNonExistent);
+            Assert.False(resultAlreadyDeleted);
+        }
+
+        [Fact]
+        public async Task GetCourseDetailAsync_InactiveCourse_ReturnsNull()
+        {
+            // Arrange
+            var course = new Course
+            {
+                CourseId = "CRS_001",
+                CourseCode = "CRS101",
+                CourseName = "Test Course",
+                IsActive = false
+            };
+            _context.Courses.Add(course);
+            await _context.SaveChangesAsync();
+
+            // Act
+            var result = await _service.GetCourseDetailAsync("CRS_001");
+
+            // Assert
+            Assert.Null(result);
+        }
     }
 }

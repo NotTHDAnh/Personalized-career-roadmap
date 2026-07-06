@@ -40,6 +40,7 @@ namespace CareerSystem.API.Services.Implementations
                 return _cachedMentorCatalog;
 
             var courses = await _context.Courses
+                .Where(c => c.IsActive)
                 .Select(c => new
                 {
                     courseCode = c.CourseCode,
@@ -70,6 +71,7 @@ namespace CareerSystem.API.Services.Implementations
                 return _cachedRoadmapCatalogJson;
 
             var courseCatalog = await _context.Courses
+                .Where(c => c.IsActive)
                 .Select(c => new
                 {
                     courseId = c.CourseId,

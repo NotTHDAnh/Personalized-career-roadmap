@@ -33,7 +33,7 @@ namespace CareerSystem.API.Services.Implementations
                     .ThenInclude(lr => lr.Skill)
                 .Include(c => c.CourseLearningOutcomes)
                     .ThenInclude(clo => clo.Skill)
-                .FirstOrDefaultAsync(c => c.CourseId == courseId);
+                .FirstOrDefaultAsync(c => c.CourseId == courseId && c.IsActive);
 
             if (course == null)
             {
@@ -309,7 +309,7 @@ namespace CareerSystem.API.Services.Implementations
                     .ThenInclude(lr => lr.Skill)
                 .Include(c => c.CourseLearningOutcomes)
                     .ThenInclude(clo => clo.Skill)
-                .FirstOrDefaultAsync(c => c.CourseId == courseId);
+                .FirstOrDefaultAsync(c => c.CourseId == courseId && c.IsActive);
 
             if (course == null)
             {
@@ -610,6 +610,20 @@ namespace CareerSystem.API.Services.Implementations
                 .Select(s => s.Trim().Replace("\n", " ").Replace("\r", " "))
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();
+        }
+
+        public async Task<bool> DeleteCourseAsync(string courseId)
+        {
+            var course = await _context.Courses.FirstOrDefaultAsync(c => c.CourseId == courseId && c.IsActive);
+            if (course == null)
+            {
+                return false;
+            }
+
+            course.IsActive = false;
+            _context.Courses.Update(course);
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 

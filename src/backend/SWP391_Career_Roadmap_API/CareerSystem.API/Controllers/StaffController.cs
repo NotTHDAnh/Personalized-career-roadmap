@@ -171,5 +171,27 @@ namespace CareerSystem.API.Controllers
                 return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
             }
         }
+
+        /// <summary>
+        /// Xóa môn học (chỉ ẩn khỏi màn hình hiển thị - Soft Delete).
+        /// DELETE: api/Staff/courses/{courseId}
+        /// </summary>
+        [HttpDelete("courses/{courseId}")]
+        public async Task<IActionResult> DeleteCourse(string courseId)
+        {
+            try
+            {
+                var result = await _courseService.DeleteCourseAsync(courseId);
+                if (!result)
+                {
+                    return NotFound(new { message = $"Không tìm thấy hoặc môn học đã bị xóa với ID: {courseId}" });
+                }
+                return Ok(new { message = "Đã xóa môn học thành công (Soft Delete)." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
+            }
+        }
     }
 }

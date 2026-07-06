@@ -160,6 +160,9 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.IsFoundationalCourse)
                 .HasDefaultValue(false)
                 .HasColumnName("is_foundational_course");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
         });
 
         modelBuilder.Entity<CourseLearningOutcome>(entity =>
