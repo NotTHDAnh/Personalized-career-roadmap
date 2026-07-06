@@ -361,6 +361,11 @@ namespace CareerSystem.Tests
         public async Task CreateCourseAsync_WithPrerequisites_NormalizesAndSavesCorrectly()
         {
             // Arrange
+            _context.Courses.Add(new Course { CourseId = "CRS_901", CourseCode = "CSD201", CourseName = "Data Structs", IsActive = true });
+            _context.Courses.Add(new Course { CourseId = "CRS_902", CourseCode = "DBI202", CourseName = "DB Intro", IsActive = true });
+            _context.Courses.Add(new Course { CourseId = "CRS_903", CourseCode = "MAS291", CourseName = "Probability", IsActive = true });
+            await _context.SaveChangesAsync();
+
             var dto = new CreateCourseDto
             {
                 CourseCode = "PRJ301",
@@ -391,6 +396,10 @@ namespace CareerSystem.Tests
         public async Task UpdateCourseAsync_WithPrerequisites_NormalizesAndUpdatesCorrectly()
         {
             // Arrange
+            _context.Courses.Add(new Course { CourseId = "CRS_901", CourseCode = "CSD201", CourseName = "Data Structs", IsActive = true });
+            _context.Courses.Add(new Course { CourseId = "CRS_903", CourseCode = "MAS291", CourseName = "Probability", IsActive = true });
+            await _context.SaveChangesAsync();
+
             var course = new Course
             {
                 CourseId = "CRS_001",
@@ -418,6 +427,106 @@ namespace CareerSystem.Tests
             var dbCourse = await _context.Courses.FindAsync("CRS_001");
             Assert.NotNull(dbCourse);
             Assert.Equal("CSD201;MAS291", dbCourse.Prerequisites);
+        }
+
+        [Fact]
+        public async Task CreateCourseAsync_WithNonExistentPrerequisite_ThrowsArgumentException()
+        {
+            // Arrange
+            var dto = new CreateCourseDto
+            {
+                CourseCode = "PRJ301",
+                CourseName = "Java Web",
+                Credits = 3,
+                TotalStudyHours = 45,
+                IsFoundationalCourse = false,
+                Skills = "Java",
+                Outcomes = "Outcome Java",
+                Prerequisites = "NON_EXISTENT_CRS"
+            };
+
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>());
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() => _service.CreateCourseAsync(dto, "staff-id"));
+            Assert.Contains("không tồn tại trong hệ thống", ex.Message);
+        }
+
+        [Fact]
+        public async Task CreateCourseAsync_WithSelfReferencingPrerequisite_ThrowsArgumentException()
+        {
+            // Arrange
+            var dto = new CreateCourseDto
+            {
+                CourseCode = "PRJ301",
+                CourseName = "Java Web",
+                Credits = 3,
+                TotalStudyHours = 45,
+                IsFoundationalCourse = false,
+                Skills = "Java",
+                Outcomes = "Outcome Java",
+                Prerequisites = "PRJ301" // self reference
+            };
+
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>());
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() => _service.CreateCourseAsync(dto, "staff-id"));
+            Assert.Contains("không thể làm môn học tiên quyết của chính nó", ex.Message);
+        }
+
+        [Fact]
+        public async Task UpdateCourseAsync_WithNonExistentPrerequisite_ThrowsArgumentException()
+        {
+            // Arrange
+            var course = new Course
+            {
+                CourseId = "CRS_001",
+                CourseCode = "OLD101",
+                CourseName = "Old Name",
+                Credits = 3,
+                TotalStudyHours = 45,
+                IsActive = true
+            };
+            _context.Courses.Add(course);
+            await _context.SaveChangesAsync();
+
+            var updateDto = new UpdateCourseDto
+            {
+                Prerequisites = "NON_EXISTENT"
+            };
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() => _service.UpdateCourseAsync("CRS_001", updateDto, "staff-id"));
+            Assert.Contains("không tồn tại trong hệ thống", ex.Message);
+        }
+
+        [Fact]
+        public async Task UpdateCourseAsync_WithSelfReferencingPrerequisite_ThrowsArgumentException()
+        {
+            // Arrange
+            var course = new Course
+            {
+                CourseId = "CRS_001",
+                CourseCode = "OLD101",
+                CourseName = "Old Name",
+                Credits = 3,
+                TotalStudyHours = 45,
+                IsActive = true
+            };
+            _context.Courses.Add(course);
+            await _context.SaveChangesAsync();
+
+            var updateDto = new UpdateCourseDto
+            {
+                Prerequisites = "OLD101"
+            };
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() => _service.UpdateCourseAsync("CRS_001", updateDto, "staff-id"));
+            Assert.Contains("không thể làm môn học tiên quyết của chính nó", ex.Message);
         }
     }
 }

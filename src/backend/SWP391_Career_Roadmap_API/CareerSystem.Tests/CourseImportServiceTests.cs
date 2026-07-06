@@ -287,6 +287,11 @@ namespace CareerSystem.Tests
         public async Task ImportCoursesFromExcelAsync_WithPrerequisites_NormalizesAndSavesCorrectly()
         {
             // Arrange
+            _context.Courses.Add(new Course { CourseId = "CRS_901", CourseCode = "CSD201", CourseName = "Data Structs", IsActive = true });
+            _context.Courses.Add(new Course { CourseId = "CRS_902", CourseCode = "DBI202", CourseName = "DB Intro", IsActive = true });
+            _context.Courses.Add(new Course { CourseId = "CRS_903", CourseCode = "MAS291", CourseName = "Probability", IsActive = true });
+            await _context.SaveChangesAsync();
+
             var sampleData = new string[,]
             {
                 { "1", "PRJ321", "Java Web Development", "3", "90", "Servlet", "Web outcome", "Không", "  CSD201, DBI202; MAS291  " }
@@ -307,6 +312,32 @@ namespace CareerSystem.Tests
             var course = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == "PRJ321");
             Assert.NotNull(course);
             Assert.Equal("CSD201;DBI202;MAS291", course.Prerequisites);
+        }
+
+        [Fact]
+        public async Task ImportCoursesFromExcelAsync_WithNonExistentPrerequisites_ReturnsFailedImport()
+        {
+            // Arrange
+            var sampleData = new string[,]
+            {
+                { "1", "PRJ321", "Java Web Development", "3", "90", "Servlet", "Web outcome", "Không", "NON_EXISTENT" }
+            };
+            var file = CreateMockExcelFile("courses.xlsx", sampleData);
+
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>
+                {
+                    new SkillClassificationDto { SkillId = "SKL_001", SkillName = "Servlet", Category = "Java" }
+                });
+
+            // Act
+            var result = await _service.ImportCoursesFromExcelAsync(file, "staff-id");
+
+            // Assert
+            Assert.Equal(0, result.SuccessCount);
+            Assert.Equal(1, result.FailedCount);
+            Assert.Single(result.Errors);
+            Assert.Contains("không tồn tại trong hệ thống hoặc tệp import", result.Errors[0].ErrorMessage);
         }
     }
 }

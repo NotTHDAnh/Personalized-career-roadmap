@@ -208,6 +208,31 @@ namespace CareerSystem.API.Services.Implementations
                 Prerequisites = NormalizePrerequisites(dto.Prerequisites),
             };
 
+            // Validate prerequisites existence
+            if (!string.IsNullOrEmpty(newCourse.Prerequisites))
+            {
+                var prereqCodes = newCourse.Prerequisites.Split(';');
+                var missingCodes = new List<string>();
+                foreach (var code in prereqCodes)
+                {
+                    if (code.Equals(newCourse.CourseCode, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new ArgumentException("Môn học không thể làm môn học tiên quyết của chính nó.");
+                    }
+
+                    var exists = await _context.Courses.AnyAsync(c => c.IsActive && c.CourseCode.ToLower() == code.ToLower());
+                    if (!exists)
+                    {
+                        missingCodes.Add(code);
+                    }
+                }
+
+                if (missingCodes.Count > 0)
+                {
+                    throw new ArgumentException($"Các môn học tiên quyết sau không tồn tại trong hệ thống: {string.Join(", ", missingCodes)}. Vui lòng thêm các môn học này trước.");
+                }
+            }
+
             // 9. Tạo các CourseLearningOutcome kết nối Course & Skill
             var outcomesToAdd = new List<CourseLearningOutcome>();
             var processedSkillsInRow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -350,7 +375,40 @@ namespace CareerSystem.API.Services.Implementations
             }
             if (dto.Prerequisites != null)
             {
-                course.Prerequisites = NormalizePrerequisites(dto.Prerequisites);
+                var normalizedPrereq = NormalizePrerequisites(dto.Prerequisites);
+                if (!string.IsNullOrEmpty(normalizedPrereq))
+                {
+                    var prereqCodes = normalizedPrereq.Split(';');
+                    var missingCodes = new List<string>();
+                    foreach (var code in prereqCodes)
+                    {
+                        if (code.Equals(course.CourseCode, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new ArgumentException("Môn học không thể làm môn học tiên quyết của chính nó.");
+                        }
+
+                        var exists = await _context.Courses.AnyAsync(c => c.IsActive && c.CourseCode.ToLower() == code.ToLower());
+                        if (!exists)
+                        {
+                            missingCodes.Add(code);
+                        }
+                    }
+
+                    if (missingCodes.Count > 0)
+                    {
+                        throw new ArgumentException($"Các môn học tiên quyết sau không tồn tại trong hệ thống: {string.Join(", ", missingCodes)}. Vui lòng thêm các môn học này trước.");
+                    }
+                }
+                course.Prerequisites = normalizedPrereq;
+            }
+            else if (!string.IsNullOrEmpty(course.Prerequisites))
+            {
+                // Nếu không cập nhật Prerequisites nhưng cập nhật CourseCode, kiểm tra xem có bị tự tham chiếu không
+                var prereqCodes = course.Prerequisites.Split(';');
+                if (prereqCodes.Any(code => code.Equals(course.CourseCode, StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw new ArgumentException("Môn học không thể làm môn học tiên quyết của chính nó.");
+                }
             }
 
             // 3. Cập nhật CourseLearningOutcome (chỉ khi Skills hoặc Outcomes được truyền lên)

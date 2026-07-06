@@ -203,6 +203,16 @@ namespace CareerSystem.API.Services.Implementations
             var existingCourseCodeSet = new HashSet<string>(existingCourseCodes, StringComparer.OrdinalIgnoreCase);
             var courseCodesInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+            var allCourseCodesInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int r = 2; r <= totalRows; r++)
+            {
+                var code = worksheet.Cells[r, 2].Text?.Trim();
+                if (!string.IsNullOrWhiteSpace(code))
+                {
+                    allCourseCodesInFile.Add(code);
+                }
+            }
+
             var coursesToAdd = new List<Course>();
             var outcomesToAdd = new List<CourseLearningOutcome>();
 
@@ -307,6 +317,38 @@ namespace CareerSystem.API.Services.Implementations
                     else
                     {
                         errors.Add("Giá trị cột 'Môn học nền tảng' không hợp lệ (chỉ chấp nhận: TRUE/FALSE, Có/Không, 1/0).");
+                    }
+                }
+
+                // Validate Môn học tiên quyết
+                if (!string.IsNullOrEmpty(prerequisitesText))
+                {
+                    var normalizedPrereq = NormalizePrerequisites(prerequisitesText);
+                    if (!string.IsNullOrEmpty(normalizedPrereq))
+                    {
+                        var prereqCodes = normalizedPrereq.Split(';');
+                        var missingCodes = new List<string>();
+                        foreach (var code in prereqCodes)
+                        {
+                            if (code.Equals(courseCode, StringComparison.OrdinalIgnoreCase))
+                            {
+                                errors.Add("Môn học không thể làm môn học tiên quyết của chính nó.");
+                                continue;
+                            }
+
+                            var existsInDb = existingCourseCodeSet.Contains(code);
+                            var existsInFile = allCourseCodesInFile.Contains(code);
+
+                            if (!existsInDb && !existsInFile)
+                            {
+                                missingCodes.Add(code);
+                            }
+                        }
+
+                        if (missingCodes.Count > 0)
+                        {
+                            errors.Add($"Các môn học tiên quyết sau không tồn tại trong hệ thống hoặc tệp import: {string.Join(", ", missingCodes)}");
+                        }
                     }
                 }
 
