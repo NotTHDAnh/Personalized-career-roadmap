@@ -149,13 +149,13 @@ namespace CareerSystem.API.Controllers
 
         /// <summary>
         /// Retrieves a list of all students for the Staff Console.
-        /// GET: api/Staff/students
+        /// GET: api/Staff/students?deleted=false
         /// </summary>
         [HttpGet("students")]
-        public async Task<IActionResult> GetStudents()
+        public async Task<IActionResult> GetStudents([FromQuery] bool deleted = false)
         {
             var students = await _context.Users
-                .Where(u => u.Role == "STUDENT")
+                .Where(u => u.Role == "STUDENT" && u.DeleteHistory == deleted)
                 .Include(u => u.StudentSkills)
                     .ThenInclude(ss => ss.Skill)
                 .Include(u => u.Roadmaps)
@@ -168,12 +168,184 @@ namespace CareerSystem.API.Controllers
                     Code = u.UserId,
                     Tags = u.StudentSkills.Select(ss => ss.Skill.SkillName).Take(3).ToList(),
                     Date = u.CreatedAt.HasValue ? u.CreatedAt.Value.ToString("dd-MMM-yyyy") : "N/A",
-                    // Use a placeholder avatar for now
-                    Avatar = $"https://api.dicebear.com/7.x/initials/svg?seed={Uri.EscapeDataString(u.FullName)}&backgroundColor=0F172A&textColor=ffffff"
+                    Avatar = $"https://api.dicebear.com/7.x/initials/svg?seed={Uri.EscapeDataString(u.FullName)}&backgroundColor=0F172A&textColor=ffffff",
+                    Status = u.Status,
+                    DeleteHistory = u.DeleteHistory
                 })
                 .ToListAsync();
 
             return Ok(students);
+        }
+
+        /// <summary>
+        /// Retrieves detailed information of a student.
+        /// GET: api/Staff/students/{id}
+        /// </summary>
+        [HttpGet("students/{id}")]
+        public async Task<IActionResult> GetStudentDetail(string id)
+        {
+            var student = await _context.Users
+                .Where(u => u.Role == "STUDENT" && u.UserId == id)
+                .Include(u => u.StudentSkills)
+                    .ThenInclude(ss => ss.Skill)
+                .Include(u => u.AcademicRecords)
+                    .ThenInclude(ar => ar.Course)
+                .FirstOrDefaultAsync();
+
+            if (student == null)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            var detail = new CareerSystem.API.DTOs.StudentDetailDto
+            {
+                Id = student.UserId,
+                Name = student.FullName,
+                Email = student.Email,
+                Role = student.Role,
+                CreatedAt = student.CreatedAt?.ToString("dd-MMM-yyyy HH:mm") ?? "N/A",
+                Status = student.Status,
+                DeleteHistory = student.DeleteHistory,
+                Tags = student.StudentSkills.Select(ss => ss.Skill.SkillName).ToList(),
+                Courses = student.AcademicRecords
+                .OrderBy(ar => ar.Course?.CourseName)
+                .Select(ar => new CareerSystem.API.DTOs.StudentCourseDto
+                {
+                    CourseId = ar.CourseId,
+                    CourseName = ar.Course?.CourseName ?? "Unknown Course",
+                    Gpa = ar.Gpa
+                }).ToList()
+            };
+
+            return Ok(detail);
+        }
+
+        /// <summary>
+        /// Toggles the active/deactive status of a student.
+        /// PATCH: api/Staff/students/{id}/toggle-status
+        /// </summary>
+        [HttpPatch("students/{id}/toggle-status")]
+        public async Task<IActionResult> ToggleStudentStatus(string id)
+        {
+            var student = await _context.Users.FirstOrDefaultAsync(u => u.UserId == id && u.Role == "STUDENT");
+            if (student == null)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            student.Status = !student.Status;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Cập nhật trạng thái thành công.", status = student.Status });
+        }
+
+        /// <summary>
+        /// Soft deletes or restores a student account.
+        /// PATCH: api/Staff/students/{id}/toggle-delete
+        /// </summary>
+        [HttpPatch("students/{id}/toggle-delete")]
+        public async Task<IActionResult> ToggleStudentDelete(string id)
+        {
+            var student = await _context.Users.FirstOrDefaultAsync(u => u.UserId == id && u.Role == "STUDENT");
+            if (student == null)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            student.DeleteHistory = !student.DeleteHistory;
+            await _context.SaveChangesAsync();
+
+            var action = student.DeleteHistory ? "Xóa" : "Khôi phục";
+            return Ok(new { message = $"{action} tài khoản thành công.", deleteHistory = student.DeleteHistory });
+        }
+
+        /// <summary>
+        /// Updates a student's basic information.
+        /// PUT: api/Staff/students/{id}
+        /// </summary>
+        [HttpPut("students/{id}")]
+        public async Task<IActionResult> UpdateStudent(string id, [FromBody] CareerSystem.API.DTOs.UpdateStudentDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var student = await _context.Users
+                .Include(u => u.AcademicRecords)
+                .FirstOrDefaultAsync(u => u.UserId == id);
+                
+            if (student == null)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            var staffId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+
+            student.FullName = dto.FullName;
+            student.Email = dto.Email;
+            student.Role = dto.Role;
+            student.Status = dto.Status;
+            
+            if (dto.CreatedAt.HasValue)
+            {
+                student.CreatedAt = dto.CreatedAt.Value;
+            }
+
+            // Tìm thư mục src tự động
+            var currentDir = Directory.GetCurrentDirectory();
+            var srcDir = currentDir;
+            while (srcDir != null && !srcDir.EndsWith("src", StringComparison.OrdinalIgnoreCase))
+            {
+                srcDir = Directory.GetParent(srcDir)?.FullName;
+            }
+            if (srcDir == null) srcDir = currentDir; // fallback
+            var logPath = Path.Combine(srcDir, "AuditLog_Course.txt");
+
+            // Xử lý AcademicRecords
+            if (dto.Courses != null)
+            {
+                var existingRecords = student.AcademicRecords.ToList();
+                var incomingCourses = dto.Courses.ToList();
+
+                // 1. Cập nhật hoặc thêm mới
+                foreach (var incoming in incomingCourses)
+                {
+                    var existing = existingRecords.FirstOrDefault(r => r.CourseId == incoming.CourseId);
+                    if (existing != null)
+                    {
+                        // Update if GPA changed
+                        if (existing.Gpa != incoming.Gpa)
+                        {
+                            var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] [UPDATE] Staff: {staffId} | Student: {student.UserId} | Course: {existing.CourseId} | Old GPA: {existing.Gpa} | New GPA: {incoming.Gpa}\n";
+                            await System.IO.File.AppendAllTextAsync(logPath, logMessage);
+                            
+                            existing.Gpa = incoming.Gpa;
+                        }
+                    }
+                    else
+                    {
+                        // Add new
+                        var newRecord = new Entities.AcademicRecord
+                        {
+                            RecordId = Guid.NewGuid().ToString(),
+                            UserId = student.UserId,
+                            CourseId = incoming.CourseId,
+                            Gpa = incoming.Gpa,
+                            ExamAttempts = 1
+                        };
+                        _context.AcademicRecords.Add(newRecord);
+                        
+                        var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] [CREATE] Staff: {staffId} | Student: {student.UserId} | Course: {incoming.CourseId} | Old GPA: N/A | New GPA: {incoming.Gpa}\n";
+                        await System.IO.File.AppendAllTextAsync(logPath, logMessage);
+                    }
+                }
+
+                // 2. Xóa các record không còn trong danh sách gửi lên
+                var incomingCourseIds = incomingCourses.Select(c => c.CourseId).ToList();
+                var toDelete = existingRecords.Where(r => !incomingCourseIds.Contains(r.CourseId)).ToList();
+                foreach (var del in toDelete)
+                {
+                    var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] [DELETE] Staff: {staffId} | Student: {student.UserId} | Course: {del.CourseId} | Old GPA: {del.Gpa} | New GPA: N/A\n";
+                    await System.IO.File.AppendAllTextAsync(logPath, logMessage);
+                    
+                    _context.AcademicRecords.Remove(del);
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Cập nhật thông tin sinh viên thành công." });
         }
 
         /// <summary>

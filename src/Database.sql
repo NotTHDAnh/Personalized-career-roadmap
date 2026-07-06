@@ -20,7 +20,9 @@ CREATE TABLE Users (
     role VARCHAR(20) DEFAULT 'STUDENT' CHECK (role IN ('STUDENT', 'STAFF', 'MENTOR')),
     oauth_provider VARCHAR(20) DEFAULT 'LOCAL' CHECK (oauth_provider IN ('GOOGLE', 'LOCAL')),
     oauth_id VARCHAR(255),
-    created_at DATETIME DEFAULT GETDATE()
+    created_at DATETIME DEFAULT GETDATE(),
+    status BIT DEFAULT 1,
+    delete_history BIT DEFAULT 0
 );
 
 -- ==========================================

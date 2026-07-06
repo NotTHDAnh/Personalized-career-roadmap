@@ -40,6 +40,11 @@ namespace CareerSystem.API.Services.Implementations
                 return null;
             }
 
+            if (user.Status == false || user.DeleteHistory == true)
+            {
+                throw new UnauthorizedAccessException("Google account does not exist or is not authorized to access the system.");
+            }
+
             if (string.IsNullOrWhiteSpace(user.PasswordHash) || string.IsNullOrEmpty(request.Password) || !PassHashValidation.VerifyPassword(request.Password, user.PasswordHash))
             {
                 return null;
@@ -159,6 +164,11 @@ namespace CareerSystem.API.Services.Implementations
                 return null;
             }
 
+            if (user.Status == false || user.DeleteHistory == true)
+            {
+                throw new UnauthorizedAccessException("Google account does not exist or is not authorized to access the system.");
+            }
+
             // Sync google credentials if user has LOCAL provider
             if (string.IsNullOrEmpty(user.OauthProvider) || user.OauthProvider == "LOCAL")
             {
@@ -206,6 +216,11 @@ namespace CareerSystem.API.Services.Implementations
             if (user == null)
             {
                 return "Tài khoản không tồn tại!";
+            }
+
+            if (user.Status == false || user.DeleteHistory == true)
+            {
+                return "Google account does not exist or is not authorized to access the system.";
             }
 
             // 3. Kiểm tra mật khẩu bằng hàm Verify (PBKDF2)
