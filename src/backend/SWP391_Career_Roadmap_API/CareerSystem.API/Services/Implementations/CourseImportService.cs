@@ -97,7 +97,7 @@ namespace CareerSystem.API.Services.Implementations
                 var skillsText = worksheet.Cells[row, 6].Text?.Trim();
                 if (!string.IsNullOrWhiteSpace(skillsText))
                 {
-                    var tokens = skillsText.Split(new[] { ',', ';', '、' }, StringSplitOptions.RemoveEmptyEntries);
+                    var tokens = SmartSplit(skillsText);
                     foreach (var t in tokens)
                     {
                         var trimmed = t.Trim();
@@ -335,17 +335,9 @@ namespace CareerSystem.API.Services.Implementations
                 coursesToAdd.Add(course);
 
                 // Tạo các CourseLearningOutcome tương ứng
-                var tokens = skillsText!.Split(new[] { ',', ';', '、' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => s.Trim().Replace("\n", " ").Replace("\r", " "))
-                    .Where(s => !string.IsNullOrEmpty(s))
-                    .ToList();
+                var tokens = SmartSplit(skillsText);
 
-                var descriptions = string.IsNullOrWhiteSpace(outcomesText)
-                    ? new List<string>()
-                    : outcomesText.Split(new[] { ';', '、', ',' }, StringSplitOptions.RemoveEmptyEntries)
-                        .Select(d => d.Trim().Replace("\n", " ").Replace("\r", " "))
-                        .Where(d => !string.IsNullOrEmpty(d))
-                        .ToList();
+                var descriptions = SmartSplit(outcomesText);
 
                 var processedSkillsInRow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -512,6 +504,31 @@ namespace CareerSystem.API.Services.Implementations
             }
 
             return true;
+        }
+
+        private static List<string> SmartSplit(string? input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return new List<string>();
+
+            string[] separators;
+            if (input.Contains(';') || input.Contains('；'))
+            {
+                separators = new[] { ";", "；" };
+            }
+            else if (input.Contains('、'))
+            {
+                separators = new[] { "、" };
+            }
+            else
+            {
+                separators = new[] { ",", "，" };
+            }
+
+            return input.Split(separators, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().Replace("\n", " ").Replace("\r", " "))
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList();
         }
     }
 

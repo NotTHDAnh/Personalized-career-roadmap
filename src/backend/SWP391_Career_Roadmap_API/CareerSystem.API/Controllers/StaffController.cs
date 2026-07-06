@@ -138,5 +138,38 @@ namespace CareerSystem.API.Controllers
                 return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
             }
         }
+
+        /// <summary>
+        /// Cập nhật môn học thủ công (chỉ dành cho Staff).
+        /// PUT: api/Staff/courses/{courseId}
+        /// </summary>
+        [HttpPut("courses/{courseId}")]
+        public async Task<IActionResult> UpdateCourse(string courseId, [FromBody] DTOs.UpdateCourseDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var staffId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            try
+            {
+                var result = await _courseService.UpdateCourseAsync(courseId, dto, staffId ?? "");
+                if (result == null)
+                {
+                    return NotFound(new { message = $"Không tìm thấy môn học với ID: {courseId}" });
+                }
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
+            }
+        }
     }
 }

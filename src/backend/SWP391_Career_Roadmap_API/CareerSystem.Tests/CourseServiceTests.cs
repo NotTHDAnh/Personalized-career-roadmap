@@ -125,5 +125,168 @@ namespace CareerSystem.Tests
             Assert.NotNull(secondClo);
             Assert.Equal("Đánh giá độ phức tạp thuật toán", secondClo.OutcomeDescription);
         }
+
+        [Fact]
+        public async Task UpdateCourseAsync_Succeeds_UpdatesDetailsAndClos()
+        {
+            // Arrange
+            var existingCourse = new Course
+            {
+                CourseId = "CRS_001",
+                CourseCode = "OLD101",
+                CourseName = "Old Course Name",
+                Credits = 3,
+                TotalStudyHours = 45,
+                IsFoundationalCourse = false
+            };
+            var existingSkill = new Skill { SkillId = "SKL_001", SkillName = "Old Skill", Category = "General" };
+            var existingClo = new CourseLearningOutcome
+            {
+                Id = "CLO_0001",
+                CourseId = "CRS_001",
+                SkillId = "SKL_001",
+                OutcomeDescription = "Old outcome",
+                Skill = existingSkill,
+                Course = existingCourse
+            };
+            _context.Courses.Add(existingCourse);
+            _context.Skills.Add(existingSkill);
+            _context.CourseLearningOutcomes.Add(existingClo);
+            await _context.SaveChangesAsync();
+
+            var updateDto = new UpdateCourseDto
+            {
+                CourseCode = "NEW101",
+                CourseName = "New Course Name",
+                Credits = 4,
+                TotalStudyHours = 60,
+                IsFoundationalCourse = true,
+                Skills = "New Skill; Another Skill",
+                Outcomes = "New outcome 1; New outcome 2"
+            };
+
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>
+                {
+                    new SkillClassificationDto { SkillId = "SKL_002", SkillName = "New Skill", Category = "Category A" },
+                    new SkillClassificationDto { SkillId = "SKL_003", SkillName = "Another Skill", Category = "Category B" }
+                });
+
+            // Act
+            var result = await _service.UpdateCourseAsync("CRS_001", updateDto, "staff-id");
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal("CRS_001", result.CourseId);
+            Assert.Equal("NEW101", result.CourseCode);
+            Assert.Equal("New Course Name", result.CourseName);
+            Assert.Equal(4, result.Credits);
+            Assert.Equal(60, result.TotalStudyHours);
+            Assert.True(result.IsFoundationalCourse);
+
+            // Verify old CLO was deleted and new ones were created
+            var dbClos = await _context.CourseLearningOutcomes.Where(c => c.CourseId == "CRS_001").ToListAsync();
+            Assert.Equal(2, dbClos.Count);
+            Assert.Contains(dbClos, c => c.OutcomeDescription == "New outcome 1");
+            Assert.Contains(dbClos, c => c.OutcomeDescription == "New outcome 2");
+        }
+
+        [Fact]
+        public async Task UpdateCourseAsync_CourseNotFound_ReturnsNull()
+        {
+            // Arrange
+            var updateDto = new UpdateCourseDto
+            {
+                CourseCode = "NEW101",
+                CourseName = "New Course Name",
+                Credits = 3,
+                TotalStudyHours = 45,
+                IsFoundationalCourse = false,
+                Skills = "Skill A",
+                Outcomes = "Outcome A"
+            };
+
+            // Act
+            var result = await _service.UpdateCourseAsync("NON_EXISTENT", updateDto, "staff-id");
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public async Task UpdateCourseAsync_DuplicateCourseCode_ThrowsArgumentException()
+        {
+            // Arrange
+            var course1 = new Course { CourseId = "CRS_001", CourseCode = "CRS101", CourseName = "Course 1" };
+            var course2 = new Course { CourseId = "CRS_002", CourseCode = "CRS102", CourseName = "Course 2" };
+            _context.Courses.AddRange(course1, course2);
+            await _context.SaveChangesAsync();
+
+            var updateDto = new UpdateCourseDto
+            {
+                CourseCode = "CRS102", // Try to use course 2's code
+                CourseName = "Updated Course 1",
+                Credits = 3,
+                TotalStudyHours = 45,
+                IsFoundationalCourse = false,
+                Skills = "Skill A",
+                Outcomes = "Outcome A"
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                _service.UpdateCourseAsync("CRS_001", updateDto, "staff-id"));
+        }
+
+        [Fact]
+        public async Task UpdateCourseAsync_PartialUpdate_KeepsOtherFieldsIntact()
+        {
+            // Arrange
+            var existingCourse = new Course
+            {
+                CourseId = "CRS_001",
+                CourseCode = "OLD101",
+                CourseName = "Old Course Name",
+                Credits = 3,
+                TotalStudyHours = 45,
+                IsFoundationalCourse = false
+            };
+            var existingSkill = new Skill { SkillId = "SKL_001", SkillName = "Old Skill", Category = "General" };
+            var existingClo = new CourseLearningOutcome
+            {
+                Id = "CLO_0001",
+                CourseId = "CRS_001",
+                SkillId = "SKL_001",
+                OutcomeDescription = "Old outcome description",
+                Skill = existingSkill,
+                Course = existingCourse
+            };
+            _context.Courses.Add(existingCourse);
+            _context.Skills.Add(existingSkill);
+            _context.CourseLearningOutcomes.Add(existingClo);
+            await _context.SaveChangesAsync();
+
+            var updateDto = new UpdateCourseDto
+            {
+                Credits = 5 // Only update credits
+            };
+
+            // Act
+            var result = await _service.UpdateCourseAsync("CRS_001", updateDto, "staff-id");
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal("CRS_001", result.CourseId);
+            Assert.Equal("OLD101", result.CourseCode); // Kept unchanged
+            Assert.Equal("Old Course Name", result.CourseName); // Kept unchanged
+            Assert.Equal(5, result.Credits); // Updated
+            Assert.Equal(45, result.TotalStudyHours); // Kept unchanged
+            Assert.False(result.IsFoundationalCourse); // Kept unchanged
+
+            // Verify CLO was NOT changed
+            var dbClos = await _context.CourseLearningOutcomes.Where(c => c.CourseId == "CRS_001").ToListAsync();
+            Assert.Single(dbClos);
+            Assert.Equal("Old outcome description", dbClos[0].OutcomeDescription);
+        }
     }
 }
