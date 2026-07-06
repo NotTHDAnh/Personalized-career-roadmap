@@ -168,7 +168,8 @@ CREATE TABLE Courses (
     credits INT DEFAULT 3,
     total_study_hours INT DEFAULT 0, -- Phục vụ tính toán deadline (Mainflow 2)
     is_foundational_course BIT NOT NULL DEFAULT 0,
-    is_active BIT NOT NULL DEFAULT 1
+    is_active BIT NOT NULL DEFAULT 1,
+    prerequisites VARCHAR(500) NULL
 );
 GO
 

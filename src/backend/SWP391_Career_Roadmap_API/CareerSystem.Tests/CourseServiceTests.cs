@@ -356,5 +356,68 @@ namespace CareerSystem.Tests
             // Assert
             Assert.Null(result);
         }
+
+        [Fact]
+        public async Task CreateCourseAsync_WithPrerequisites_NormalizesAndSavesCorrectly()
+        {
+            // Arrange
+            var dto = new CreateCourseDto
+            {
+                CourseCode = "PRJ301",
+                CourseName = "Java Web",
+                Credits = 3,
+                TotalStudyHours = 45,
+                IsFoundationalCourse = false,
+                Skills = "Java",
+                Outcomes = "Outcome Java",
+                Prerequisites = "  CSD201,  DBI202;  MAS291  " // Spaces, commas and semicolons
+            };
+
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>());
+
+            // Act
+            var result = await _service.CreateCourseAsync(dto, "staff-id");
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal("CSD201;DBI202;MAS291", result.Prerequisites);
+            var dbCourse = await _context.Courses.FindAsync(result.CourseId);
+            Assert.NotNull(dbCourse);
+            Assert.Equal("CSD201;DBI202;MAS291", dbCourse.Prerequisites);
+        }
+
+        [Fact]
+        public async Task UpdateCourseAsync_WithPrerequisites_NormalizesAndUpdatesCorrectly()
+        {
+            // Arrange
+            var course = new Course
+            {
+                CourseId = "CRS_001",
+                CourseCode = "OLD101",
+                CourseName = "Old Name",
+                Credits = 3,
+                TotalStudyHours = 45,
+                IsActive = true,
+                Prerequisites = "OLD100"
+            };
+            _context.Courses.Add(course);
+            await _context.SaveChangesAsync();
+
+            var updateDto = new UpdateCourseDto
+            {
+                Prerequisites = "CSD201,MAS291" // comma separated
+            };
+
+            // Act
+            var result = await _service.UpdateCourseAsync("CRS_001", updateDto, "staff-id");
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal("CSD201;MAS291", result.Prerequisites);
+            var dbCourse = await _context.Courses.FindAsync("CRS_001");
+            Assert.NotNull(dbCourse);
+            Assert.Equal("CSD201;MAS291", dbCourse.Prerequisites);
+        }
     }
 }

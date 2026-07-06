@@ -48,6 +48,7 @@ namespace CareerSystem.API.Services.Implementations
                 Credits = course.Credits,
                 TotalStudyHours = course.TotalStudyHours,
                 IsFoundationalCourse = course.IsFoundationalCourse,
+                Prerequisites = course.Prerequisites,
                 SuggestedResources = course.LearningResources
                     .Select(lr => new LearningResourceDto
                     {
@@ -204,6 +205,7 @@ namespace CareerSystem.API.Services.Implementations
                 Credits = dto.Credits,
                 TotalStudyHours = dto.TotalStudyHours,
                 IsFoundationalCourse = dto.IsFoundationalCourse ?? false,
+                Prerequisites = NormalizePrerequisites(dto.Prerequisites),
             };
 
             // 9. Tạo các CourseLearningOutcome kết nối Course & Skill
@@ -287,6 +289,7 @@ namespace CareerSystem.API.Services.Implementations
                 Credits = newCourse.Credits,
                 TotalStudyHours = newCourse.TotalStudyHours,
                 IsFoundationalCourse = newCourse.IsFoundationalCourse,
+                Prerequisites = newCourse.Prerequisites,
                 SuggestedResources = new List<LearningResourceDto>(),
                 LearningOutcomes = outcomesToAdd.Select(clo => new CourseLearningOutcomeDto
                 {
@@ -344,6 +347,10 @@ namespace CareerSystem.API.Services.Implementations
             if (dto.IsFoundationalCourse.HasValue)
             {
                 course.IsFoundationalCourse = dto.IsFoundationalCourse.Value;
+            }
+            if (dto.Prerequisites != null)
+            {
+                course.Prerequisites = NormalizePrerequisites(dto.Prerequisites);
             }
 
             // 3. Cập nhật CourseLearningOutcome (chỉ khi Skills hoặc Outcomes được truyền lên)
@@ -559,6 +566,7 @@ namespace CareerSystem.API.Services.Implementations
                 Credits = course.Credits,
                 TotalStudyHours = course.TotalStudyHours,
                 IsFoundationalCourse = course.IsFoundationalCourse,
+                Prerequisites = course.Prerequisites,
                 SuggestedResources = course.LearningResources
                     .Select(lr => new LearningResourceDto
                     {
@@ -624,6 +632,22 @@ namespace CareerSystem.API.Services.Implementations
             _context.Courses.Update(course);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        private static string? NormalizePrerequisites(string? input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return null;
+
+            var tokens = input.Split(new[] { ',', ';', '，', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim())
+                .Where(t => !string.IsNullOrEmpty(t))
+                .ToList();
+
+            if (tokens.Count == 0)
+                return null;
+
+            return string.Join(";", tokens);
         }
     }
 

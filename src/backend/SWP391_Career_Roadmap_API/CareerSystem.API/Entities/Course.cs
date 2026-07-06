@@ -19,6 +19,8 @@ public partial class Course
 
     public bool IsActive { get; set; } = true;
 
+    public string? Prerequisites { get; set; }
+
     public virtual ICollection<AcademicRecord> AcademicRecords { get; set; } = new List<AcademicRecord>();
 
     public virtual ICollection<CourseLearningOutcome> CourseLearningOutcomes { get; set; } = new List<CourseLearningOutcome>();

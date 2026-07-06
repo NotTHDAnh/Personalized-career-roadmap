@@ -24,5 +24,7 @@ namespace CareerSystem.API.DTOs
         public string? Skills { get; set; }
 
         public string? Outcomes { get; set; }
+
+        public string? Prerequisites { get; set; }
     }
 }
