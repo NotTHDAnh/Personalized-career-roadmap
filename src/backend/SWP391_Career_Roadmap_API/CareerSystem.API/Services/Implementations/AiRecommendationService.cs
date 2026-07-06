@@ -138,7 +138,7 @@ namespace CareerSystem.API.Services.Implementations
 
                 // Gọi Gemini API thông qua GeminiService
                 string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
-                
+
                 // Parse kết quả trả về thành dạng DTO và validate sự tồn tại của targetRoleId trong database
                 return await ProcessAndValidateAiResponseAsync(aiJsonResponse);
             },
@@ -204,26 +204,43 @@ namespace CareerSystem.API.Services.Implementations
                        - ""Intermediate"": Các môn học core/cơ sở ngành, lập trình chuyên sâu, cơ sở mạng/hệ điều hành hoặc thiết kế web/di động (ví dụ: PRJ301, FER202, HSF302, PRM393, SDN302).
                        - ""Advanced"": Các môn chuyên ngành nâng cao, khai phá dữ liệu, AI/Machine Learning nâng cao hoặc dự án thực hành lớn (ví dụ: AIL303m, DSC302, SWP391).
                     8. Tuyệt đối không được đề xuất trùng lặp bất kỳ môn học nào (mỗi courseCode chỉ xuất hiện tối đa một lần trong toàn bộ lộ trình). Một môn học chỉ được gán cho duy nhất 1 trình độ (level) phù hợp nhất.
-                    9. Khi phân tích năng lực hiện tại của sinh viên từ danh sách các môn đã hoàn thành, hãy chú ý đến GPA và số lần thi (Exam Attempts). Sinh viên có số lần thi ít hơn (ví dụ: Exam Attempts = 1) được xem là có năng lực tiếp thu tốt hơn và phản ánh thế mạnh của họ so với các môn có số lần thi nhiều hơn.
+                    9. Tính toán chỉ số học tập cá nhân hóa ""learningCoefficient"" (LC) cho từng môn học được đề xuất (giá trị số thập phân từ 0.5 đến 1.5, mặc định là 1.0):
+                       - Đối chiếu môn đề xuất với các môn học liên quan đã hoàn thành (ví dụ: PRF192/PRO192 liên quan đến PRJ301/PRM393/SWP391; MAD101/CSD201 liên quan đến cấu trúc dữ liệu và thuật toán).
+                       - Đánh giá GPA và Exam Attempts (số lần thi) của các môn liên quan đó để chấm điểm LC:
+                         * Đối với các môn Dễ/Nền tảng (Level Beginner):
+                           + Nếu GPA trung bình các môn liên quan >= 7.5 và không thi lại: LC từ 1.1 đến 1.3 (tiếp thu nhanh).
+                           + Nếu GPA trung bình < 6.0 hoặc thi lại nhiều: LC từ 0.8 đến 0.9 (cần nhiều thời gian hơn).
+                         * Đối với các môn Trung bình (Level Intermediate):
+                           + Nếu GPA các môn liên quan >= 7.5 và không thi lại: LC từ 1.1 đến 1.2.
+                           + Nếu GPA các môn liên quan < 6.5 hoặc từng thi lại: LC từ 0.7 đến 0.8 (cần học kỹ hơn).
+                         * Đối với các môn Khó/Nâng cao (Level Advanced hoặc môn chuyên ngành phức tạp như CSD201, PRJ301, SWP391):
+                           + Đây là các môn rất thách thức. Nếu GPA các môn liên quan trước đó < 7.0 hoặc từng thi lại: BẮT BUỘC đặt LC từ 0.6 đến 0.8 để kéo dài thời gian hoàn thành (giúp sinh viên có đủ thời gian học tập).
+                           + Chỉ khi sinh viên cực kỳ xuất sắc ở các môn liên quan (GPA >= 8.0 và Exam Attempts = 1): đặt LC từ 1.1 đến 1.3.
+                           + Nếu học lực ở mức khá (GPA từ 7.0 đến 7.9): đặt LC từ 0.9 đến 1.0.
 
                    Định dạng bắt buộc, chỉ trả JSON:
                     [
                       {{ 
                         ""courseCode"": ""MÃ_MÔN"", 
                         ""skillName"": ""Tên Kỹ năng (Ngắn gọn)"",
-                        ""level"": ""Beginner"" hoặc ""Intermediate"" hoặc ""Advanced""
+                        ""level"": ""Beginner"" hoặc ""Intermediate"" hoặc ""Advanced"",
+                        ""learningCoefficient"": 1.0
                       }}
                     ]";
 
                 // Gọi Gemini API thông qua GeminiService
                 string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
-                
+
                 // Trích xuất phần nội dung JSON nằm trong cặp dấu ngoặc vuông [ ]
                 aiJsonResponse = _geminiService.CleanJsonString(aiJsonResponse);
 
                 // Deserialize chuỗi JSON sang danh sách DTO đề xuất khóa học
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                return JsonSerializer.Deserialize<List<AiCourseRecommendationDto>>(aiJsonResponse, options) 
+                var options = new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true,
+                    NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+                };
+                return JsonSerializer.Deserialize<List<AiCourseRecommendationDto>>(aiJsonResponse, options)
                     ?? new List<AiCourseRecommendationDto>();
             },
             ex => new List<AiCourseRecommendationDto>(), // Fallback trả về danh sách rỗng để không làm crash luồng nghiệp vụ tạo roadmap
