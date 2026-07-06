@@ -62,7 +62,7 @@ namespace CareerSystem.Tests
                 var worksheet = package.Workbook.Worksheets.Add("Sheet1");
                 
                 // Write headers
-                string[] expectedHeaders = { "STT", "Mã môn học", "Tên môn học", "Số tín chỉ", "Tổng số giờ học", "Kỹ năng đầu ra", "Chuẩn đầu ra", "Môn học nền tảng" };
+                string[] expectedHeaders = { "STT", "Mã môn học", "Tên môn học", "Số tín chỉ", "Tổng số giờ học", "Kỹ năng đầu ra", "Chuẩn đầu ra", "Môn học nền tảng", "Môn học tiên quyết" };
                 for (int i = 0; i < expectedHeaders.Length; i++)
                 {
                     worksheet.Cells[1, i + 1].Value = expectedHeaders[i];
@@ -281,6 +281,32 @@ namespace CareerSystem.Tests
             var course = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == "MAE101");
             Assert.NotNull(course);
             Assert.True(course.IsFoundationalCourse);
+        }
+
+        [Fact]
+        public async Task ImportCoursesFromExcelAsync_WithPrerequisites_NormalizesAndSavesCorrectly()
+        {
+            // Arrange
+            var sampleData = new string[,]
+            {
+                { "1", "PRJ321", "Java Web Development", "3", "90", "Servlet", "Web outcome", "Không", "  CSD201, DBI202; MAS291  " }
+            };
+            var file = CreateMockExcelFile("courses.xlsx", sampleData);
+
+            _mockAiRecommendationService.Setup(s => s.ClassifySkillsAsync(It.IsAny<List<SkillClassificationDto>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<SkillClassificationDto>
+                {
+                    new SkillClassificationDto { SkillId = "SKL_001", SkillName = "Servlet", Category = "Java" }
+                });
+
+            // Act
+            var result = await _service.ImportCoursesFromExcelAsync(file, "staff-id");
+
+            // Assert
+            Assert.Equal(1, result.SuccessCount);
+            var course = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == "PRJ321");
+            Assert.NotNull(course);
+            Assert.Equal("CSD201;DBI202;MAS291", course.Prerequisites);
         }
     }
 }
