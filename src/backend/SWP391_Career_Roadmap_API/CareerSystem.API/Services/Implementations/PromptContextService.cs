@@ -80,6 +80,7 @@ namespace CareerSystem.API.Services.Implementations
                     credits = c.Credits,
                     totalStudyHours = c.TotalStudyHours,
                     isFoundationalCourse = c.IsFoundationalCourse,
+                    prerequisites = c.Prerequisites,
 
                     learningOutcomes = _context.CourseLearningOutcomes
                         .Where(clo => clo.CourseId == c.CourseId)
