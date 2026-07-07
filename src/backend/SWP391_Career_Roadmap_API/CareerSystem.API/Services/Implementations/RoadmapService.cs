@@ -85,7 +85,7 @@ namespace CareerSystem.API.Services.Implementations
                     }
                     seenCourseCodes.Add(normalizedCode);
 
-                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == normalizedCode);
+                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.IsActive && c.CourseCode == normalizedCode);
                     if (courseDb == null) continue; // Bỏ qua nếu AI bịa mã môn sai
 
                     // 6.2. Truy xuất kỹ năng cốt lõi của môn học (Để map vào SkillId)
@@ -294,7 +294,7 @@ namespace CareerSystem.API.Services.Implementations
                     if (seenCourseCodes.Contains(normalizedCode)) continue;
                     seenCourseCodes.Add(normalizedCode);
 
-                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == normalizedCode);
+                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.IsActive && c.CourseCode == normalizedCode);
                     if (courseDb == null) continue;
 
                     bool isCompleted = passedCourseIds.Contains(courseDb.CourseId);
@@ -412,7 +412,7 @@ namespace CareerSystem.API.Services.Implementations
 
             foreach (var nodeDto in orderedNodes)
             {
-                var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == nodeDto.CourseCode);
+                var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.IsActive && c.CourseCode == nodeDto.CourseCode);
                 if (courseDb == null) continue;
 
                 var skillDb = await (

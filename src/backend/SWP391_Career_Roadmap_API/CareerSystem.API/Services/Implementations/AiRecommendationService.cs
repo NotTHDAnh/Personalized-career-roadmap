@@ -195,6 +195,7 @@ namespace CareerSystem.API.Services.Implementations
                     3. Không chọn môn sinh viên đã hoàn thành (đã có trong danh sách các môn đã hoàn thành).
                     4. Sắp xếp thứ tự các môn học theo một trình tự thời gian logic:
                        - Các môn đại cương/nền tảng (các môn có `isFoundationalCourse` là true hoặc các môn cơ bản Beginner) phải học trước.
+                       - Các môn học có môn tiên quyết (trường `prerequisites` chứa các mã môn phân tách bởi dấu `;` trong COURSE_CATALOG_JSON) BẮT BUỘC phải được sắp xếp học SAU tất cả các môn học tiên quyết của nó.
                        - Các môn cơ sở ngành/chuyên ngành và nâng cao hơn học tiếp theo.
                        - Môn dự án thực hành lớn (SWP391 hoặc có mã SWP391) phải nằm ở cuối lộ trình.
                     5. Không bịa courseCode hay skillId. Mỗi item phải sử dụng đúng courseCode và skillId tồn tại trong COURSE_CATALOG_JSON.

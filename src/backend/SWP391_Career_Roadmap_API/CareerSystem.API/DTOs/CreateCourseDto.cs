@@ -29,5 +29,7 @@ namespace CareerSystem.API.DTOs
 
         [Required(ErrorMessage = "Chuẩn đầu ra không được để trống.")]
         public string Outcomes { get; set; } = null!;
+
+        public string? Prerequisites { get; set; }
     }
 }
