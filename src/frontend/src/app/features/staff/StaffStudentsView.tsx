@@ -77,7 +77,7 @@ export function StaffStudentsView() {
     role: "",
     status: false,
     createdAt: "",
-    courses: [] as {courseId: string, gpa: number}[]
+    courses: [] as {courseId: string, gpa: number | string}[]
   });
 
   const fetchStudents = async () => {
@@ -154,7 +154,10 @@ export function StaffStudentsView() {
         role: editForm.role,
         status: editForm.status,
         createdAt: editForm.createdAt ? new Date(editForm.createdAt).toISOString() : null,
-        courses: editForm.courses
+        courses: editForm.courses.map(c => ({
+          courseId: c.courseId,
+          gpa: typeof c.gpa === 'string' ? (parseFloat(c.gpa) || 0) : c.gpa
+        }))
       });
       toast.success("Updated successfully");
       setIsEditing(false);
@@ -525,20 +528,24 @@ export function StaffStudentsView() {
                                 </select>
                               </td>
                               <td className="px-4 py-2 text-right">
-                                <Input 
-                                  type="number" 
-                                  min="5.0" 
-                                  max="10.0" 
-                                  step="0.1"
-                                  value={c.gpa} 
-                                  onChange={e => {
-                                    const val = parseFloat(e.target.value);
-                                    const newCourses = [...editForm.courses];
-                                    newCourses[idx].gpa = isNaN(val) ? 0 : val;
-                                    setEditForm({...editForm, courses: newCourses});
-                                  }}
-                                  className="h-8 w-20 text-right ml-auto"
-                                />
+                                <div className="flex flex-col items-end">
+                                  <Input 
+                                    type="number" 
+                                    min="5.0" 
+                                    max="10.0" 
+                                    step="0.1"
+                                    value={c.gpa} 
+                                    onChange={e => {
+                                      const newCourses = [...editForm.courses];
+                                      newCourses[idx].gpa = e.target.value;
+                                      setEditForm({...editForm, courses: newCourses});
+                                    }}
+                                    className="h-8 w-20 text-right ml-auto"
+                                  />
+                                  {c.gpa !== "" && (Number(c.gpa) < 5.0 || Number(c.gpa) > 10.0) && (
+                                    <span className="text-red-500 text-[11px] whitespace-nowrap mt-1 font-medium">Must between: 5.0 - 10.0</span>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-4 py-2 text-center">
                                 <button onClick={() => {
@@ -587,7 +594,14 @@ export function StaffStudentsView() {
               {isEditing && (
                 <div className="flex justify-end gap-2 pt-4 border-t mt-4">
                   <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving}>Cancel</Button>
-                  <Button onClick={handleSaveDetail} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Button 
+                    onClick={handleSaveDetail} 
+                    disabled={isSaving || !editForm.courses.every(c => {
+                      const val = typeof c.gpa === 'string' ? parseFloat(c.gpa) : c.gpa;
+                      return !isNaN(val) && val >= 5.0 && val <= 10.0 && c.gpa !== "";
+                    })} 
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
                     {isSaving ? "Saving..." : "Save Changes"}
                   </Button>
                 </div>
