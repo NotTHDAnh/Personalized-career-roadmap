@@ -304,6 +304,23 @@ namespace CareerSystem.API.Services.Implementations
                 }).ToList()
             };
         }
+
+        public async Task<System.Collections.Generic.List<CourseResponseDto>> GetCoursesAsync()
+        {
+            return await _context.Courses
+                .Include(c => c.CourseLearningOutcomes)
+                    .ThenInclude(clo => clo.Skill)
+                .Select(c => new CourseResponseDto
+                {
+                    CourseId = c.CourseId,
+                    CourseCode = c.CourseCode,
+                    CourseName = c.CourseName,
+                    Credits = c.Credits ?? 3,
+                    TotalStudyHours = c.TotalStudyHours ?? 0,
+                    Skills = c.CourseLearningOutcomes.Select(clo => clo.Skill.SkillName).ToList()
+                })
+                .ToListAsync();
+        }
     }
 
 
