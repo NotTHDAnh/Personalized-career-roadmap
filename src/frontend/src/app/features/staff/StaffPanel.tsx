@@ -49,6 +49,7 @@ export default function StaffPanel() {
   
   // Table state
   const [loadingTable, setLoadingTable] = useState(true);
+  const [newestCourses, setNewestCourses] = useState<any[]>([]);
   
   // File Import Modal State
   const [uploadModalState, setUploadModalState] = useState<{isOpen: boolean, title: string, importType: 'students' | 'courses'}>({ isOpen: false, title: "", importType: 'students' });
@@ -59,6 +60,45 @@ export default function StaffPanel() {
   const [showKey, setShowKey] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
   const [aiKeyError, setAiKeyError] = useState("");
+
+  const fetchTableCourses = async () => {
+    try {
+      setLoadingTable(true);
+      const batchSize = 20;
+      let loadedCourses: any[] = [];
+      let index = 1;
+      let keepFetching = true;
+
+      while (keepFetching) {
+        const ids = Array.from({ length: batchSize }, (_, i) => `CRS_${String(index + i).padStart(3, '0')}`);
+        const results = await Promise.allSettled(
+          ids.map(id => apiClient.get<any>(`/Course/${id}`))
+        );
+
+        const fulfilled = results
+          .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value !== null)
+          .map(r => r.value);
+
+        loadedCourses = [...loadedCourses, ...fulfilled];
+
+        if (fulfilled.length === 0) {
+          keepFetching = false;
+        } else {
+          index += batchSize;
+        }
+      }
+
+      const sorted = loadedCourses
+        .sort((a, b) => b.courseId.localeCompare(a.courseId))
+        .slice(0, 4);
+
+      setNewestCourses(sorted);
+    } catch (error) {
+      console.error("Failed to fetch table courses", error);
+    } finally {
+      setLoadingTable(false);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -78,9 +118,6 @@ export default function StaffPanel() {
   };
 
   useEffect(() => {
-    // Simulate loading for table
-    const tableTimer = setTimeout(() => setLoadingTable(false), 700);
-    
     // Load saved AI Key
     if (user?.userId) {
       getApiKeyStatus(user.userId)
@@ -94,7 +131,7 @@ export default function StaffPanel() {
     }
     
     fetchStats();
-    return () => clearTimeout(tableTimer);
+    fetchTableCourses();
   }, []);
 
   const handleAddCourse = async (e: React.FormEvent) => {
@@ -117,6 +154,7 @@ export default function StaffPanel() {
       setForm({ courseName: "", courseCode: "", credits: "", totalStudyHours: "", hashtags: "", outcomes: "" });
       setIsCourseModalOpen(false);
       fetchStats(); // Refresh stats after adding
+      fetchTableCourses(); // Refresh table after adding
     } catch (err: any) {
       let errorData: any = err.response?.data;
       if (!errorData) {
@@ -254,7 +292,7 @@ export default function StaffPanel() {
                     <Skeleton className="h-6 w-16 rounded-full" />
                   ) : (
                     <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
-                      2 Records
+                      {newestCourses.length} Records
                     </span>
                   )}
                   <Dialog open={isCourseModalOpen} onOpenChange={setIsCourseModalOpen}>
@@ -279,41 +317,31 @@ export default function StaffPanel() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] hover:bg-transparent">
-                      {["Course Name", "Course Code", "Standard Duration", "Associated Skills"].map((col) => (
-                        <TableHead key={col} className="px-4 py-2 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto">{col}</TableHead>
-                      ))}
+                      <TableHead className="px-6 py-4 text-left text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Course Code</TableHead>
+                      <TableHead className="px-6 py-4 text-left text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Course Name</TableHead>
+                      <TableHead className="px-6 py-4 text-center text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Credits</TableHead>
+                      <TableHead className="px-6 py-4 text-center text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Study Hours</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loadingTable ? (
-                      Array.from({ length: 2 }).map((_, i) => (
+                      Array.from({ length: 4 }).map((_, i) => (
                         <TableRow key={i} className="border-t border-[#E2E8F0]">
-                          <TableCell className="px-4 py-2"><Skeleton className="h-4 w-44" /></TableCell>
-                          <TableCell className="px-4 py-2"><Skeleton className="h-4 w-12" /></TableCell>
-                          <TableCell className="px-4 py-2"><Skeleton className="h-4 w-16" /></TableCell>
-                          <TableCell className="px-4 py-2">
-                            <div className="flex gap-2">
-                              <Skeleton className="h-5 w-12 rounded-full" />
-                              <Skeleton className="h-5 w-12 rounded-full" />
-                            </div>
-                          </TableCell>
+                          <TableCell className="px-6 py-4"><Skeleton className="h-4 w-16" /></TableCell>
+                          <TableCell className="px-6 py-4"><Skeleton className="h-4 w-44" /></TableCell>
+                          <TableCell className="px-6 py-4"><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
+                          <TableCell className="px-6 py-4"><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
                         </TableRow>
                       ))
                     ) : (
-                      <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
-                        <TableCell className="px-4 py-2 text-[12px] text-[#0F172A] font-bold">Advanced Java Programming</TableCell>
-                        <TableCell className="px-4 py-2 text-[11px] font-mono text-[#64748B] font-medium">JA301</TableCell>
-                        <TableCell className="px-4 py-2 text-[11px] text-[#334155] font-medium">8 Weeks</TableCell>
-                        <TableCell className="px-4 py-2">
-                          <div className="flex gap-1.5 flex-wrap">
-                            {["OOP", "Backend"].map((t) => (
-                              <span key={t} className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]">
-                                #{t}
-                              </span>
-                            ))}
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                      newestCourses.map((course) => (
+                        <TableRow key={course.courseId} className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
+                          <TableCell className="px-6 py-4 whitespace-nowrap text-[13px] font-mono font-bold text-[#3B28CC]">{course.courseCode}</TableCell>
+                          <TableCell className="px-6 py-4 text-[13px] font-bold text-[#0F172A]">{course.courseName}</TableCell>
+                          <TableCell className="px-6 py-4 whitespace-nowrap text-[13px] text-center font-semibold text-[#334155]">{course.credits} credits</TableCell>
+                          <TableCell className="px-6 py-4 whitespace-nowrap text-[13px] text-center font-semibold text-[#334155]">{course.totalStudyHours} hrs</TableCell>
+                        </TableRow>
+                      ))
                     )}
                   </TableBody>
                 </Table>
@@ -434,6 +462,7 @@ export default function StaffPanel() {
         onClose={() => {
           setUploadModalState(prev => ({ ...prev, isOpen: false }));
           fetchStats(); // Refresh stats in case something was imported
+          fetchTableCourses(); // Refresh table in case something was imported
         }}
         title={uploadModalState.title}
         importType={uploadModalState.importType}

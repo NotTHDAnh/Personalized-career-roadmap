@@ -2,18 +2,61 @@ import { useState, useEffect } from "react";
 import { Search, ShieldCheck, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { MOCK_COURSES } from "../../data/mockData";
+import { Skeleton } from "@/app/components/ui/skeleton";
+import { apiClient } from "@/shared/api/apiClient";
 
 export function StaffCoursesView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const itemsPerPage = 8;
 
+  useEffect(() => {
+    const fetchCourses = async () => {
+      setLoading(true);
+      try {
+        const batchSize = 20;
+        let loadedCourses: any[] = [];
+        let index = 1;
+        let keepFetching = true;
+
+        while (keepFetching) {
+          const ids = Array.from({ length: batchSize }, (_, i) => `CRS_${String(index + i).padStart(3, '0')}`);
+          const results = await Promise.allSettled(
+            ids.map(id => apiClient.get<any>(`/Course/${id}`))
+          );
+
+          const fulfilled = results
+            .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value !== null)
+            .map(r => r.value);
+
+          loadedCourses = [...loadedCourses, ...fulfilled];
+
+          if (fulfilled.length === 0) {
+            keepFetching = false;
+          } else {
+            index += batchSize;
+          }
+        }
+        
+        setCourses(loadedCourses);
+      } catch (err) {
+        console.error("Failed to load courses from API", err);
+        setCourses([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
   // Filter courses by code, name, or associated skills
-  const filteredCourses = MOCK_COURSES.filter(course =>
+  const filteredCourses = courses.filter(course =>
     course.courseCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
     course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))
+    (course.learningOutcomes || []).some((lo: any) => lo.skillName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredCourses.length / itemsPerPage));
@@ -82,35 +125,53 @@ export function StaffCoursesView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {paginatedCourses.length > 0 ? (
-                  paginatedCourses.map((course) => (
-                    <tr key={course.courseId} className="hover:bg-[#F8FAFC]/50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-[13px] font-mono font-bold text-[#3B28CC]">
-                        {course.courseCode}
-                      </td>
-                      <td className="px-6 py-4 text-[13px] font-bold text-[#0F172A]">
-                        {course.courseName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-[13px] text-center font-semibold text-[#334155]">
-                        {course.credits} credits
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-[13px] text-center font-semibold text-[#334155]">
-                        {course.totalStudyHours} hrs
-                      </td>
+                {loading ? (
+                  Array.from({ length: itemsPerPage }).map((_, i) => (
+                    <tr key={i} className="hover:bg-[#F8FAFC]/50 transition-colors">
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-16" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-44" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-12 mx-auto" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-12 mx-auto" /></td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          {course.skills.map((skill, idx) => (
-                            <span 
-                              key={idx}
-                              className="bg-[#EEF2FF] text-[#4F46E5] text-[10px] font-bold px-2.5 py-0.5 rounded-md border border-[#E0E7FF]"
-                            >
-                              {skill}
-                            </span>
-                          ))}
+                        <div className="flex gap-2">
+                          <Skeleton className="h-5 w-12 rounded-full" />
+                          <Skeleton className="h-5 w-12 rounded-full" />
                         </div>
                       </td>
                     </tr>
                   ))
+                ) : paginatedCourses.length > 0 ? (
+                  paginatedCourses.map((course) => {
+                    const skills = Array.from(new Set(course.learningOutcomes?.map((lo: any) => lo.skillName) || []));
+                    return (
+                      <tr key={course.courseId} className="hover:bg-[#F8FAFC]/50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-[13px] font-mono font-bold text-[#3B28CC]">
+                          {course.courseCode}
+                        </td>
+                        <td className="px-6 py-4 text-[13px] font-bold text-[#0F172A]">
+                          {course.courseName}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-[13px] text-center font-semibold text-[#334155]">
+                          {course.credits} credits
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-[13px] text-center font-semibold text-[#334155]">
+                          {course.totalStudyHours} hrs
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1.5">
+                            {skills.map((skill: any, idx) => (
+                              <span 
+                                key={idx}
+                                className="bg-[#EEF2FF] text-[#4F46E5] text-[10px] font-bold px-2.5 py-0.5 rounded-md border border-[#E0E7FF]"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan={5} className="py-16 text-center">
