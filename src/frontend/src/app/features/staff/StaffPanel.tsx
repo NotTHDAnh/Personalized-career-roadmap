@@ -113,6 +113,29 @@ export default function StaffPanel() {
         Skills: form.hashtags.trim(),
         Outcomes: form.outcomes.trim()
       });
+
+      // -- LOCAL STORAGE MOCK FIX --
+      // Since there's no GET API to fetch courses, we store the newly added course locally
+      // so it can be picked up and displayed by StaffCoursesView.tsx
+      try {
+        const existing = localStorage.getItem("LOCAL_ADDED_COURSES");
+        const addedCourses = existing ? JSON.parse(existing) : [];
+        const newCourse = {
+          courseId: "CRS_NEW_" + Date.now(),
+          courseCode: form.courseCode.trim(),
+          courseName: form.courseName.trim(),
+          credits: parseInt(form.credits) || 3,
+          totalStudyHours: parseInt(form.totalStudyHours) || 0,
+          skills: form.hashtags.trim().split(',').map((s: string) => s.trim()).filter(Boolean),
+          prerequisites: [],
+          is_active: true
+        };
+        localStorage.setItem("LOCAL_ADDED_COURSES", JSON.stringify([...addedCourses, newCourse]));
+      } catch (e) {
+        console.error("Failed to save to local storage", e);
+      }
+      // -----------------------------
+
       toast.success(`Successfully added course: ${form.courseName} (${form.courseCode})`);
       setForm({ courseName: "", courseCode: "", credits: "", totalStudyHours: "", hashtags: "", outcomes: "" });
       setIsCourseModalOpen(false);
