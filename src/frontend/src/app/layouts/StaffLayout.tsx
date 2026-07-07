@@ -52,7 +52,7 @@ export function StaffLayout() {
     >
       {/* ── Sidebar ── */}
       <aside
-        className={`fixed left-0 top-0 h-screen text-white flex flex-col z-40 transition-all duration-300 bg-[#0B0F19] shadow-[4px_0_24px_rgba(0,0,0,0.05)] ${
+        className={`fixed left-0 top-0 h-screen text-white flex flex-col z-[100] transition-all duration-300 bg-[#0B0F19] shadow-[4px_0_24px_rgba(0,0,0,0.05)] ${
           isSidebarOpen ? "w-[260px]" : "w-[80px]"
         }`}
       >
@@ -60,7 +60,7 @@ export function StaffLayout() {
         <button
           type="button"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute top-8 -right-3.5 flex items-center justify-center w-7 h-7 bg-white border border-[#E2E8F0] rounded-full shadow-sm text-[#64748B] hover:text-[#3B28CC] hover:border-[#3B28CC] transition-colors z-50"
+          className="absolute top-8 right-[-14px] flex items-center justify-center w-7 h-7 bg-white border border-[#E2E8F0] rounded-full shadow-sm text-[#64748B] hover:text-[#3B28CC] hover:border-[#3B28CC] transition-colors z-[999]"
           title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
         >
           {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
