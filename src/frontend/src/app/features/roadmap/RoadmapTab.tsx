@@ -117,6 +117,21 @@ export default function MyRoadmaps() {
       updateDescendants(nodeId);
     }
 
+    // Lấy localStorage hiện tại
+    const storageKey = `gpa_roadmap_${roadmapData.roadmapId}`;
+    const storedGpasStr = localStorage.getItem(storageKey);
+    const storedGpas = storedGpasStr ? JSON.parse(storedGpasStr) : {};
+
+    // Cập nhật gpa vào localStorage
+    Object.entries(statusUpdates).forEach(([id, data]) => {
+      if (data.status === "COMPLETED" && data.gpa !== undefined) {
+        storedGpas[id] = data.gpa;
+      } else if (data.status === "PENDING") {
+        delete storedGpas[id];
+      }
+    });
+    localStorage.setItem(storageKey, JSON.stringify(storedGpas));
+
     // 3. Áp dụng toàn bộ thay đổi trạng thái mới vào state roadmapData
     const updatedPhases = roadmapData.phases.map((phase: any) => ({
       ...phase,
@@ -237,6 +252,11 @@ export default function MyRoadmaps() {
             })
           );
 
+          // Load GPA từ localStorage bù vào
+          const storageKey = `gpa_roadmap_${selectedRoadmapId}`;
+          const storedGpasStr = localStorage.getItem(storageKey);
+          const storedGpas = storedGpasStr ? JSON.parse(storedGpasStr) : {};
+
           // Update roadmap data with course details
           const enrichedPhases = data.phases.map((p: any) => ({
             ...p,
@@ -245,6 +265,7 @@ export default function MyRoadmaps() {
               return {
                 ...n,
                 courseDetails: details,
+                gpa: storedGpas[n.nodeId] !== undefined ? storedGpas[n.nodeId] : n.gpa,
               };
             }) || [],
           }));

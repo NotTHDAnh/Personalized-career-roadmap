@@ -474,4 +474,4 @@ function StatCard({ title, icon: Icon, value, loading, color }: { title: string,
       </div>
     </Card>
   );
-}
+}

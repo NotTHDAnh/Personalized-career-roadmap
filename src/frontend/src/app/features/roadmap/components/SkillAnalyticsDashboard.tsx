@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, Brush } from "recharts";
 import { ChevronDown, Activity, BookOpen, TrendingUp, Sparkles } from "lucide-react";
 import { apiClient } from "@/shared/api/apiClient";
+import { profileApi } from "../../profile/profileApi";
 
 interface RoadmapInfo {
   roadmapId: string;
@@ -68,8 +69,41 @@ const MetricCard = ({ title, value, icon, trend, color }: any) => {
   );
 };
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white p-3 border border-slate-200 shadow-lg rounded-xl min-w-[200px] z-[100] relative">
+        <h4 className="font-bold text-slate-800 text-[13px] mb-1.5">{label}</h4>
+        <div className="flex justify-between items-center mb-2 text-[11px] font-semibold text-slate-500">
+          <span>Avg GPA:</span>
+          <span className="text-emerald-500 font-bold">{data.avgGpa !== null ? data.avgGpa : "N/A"}</span>
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Taught in {data.count} Courses:</p>
+          <div className="space-y-1">
+            {data.courses && data.courses.slice(0, 4).map((c: any, i: number) => (
+              <div key={i} className="flex justify-between items-center text-[11px] bg-slate-50 rounded-md p-1.5 border border-slate-100">
+                <span className="text-slate-700 font-medium truncate max-w-[130px]" title={c.courseName}>{c.courseName}</span>
+                <span className="font-bold text-slate-600">{c.gpa !== null ? c.gpa : "-"}</span>
+              </div>
+            ))}
+            {data.courses && data.courses.length > 4 && (
+              <div className="text-[10px] text-center text-slate-400 font-semibold pt-1">
+                + {data.courses.length - 4} more
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAnalyticsDashboardProps) {
   const [activeTab, setActiveTab] = useState<"overall" | "roadmap">("overall");
+  const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
   const [selectedRoadmapId, setSelectedRoadmapId] = useState<string>("");
   const [allRoadmapDetails, setAllRoadmapDetails] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -120,6 +154,14 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
                 if (p?.nodes) {
                   p.nodes.forEach((n: any) => {
                      n.courseDetails = n.courseId ? courseDetailsMap[n.courseId] : null;
+                     
+                     // Khôi phục điểm GPA từ localStorage thay vì Backend
+                     const storageKey = `gpa_roadmap_${data.roadmapId}`;
+                     const storedGpasStr = localStorage.getItem(storageKey);
+                     const storedGpas = storedGpasStr ? JSON.parse(storedGpasStr) : {};
+                     if (n.status === "COMPLETED" && storedGpas[n.nodeId] !== undefined) {
+                        n.gpa = storedGpas[n.nodeId];
+                     }
                   });
                 }
               });
@@ -176,7 +218,7 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
       return roadmap;
     });
 
-    const map: Record<string, { skillName: string; count: number; totalGpa: number; coursesWithGpa: number }> = {};
+    const map: Record<string, { skillName: string; count: number; totalGpa: number; coursesWithGpa: number; contributingCourses: { courseName: string, gpa: number | null }[] }> = {};
     let totalCompletedCourses = 0;
     
     const roadmapsToAnalyze = activeTab === "overall" 
@@ -187,10 +229,11 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
       const flatNodes = roadmap?.phases?.flatMap((p: any) => p.nodes) || [];
       flatNodes.forEach((node: any) => {
         if (node.status === "COMPLETED" || node.status === "done") {
-          const courseGpa = node.gpa || node.courseDetails?.gpa;
+          const courseGpa = node.gpa ?? node.courseDetails?.gpa;
           const source = node.source || node.courseDetails?.source;
           const isUniversity = source === "university" || source === "UNIVERSITY";
-          const hasValidGpa = typeof courseGpa === "number";
+          const parsedGpa = Number(courseGpa);
+          const hasValidGpa = courseGpa !== null && courseGpa !== undefined && !isNaN(parsedGpa);
           
           totalCompletedCourses++;
 
@@ -202,10 +245,17 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
           const normalizedSkills = Array.isArray(skills) ? skills : (typeof skills === "string" ? [skills] : []);
 
           normalizedSkills.forEach((s: string) => {
-            if (!map[s]) map[s] = { skillName: s, count: 0, totalGpa: 0, coursesWithGpa: 0 };
+            if (!map[s]) map[s] = { skillName: s, count: 0, totalGpa: 0, coursesWithGpa: 0, contributingCourses: [] };
             map[s].count += 1;
+            
+            const courseCode = details?.courseCode || node.courseCode || details?.courseName || node.name || "Unknown Course";
+            map[s].contributingCourses.push({
+              courseName: courseCode,
+              gpa: hasValidGpa ? parsedGpa : null
+            });
+
             if (hasValidGpa) {
-              map[s].totalGpa += courseGpa;
+              map[s].totalGpa += parsedGpa;
               map[s].coursesWithGpa += 1;
             }
           });
@@ -232,7 +282,8 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
         name: item.skillName,
         count: item.count,
         avgGpa: avgGpa,
-        progress: progress
+        progress: progress,
+        courses: item.contributingCourses
       };
     });
 
@@ -331,33 +382,33 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
            <div className="flex items-center justify-between mb-5">
              <h3 className="text-[14px] font-bold text-slate-800 tracking-tight">Skill Analysis (GPA & Frequency)</h3>
            </div>
-           <div className="h-[250px]">
+           <div className="h-[340px] w-full">
              {stats.length > 0 ? (
-               <ResponsiveContainer width="100%" height="100%">
-                 <ComposedChart data={stats.slice(0, 7)} margin={{ top: 15, right: 10, left: -20, bottom: 0 }}>
-                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                   <XAxis 
-                     dataKey="name" 
-                     axisLine={false} 
-                     tickLine={false} 
-                     tick={false}
-                   />
-                   <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#94A3B8", fontWeight: 600 }} />
-                   <YAxis yAxisId="right" orientation="right" domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#94A3B8", fontWeight: 600 }} />
-                   <Tooltip 
-                     cursor={{ fill: "rgba(241, 245, 249, 0.5)" }} 
-                     contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', padding: '6px 12px', fontSize: '12px' }} 
-                     labelStyle={{ fontSize: '13px', fontWeight: 'bold', color: '#1E293B', marginBottom: '2px' }}
-                     itemStyle={{ fontSize: '12px', fontWeight: '600', padding: 0 }}
-                   />
-                   <Bar yAxisId="left" dataKey="count" name="Courses" radius={[6, 6, 0, 0]} maxBarSize={28}>
-                     {stats.slice(0, 7).map((entry, index) => (
-                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                     ))}
-                   </Bar>
-                   <Line yAxisId="right" type="monotone" dataKey="avgGpa" name="Avg GPA" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3.5, fill: "#10B981", strokeWidth: 2, stroke: "#FFF" }} activeDot={{ r: 5 }} connectNulls />
-                 </ComposedChart>
-               </ResponsiveContainer>
+                 <ResponsiveContainer width="100%" height="100%">
+                   <ComposedChart data={stats} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
+                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                     <XAxis 
+                       dataKey="name" 
+                       axisLine={false} 
+                       tickLine={false} 
+                       tick={false}
+                     />
+                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#94A3B8", fontWeight: 600 }} />
+                     <YAxis yAxisId="right" orientation="right" domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#94A3B8", fontWeight: 600 }} />
+                     <Tooltip 
+                       cursor={{ fill: "rgba(241, 245, 249, 0.5)" }} 
+                       content={<CustomTooltip />}
+                       wrapperStyle={{ zIndex: 1000 }}
+                     />
+                     <Bar yAxisId="left" dataKey="count" name="Courses" radius={[6, 6, 0, 0]} maxBarSize={28}>
+                       {stats.map((entry, index) => (
+                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                       ))}
+                     </Bar>
+                     <Line yAxisId="right" type="monotone" dataKey="avgGpa" name="Avg GPA" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3.5, fill: "#10B981", strokeWidth: 2, stroke: "#FFF" }} activeDot={{ r: 5 }} connectNulls />
+                     <Brush dataKey="name" height={15} stroke="#CBD5E1" fill="#F8FAFC" startIndex={0} endIndex={Math.min(stats.length - 1, 15)} tickFormatter={() => ""} />
+                   </ComposedChart>
+                 </ResponsiveContainer>
              ) : (
                <div className="flex items-center justify-center h-full text-slate-400 font-medium">No data to display chart.</div>
              )}
@@ -367,21 +418,43 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
         {/* Right: Detailed List */}
         <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-5 border border-slate-100 shadow-sm flex flex-col">
           <h3 className="text-[14px] font-bold text-slate-800 tracking-tight mb-4">Mastery Details (All)</h3>
-          <div className="flex-1 overflow-y-auto pr-2 space-y-2.5 max-h-[230px] scrollbar-thin scrollbar-thumb-slate-200">
-            {stats.length > 0 ? stats.map((s, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-2xl shadow-sm border border-slate-100/80 hover:shadow-md transition-shadow">
-                <div>
-                  <p className="text-[13px] font-bold text-slate-800 mb-0.5">{s.name}</p>
-                  <p className="text-[11px] font-semibold text-slate-400">
-                    {s.avgGpa ? `GPA: ${s.avgGpa} • ` : ""}{s.count} courses
-                  </p>
+          <div className="flex-1 overflow-y-auto pr-2 pb-4 space-y-2.5 h-[340px] max-h-[340px] scrollbar-thin scrollbar-thumb-slate-200">
+            {stats.length > 0 ? stats.map((s, idx) => {
+              const isExpanded = expandedSkill === s.name;
+              return (
+              <div key={idx} className="bg-white rounded-2xl shadow-sm border border-slate-100/80 hover:shadow-md transition-shadow overflow-hidden">
+                <div 
+                  className="flex items-center justify-between p-3 cursor-pointer select-none"
+                  onClick={() => setExpandedSkill(isExpanded ? null : s.name)}
+                >
+                  <div>
+                    <p className="text-[13px] font-bold text-slate-800 mb-0.5">{s.name}</p>
+                    <p className="text-[11px] font-semibold text-slate-400">
+                      {s.avgGpa ? `GPA: ${s.avgGpa} • ` : ""}{s.count} courses
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CircularProgress 
+                      value={s.progress} 
+                      label={s.avgGpa !== null ? s.avgGpa : s.count} 
+                    />
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                  </div>
                 </div>
-                <CircularProgress 
-                  value={s.progress} 
-                  label={s.avgGpa !== null ? s.avgGpa : s.count} 
-                />
+                {isExpanded && (
+                  <div className="px-3 pb-3 pt-2 border-t border-slate-50 bg-slate-50/50">
+                    <div className="space-y-1.5">
+                      {s.courses && s.courses.map((c: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center text-[11px] bg-white rounded-lg p-2 border border-slate-100 shadow-sm">
+                          <span className="text-slate-600 font-medium truncate max-w-[200px]" title={c.courseName}>{c.courseName}</span>
+                          <span className="font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">{c.gpa !== null ? c.gpa : "-"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )) : (
+            )}) : (
               <div className="flex items-center justify-center h-full text-slate-400 font-medium text-sm">Complete a course to see your skills.</div>
             )}
           </div>
