@@ -240,5 +240,23 @@ namespace CareerSystem.API.Controllers
             var courses = await _courseService.GetCoursesAsync();
             return Ok(courses);
         }
+
+        /// <summary>
+        /// Xóa trực tiếp điểm môn học của một sinh viên.
+        /// DELETE: api/Staff/students/{studentId}/courses/{courseId}
+        /// </summary>
+        [HttpDelete("students/{studentId}/courses/{courseId}")]
+        public async Task<IActionResult> DeleteStudentCourseRecord(string studentId, string courseId)
+        {
+            var staffId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+            
+            var success = await _staffStudentService.DeleteStudentCourseRecordAsync(studentId, courseId, staffId);
+            if (!success)
+            {
+                return NotFound(new { message = "Không tìm thấy bản ghi điểm của sinh viên cho môn học này." });
+            }
+
+            return Ok(new { message = "Xóa điểm môn học thành công." });
+        }
     }
 }

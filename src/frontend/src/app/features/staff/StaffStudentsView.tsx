@@ -65,6 +65,8 @@ export function StaffStudentsView() {
   const [isConfirmDeactiveOpen, setIsConfirmDeactiveOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isConfirmRestoreOpen, setIsConfirmRestoreOpen] = useState(false);
+  const [isConfirmDeleteGradeOpen, setIsConfirmDeleteGradeOpen] = useState(false);
+  const [deleteGradeInfo, setDeleteGradeInfo] = useState<{ courseId: string, courseName: string } | null>(null);
 
   const [availableCourses, setAvailableCourses] = useState<{courseId: string, courseName: string}[]>([]);
 
@@ -195,6 +197,26 @@ export function StaffStudentsView() {
     } finally {
       setIsConfirmDeleteOpen(false);
       setIsConfirmRestoreOpen(false);
+    }
+  };
+
+  const handleOpenConfirmDeleteGrade = (courseId: string, courseName: string) => {
+    setDeleteGradeInfo({ courseId, courseName });
+    setIsConfirmDeleteGradeOpen(true);
+  };
+
+  const handleDeleteGrade = async () => {
+    if (!detailData || !deleteGradeInfo) return;
+    try {
+      await apiClient.delete(`/Staff/students/${detailData.id}/courses/${deleteGradeInfo.courseId}`);
+      toast.success(`Đã xóa điểm môn học ${deleteGradeInfo.courseName}`);
+      handleOpenDetail(detailData.id); // refresh modal data
+      fetchStudents(); // refresh list
+    } catch (error) {
+      toast.error("Xóa điểm môn học thất bại");
+    } finally {
+      setIsConfirmDeleteGradeOpen(false);
+      setDeleteGradeInfo(null);
     }
   };
 
@@ -505,7 +527,7 @@ export function StaffStudentsView() {
                         <th className="px-4 py-2 font-bold">Course Name</th>
                         <th className="px-4 py-2 font-bold w-24 text-right">GPA / Score</th>
                         <th className="px-4 py-2 font-bold w-24 text-right">Exam Attempts</th>
-                        {isEditing && <th className="px-4 py-2 font-bold w-12 text-center">Delete</th>}
+                        <th className="px-4 py-2 font-bold w-12 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -611,11 +633,19 @@ export function StaffStudentsView() {
                               <td className="px-4 py-2 text-right text-gray-600 font-medium">
                                 {c.examAttempts || 1}
                               </td>
+                              <td className="px-4 py-2 text-center">
+                                <button 
+                                  onClick={() => handleOpenConfirmDeleteGrade(c.courseId || "", c.courseName)} 
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr className="border-t border-gray-200">
-                            <td colSpan={3} className="px-4 py-6 text-center text-gray-500 italic">
+                            <td colSpan={4} className="px-4 py-6 text-center text-gray-500 italic">
                               No enrolled courses yet
                             </td>
                           </tr>
@@ -692,6 +722,22 @@ export function StaffStudentsView() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction className="bg-green-600 hover:bg-green-700" onClick={handleToggleDelete}>Restore Account</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Delete Grade Modal */}
+      <AlertDialog open={isConfirmDeleteGradeOpen} onOpenChange={setIsConfirmDeleteGradeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Grade Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn xóa điểm môn học <strong>{deleteGradeInfo?.courseName}</strong> của sinh viên này? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleDeleteGrade}>Xóa</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

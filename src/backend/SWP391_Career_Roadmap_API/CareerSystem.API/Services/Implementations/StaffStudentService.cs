@@ -65,6 +65,7 @@ namespace CareerSystem.API.Services.Implementations
                 DeleteHistory = student.DeleteHistory,
                 Tags = student.StudentSkills.Select(ss => ss.Skill.SkillName).ToList(),
                 Courses = student.AcademicRecords
+                    .Where(ar => ar.Course != null && ar.Course.IsActive)
                     .OrderBy(ar => ar.Course?.CourseName)
                     .Select(ar => new StudentCourseDto
                     {
@@ -144,6 +145,12 @@ namespace CareerSystem.API.Services.Implementations
                     }
                     else
                     {
+                        var targetCourse = await _context.Courses.AsNoTracking().FirstOrDefaultAsync(c => c.CourseId == incoming.CourseId);
+                        if (targetCourse == null || !targetCourse.IsActive)
+                        {
+                            throw new ArgumentException($"Môn học '{incoming.CourseId}' không tồn tại hoặc đã bị xóa mềm.");
+                        }
+
                         var newRecord = new Entities.AcademicRecord
                         {
                             RecordId = Guid.NewGuid().ToString(),
@@ -186,6 +193,30 @@ namespace CareerSystem.API.Services.Implementations
                 Courses = courseCount,
                 Skills = skillCount
             };
+        }
+
+        public async Task<bool> DeleteStudentCourseRecordAsync(string studentId, string courseId, string staffId)
+        {
+            var record = await _context.AcademicRecords
+                .FirstOrDefaultAsync(r => r.UserId == studentId && r.CourseId == courseId);
+                
+            if (record == null) return false;
+
+            var currentDir = Directory.GetCurrentDirectory();
+            var srcDir = currentDir;
+            while (srcDir != null && !srcDir.EndsWith("src", StringComparison.OrdinalIgnoreCase))
+            {
+                srcDir = Directory.GetParent(srcDir)?.FullName;
+            }
+            if (srcDir == null) srcDir = currentDir;
+            var logPath = Path.Combine(srcDir, "AuditLog_Course.txt");
+
+            var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] [DELETE_DIRECT] Staff: {staffId} | Student: {studentId} | Course: {courseId} | Old GPA: {record.Gpa} | New GPA: N/A\n";
+            await System.IO.File.AppendAllTextAsync(logPath, logMessage);
+
+            _context.AcademicRecords.Remove(record);
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

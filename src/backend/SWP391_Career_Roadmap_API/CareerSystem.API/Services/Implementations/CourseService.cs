@@ -308,6 +308,7 @@ namespace CareerSystem.API.Services.Implementations
         public async Task<System.Collections.Generic.List<CourseResponseDto>> GetCoursesAsync()
         {
             return await _context.Courses
+                .Where(c => c.IsActive)
                 .Include(c => c.CourseLearningOutcomes)
                     .ThenInclude(clo => clo.Skill)
                 .Select(c => new CourseResponseDto

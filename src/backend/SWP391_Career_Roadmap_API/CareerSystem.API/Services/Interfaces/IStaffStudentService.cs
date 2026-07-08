@@ -12,5 +12,6 @@ namespace CareerSystem.API.Services.Interfaces
         Task<bool> ToggleStudentDeleteAsync(string id);
         Task<bool> UpdateStudentAsync(string id, UpdateStudentDto dto, string staffId);
         Task<DashboardStatsDto> GetDashboardStatsAsync();
+        Task<bool> DeleteStudentCourseRecordAsync(string studentId, string courseId, string staffId);
     }
 }

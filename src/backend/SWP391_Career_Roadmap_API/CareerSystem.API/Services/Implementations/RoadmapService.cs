@@ -49,9 +49,10 @@ namespace CareerSystem.API.Services.Implementations
             };
             _context.Roadmaps.Add(newRoadmap);
 
-            // Lấy danh sách mã/id môn học đã học từ học bạ của sinh viên (chỉ lấy môn đã đạt điểm qua môn)
+            // Lấy danh sách mã/id môn học đã học từ học bạ của sinh viên (chỉ lấy môn đã đạt điểm qua môn và môn học đang hoạt động)
             var passedCourseIds = await _context.AcademicRecords
-                .Where(ar => ar.UserId == request.UserId && ar.Gpa >= 5.0m)
+                .Include(ar => ar.Course)
+                .Where(ar => ar.UserId == request.UserId && ar.Gpa >= 5.0m && ar.Course.IsActive)
                 .Select(ar => ar.CourseId)
                 .ToListAsync();
 
@@ -159,9 +160,10 @@ namespace CareerSystem.API.Services.Implementations
                 throw new Exception("Không tìm thấy lộ trình yêu cầu.");
             }
 
-            // Lấy danh sách các CourseId đã học và gpa từ học bạ của người dùng sở hữu roadmap này
+            // Lấy danh sách các CourseId đã học và gpa từ học bạ của người dùng sở hữu roadmap này (chỉ lấy môn học đang hoạt động)
             var academicRecords = await _context.AcademicRecords
-                .Where(ar => ar.UserId == roadmap.UserId)
+                .Include(ar => ar.Course)
+                .Where(ar => ar.UserId == roadmap.UserId && ar.Course.IsActive)
                 .ToDictionaryAsync(ar => ar.CourseId, ar => ar.Gpa);
 
             // Sắp xếp các môn học theo thứ tự Deadline tăng dần để FE vẽ từ trái sang phải
@@ -255,7 +257,8 @@ namespace CareerSystem.API.Services.Implementations
             var recommendedCourses = await _aiRecommendationService.GetRoadmapCoursesAsync(targetRole, passedCoursesText, courseCatalogJson, user.GeminiApiKey);
 
             var passedCourseIds = await _context.AcademicRecords
-                .Where(ar => ar.UserId == request.UserId && ar.Gpa >= 5.0m)
+                .Include(ar => ar.Course)
+                .Where(ar => ar.UserId == request.UserId && ar.Gpa >= 5.0m && ar.Course.IsActive)
                 .Select(ar => ar.CourseId)
                 .ToListAsync();
 

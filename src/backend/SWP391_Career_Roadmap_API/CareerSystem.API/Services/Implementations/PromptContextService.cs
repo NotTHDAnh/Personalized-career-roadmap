@@ -123,10 +123,10 @@ namespace CareerSystem.API.Services.Implementations
                     description = r.Description
                 }).ToListAsync();
 
-            // Get passed course
+            // Get passed course (only active courses)
             var passedCourse = await _context.AcademicRecords
-                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m)
                 .Include(a => a.Course)
+                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m && a.Course.IsActive)
                 .Select(a => new
                 {
                     courseCode = a.Course.CourseCode,
@@ -199,8 +199,8 @@ namespace CareerSystem.API.Services.Implementations
                 ?? throw new Exception("Không tìm thấy nghề nghiệp mục tiêu.");
 
             var passedCourses = await _context.AcademicRecords
-                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m)
                 .Include(a => a.Course)
+                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m && a.Course.IsActive)
                 .Select(a => new
                 {
                     a.Course.CourseCode,
