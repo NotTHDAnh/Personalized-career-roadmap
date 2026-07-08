@@ -342,6 +342,7 @@ namespace CareerSystem.API.Services.Implementations
                     Skills = c.CourseLearningOutcomes.Select(clo => clo.Skill.SkillName).ToList()
                 })
                 .ToListAsync();
+        }
         public async Task<CourseDetailDto?> UpdateCourseAsync(string courseId, UpdateCourseDto dto, string staffId)
         {
             if (dto == null)

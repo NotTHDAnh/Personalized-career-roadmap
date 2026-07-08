@@ -19,8 +19,8 @@ namespace CareerSystem.API.Controllers
         private readonly IStaffStudentService _staffStudentService;
 
         public StaffController(
-            IStudentImportService studentImportService, 
-            ICourseImportService courseImportService, 
+            IStudentImportService studentImportService,
+            ICourseImportService courseImportService,
             ICourseService courseService,
             IStaffStudentService staffStudentService)
         {
@@ -249,7 +249,7 @@ namespace CareerSystem.API.Controllers
         public async Task<IActionResult> DeleteStudentCourseRecord(string studentId, string courseId)
         {
             var staffId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
-            
+
             var success = await _staffStudentService.DeleteStudentCourseRecordAsync(studentId, courseId, staffId);
             if (!success)
             {
@@ -257,6 +257,7 @@ namespace CareerSystem.API.Controllers
             }
 
             return Ok(new { message = "Xóa điểm môn học thành công." });
+        }
         /// Cập nhật môn học thủ công (chỉ dành cho Staff).
         /// PUT: api/Staff/courses/{courseId}
         /// </summary>
