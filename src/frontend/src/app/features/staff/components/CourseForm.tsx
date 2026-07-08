@@ -24,7 +24,7 @@ export function CourseForm({ form, setForm, onSubmit }: CourseFormProps) {
           <label className="block text-[13px] font-semibold text-[#0F172A] mb-1.5">{label}</label>
           <Input
             type="text"
-            value={form[key as keyof CourseFormData]}
+            value={form[key as keyof CourseFormData] as string}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
             placeholder={placeholder}
             className="w-full text-[13px] bg-[#F8FAFC] border-[#E2E8F0] focus-visible:ring-[#3B28CC]"

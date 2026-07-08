@@ -26,7 +26,7 @@ const navItems: NavItem[] = [
   },
   {
     to: "/dashboard/roadmap",
-    label: "Career Planner",
+    label: "My Roadmap",
     icon: <Map size={20} />,
   },
   {

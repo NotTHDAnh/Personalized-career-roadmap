@@ -3,55 +3,157 @@ import { Card } from "@/app/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Progress } from "@/app/components/ui/progress";
 import { Skeleton } from "@/app/components/ui/skeleton";
-import { TrendingUp, Code2, Plus, Key, Github } from "lucide-react";
+import { TrendingUp, Code2, Plus, Key, Github, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { SkillTag } from "./components/SkillTag";
 import { StudentProfileCard } from "./components/StudentProfileCard";
 import { GpaInput } from "./components/GpaInput";
 import { ErrorAlert } from "@/app/components/common/ErrorAlert";
 import { useNotification } from "@/shared/contexts/NotificationContext";
-
-const skills = [
-  "JavaScript", "React", "TypeScript", "Next.js", "Tailwind CSS",
-  "Node.js", "GraphQL", "Redux",
-];
+import { useAuth } from "@/shared/contexts/AuthContext";
+import { StudentDetailDto } from "@/app/types";
+import { apiClient } from "@/shared/api/apiClient";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/app/components/ui/dialog";
+import { Input } from "@/app/components/ui/input";
+import { Button } from "@/app/components/ui/button";
+import { toast } from "sonner";
+import { mapDtoToGraph } from "../roadmap/core/roadmapAdapter";
 
 export default function ProfileTranscripts() {
+  const { user, token } = useAuth();
+  const [studentDetail, setStudentDetail] = useState<StudentDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [roadmapProgress, setRoadmapProgress] = useState<{
+    roleName: string;
+    percent: number;
+    completed: number;
+    total: number;
+  } | null>(null);
+  const [inProgressRoadmapCourses, setInProgressRoadmapCourses] = useState<any[] | null>(null);
   
   // Notification hooks & state simulations
   const { openNotification, updateNotification } = useNotification();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMode, setSyncMode] = useState<"success" | "error">("success");
 
+  // Mock Add Skill State
+  const [localTags, setLocalTags] = useState<string[]>([]);
+  const [isAddSkillOpen, setIsAddSkillOpen] = useState(false);
+  const [skillSearch, setSkillSearch] = useState("");
+  const [selectedNewSkills, setSelectedNewSkills] = useState<string[]>([]);
+  const [isExpandedSkills, setIsExpandedSkills] = useState(false);
+  const [isGeminiGuideOpen, setIsGeminiGuideOpen] = useState(false);
+
+  useEffect(() => {
+    if (window.location.hash === "#api-key-guide" || window.location.search.includes("openGuide")) {
+      setIsGeminiGuideOpen(true);
+      setTimeout(() => {
+        document.getElementById('api-key-guide')?.scrollIntoView({ behavior: 'smooth' });
+        // Clear hash and query so it doesn't trigger on refresh
+        const url = new URL(window.location.href);
+        url.hash = '';
+        url.searchParams.delete('openGuide');
+        window.history.replaceState({}, '', url.toString());
+      }, 300);
+    }
+  }, []);
+
+  const mockAvailableSkills = [
+    "Java", "Python", "C#", "C++", "JavaScript", "TypeScript",
+    "React", "Angular", "Vue", "Node.js", "Express", "Spring Boot",
+    "Django", "Flask", ".NET", "SQL", "MySQL", "PostgreSQL", 
+    "MongoDB", "Redis", "Docker", "Kubernetes", "AWS", "Azure", 
+    "GCP", "Git", "Machine Learning", "Data Science", "UI/UX Design",
+    "Agile", "Scrum", "Communication", "Problem Solving", "HTML & CSS"
+  ];
+
   const handleSyncToGithub = () => {
     if (isSyncing) return;
     
     setIsSyncing(true);
-    // 1. Mở thông báo loading và lấy ID của toast
     const notifId = openNotification("loading", "Syncing profile data with GitHub...");
 
-    setIsSyncing(false);
-    if (syncMode === "success") {
-        // 3a. Đồng bộ thành công
-      updateNotification(notifId, "success", "Syncing completed successfully! Your profile data is now up-to-date on GitHub.");
-    } else {
-        // 3b. Đồng bộ thất bại
-      updateNotification(notifId, "error", "Error: Failed to sync with GitHub. Please check your connection or try again later.");
+    setTimeout(() => {
+      setIsSyncing(false);
+      if (syncMode === "success") {
+        updateNotification(notifId, "success", "Syncing completed successfully! Your profile data is now up-to-date on GitHub.");
+      } else {
+        updateNotification(notifId, "error", "Error: Failed to sync with GitHub. Please check your connection or try again later.");
+      }
+    }, 1500); // added timeout so it looks real
+  };
+
+  const fetchDetail = async () => {
+    if (!user?.userId) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiClient.get<StudentDetailDto>(`/student/students/${user.userId}`);
+      setStudentDetail(data);
+      setLocalTags(data.tags || []);
+      
+      try {
+        const roadmapList = await apiClient.get<any[]>(`/Roadmap/user/${user.userId}`);
+        if (roadmapList && roadmapList.length > 0) {
+          const latestRoadmap = roadmapList[roadmapList.length - 1];
+          const latestDetail = await apiClient.get<any>(`/Roadmap/${latestRoadmap.roadmapId}`);
+          
+          if (latestDetail && latestDetail.phases) {
+            const graph = mapDtoToGraph(latestDetail);
+            const completedCount = graph.nodes.filter(n => n.data.state === "done").length;
+            const totalCount = graph.nodes.length;
+            const progressPercent = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+            
+            setRoadmapProgress({
+              roleName: latestRoadmap.targetRoleName || "Software Engineer",
+              percent: progressPercent,
+              completed: completedCount,
+              total: totalCount
+            });
+          }
+
+          const allDetails = await Promise.all(
+            roadmapList.map(r => apiClient.get<any>(`/Roadmap/${r.roadmapId}`).catch(() => null))
+          );
+          
+          const combinedActiveNodes: any[] = [];
+          const seenCourseIds = new Set<string>();
+
+          for (const detail of allDetails) {
+            if (detail && detail.phases) {
+              const graph = mapDtoToGraph(detail);
+              const activeOrLocked = graph.nodes
+                .filter(n => n.data.state === "active" || n.data.state === "locked")
+                .map(n => n.data);
+              
+              for (const node of activeOrLocked) {
+                const identifier = node.courseId || node.courseCode || node.name;
+                if (!seenCourseIds.has(identifier)) {
+                  seenCourseIds.add(identifier);
+                  combinedActiveNodes.push(node);
+                }
+              }
+            }
+          }
+          
+          setInProgressRoadmapCourses(combinedActiveNodes);
+        }
+      } catch (err) {
+        console.error("Error fetching roadmap progress for dashboard:", err);
+      }
+    } catch (err: any) {
+      setError(err.message || "Error fetching data");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 850);
-    return () => clearTimeout(timer);
-  }, []);
+    fetchDetail();
+  }, [user, token]);
 
   const handleRetry = () => {
-    setError(null);
-    setLoading(true);
-    setTimeout(() => setLoading(false), 600);
+    fetchDetail();
   };
 
   if (error) {
@@ -61,6 +163,49 @@ export default function ProfileTranscripts() {
       </div>
     );
   }
+
+  const inProgressCourses = studentDetail?.courses.filter(c => c.gpa === null) || [];
+  const displayInProgress = inProgressRoadmapCourses !== null ? inProgressRoadmapCourses : inProgressCourses;
+  const completedCourses = studentDetail?.courses.filter(c => c.gpa !== null) || [];
+  const tags = localTags;
+
+  const handleToggleNewSkill = (skill: string) => {
+    if (selectedNewSkills.includes(skill)) {
+      setSelectedNewSkills(selectedNewSkills.filter(s => s !== skill));
+    } else {
+      setSelectedNewSkills([...selectedNewSkills, skill]);
+    }
+  };
+
+  const handleSaveSelectedSkills = () => {
+    if (selectedNewSkills.length === 0) {
+      toast.info("Vui lòng chọn ít nhất 1 skill.");
+      return;
+    }
+    const newTags = selectedNewSkills.filter(s => !tags.includes(s));
+    if (newTags.length > 0) {
+      setLocalTags([...tags, ...newTags]);
+      toast.success(`Đã thêm ${newTags.length} skill thành công! (Dữ liệu tạm)`);
+    } else {
+      toast.info(`Các skill bạn chọn đều đã có trong hồ sơ.`);
+    }
+    setIsAddSkillOpen(false);
+    setSelectedNewSkills([]);
+    setSkillSearch("");
+  };
+
+  const handleCloseAddModal = (open: boolean) => {
+    setIsAddSkillOpen(open);
+    if (!open) {
+      setSelectedNewSkills([]);
+      setSkillSearch("");
+    }
+  };
+
+  const filteredMockSkills = mockAvailableSkills.filter(s => s.toLowerCase().includes(skillSearch.toLowerCase()));
+
+  const gpaCourses = studentDetail?.courses.filter(c => c.gpa != null && c.gpa > 0) || [];
+  const avgGpa = gpaCourses.length > 0 ? (gpaCourses.reduce((sum, c) => sum + (c.gpa || 0), 0) / gpaCourses.length).toFixed(2) : "0.00";
 
   return (
     <div className="p-6 md:p-8 space-y-6 min-h-full bg-transparent transition-colors duration-300">
@@ -90,7 +235,6 @@ export default function ProfileTranscripts() {
             </select>
           </div>
 
-          {/* Nút Đồng bộ GitHub */}
           <button
             onClick={handleSyncToGithub}
             disabled={isSyncing}
@@ -108,7 +252,7 @@ export default function ProfileTranscripts() {
       {/* ── TOP TIER: 2-column layout (Student Card | Stats) ── */}
       <div className="grid gap-6 items-start" style={{ gridTemplateColumns: "320px 1fr" }}>
         {/* Left: Student Profile */}
-        <StudentProfileCard />
+        <StudentProfileCard studentDetail={studentDetail} />
 
         {/* Right: Learning Progress & Acquired Skills */}
         <div className="flex flex-col gap-6">
@@ -126,37 +270,33 @@ export default function ProfileTranscripts() {
               </div>
             ) : (
               <div className="flex flex-col gap-6">
-                {/* 2 Progress Bars Side by Side */}
+                {/* Progress Bars */}
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Active Course */}
-                  <div className="border border-[#E2E8F0] bg-white rounded-xl p-4 relative overflow-hidden transition-colors">
+                  {/* Average GPA */}
+                  <div className="border border-[#E2E8F0] bg-white rounded-xl p-4 relative overflow-hidden transition-colors flex flex-col justify-between">
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#3B28CC]" />
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-[13px] font-bold text-[#0F172A] truncate pr-2">Advanced React Patterns</span>
-                      <span className="bg-[#E0E7FF] text-[#3B28CC] text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap">In Progress</span>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[13px] font-bold text-[#0F172A] truncate pr-2">Average GPA</span>
+                      <span className="bg-[#E0E7FF] text-[#3B28CC] text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap">Scale 10.0</span>
                     </div>
-                    <div className="flex justify-between items-end mb-2">
-                      <span className="text-[11px] font-semibold text-[#64748B]">Step 4 of 10</span>
-                      <span className="text-[11px] font-bold text-[#3B28CC]">40%</span>
+                    <div className="flex items-end gap-2 mt-2">
+                      <span className="text-3xl font-black text-[#3B28CC] leading-none">{avgGpa}</span>
                     </div>
-                    <Progress value={40} className="h-1.5 bg-[#E2E8F0] [&>[data-slot=progress-indicator]]:bg-[#3B28CC]" />
                   </div>
 
-                  {/* Completed Course */}
+                  {/* Roadmap Progress */}
                   <div className="border border-[#E2E8F0] bg-white rounded-xl p-4 relative overflow-hidden transition-colors">
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#10B981]" />
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-[13px] font-bold text-[#0F172A] truncate pr-2">TypeScript Fundamentals</span>
-                      <span className="bg-[#DCFCE7] text-[#16A34A] text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                        Done
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-[13px] font-bold text-[#0F172A] pr-2 leading-tight">
+                        {roadmapProgress ? `${roadmapProgress.roleName} Roadmap` : "Software Engineer Roadmap"}
                       </span>
                     </div>
                     <div className="flex justify-between items-end mb-2">
-                      <span className="text-[11px] font-semibold text-[#64748B]">Completed</span>
-                      <span className="text-[11px] font-bold text-[#0F172A]">100%</span>
+                      <span className="text-[11px] font-semibold text-[#64748B]">Overall Progress</span>
+                      <span className="text-[11px] font-bold text-[#0F172A]">{roadmapProgress ? roadmapProgress.percent : 0}%</span>
                     </div>
-                    <Progress value={100} className="h-1.5 bg-[#E2E8F0] [&>[data-slot=progress-indicator]]:bg-[#10B981]" />
+                    <Progress value={roadmapProgress ? roadmapProgress.percent : 0} className="h-1.5 bg-[#E2E8F0] [&>[data-slot=progress-indicator]]:bg-[#10B981]" />
                   </div>
                 </div>
 
@@ -164,15 +304,15 @@ export default function ProfileTranscripts() {
                 <div className="pt-5 border-t border-[#E2E8F0]">
                   <div className="flex justify-between text-center divide-x divide-[#E2E8F0]">
                     <div className="flex-1">
-                      <p className="text-[24px] font-bold text-[#3B28CC]">12</p>
+                      <p className="text-[24px] font-bold text-[#3B28CC]">{tags.length}</p>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748B] mt-0.5">SKILLS</p>
                     </div>
                     <div className="flex-1">
-                      <p className="text-[24px] font-bold text-[#10B981]">3</p>
+                      <p className="text-[24px] font-bold text-[#10B981]">{completedCourses.length}</p>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748B] mt-0.5">COMPLETED</p>
                     </div>
                     <div className="flex-1">
-                      <p className="text-[24px] font-bold text-[#0F172A]">45h</p>
+                      <p className="text-[24px] font-bold text-[#0F172A]">{(completedCourses.length * 45)}h</p>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748B] mt-0.5">STUDY HOUR</p>
                     </div>
                   </div>
@@ -183,9 +323,18 @@ export default function ProfileTranscripts() {
 
           {/* Acquired Skills Card */}
           <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-6 flex flex-col transition-colors duration-300">
-            <div className="flex items-center gap-2 mb-4">
-              <Code2 className="w-5 h-5 text-[#3B28CC]" strokeWidth={2.5} />
-              <h4 className="text-[16px] font-bold text-[#0F172A]">Acquired Skills</h4>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Code2 className="w-5 h-5 text-[#3B28CC]" strokeWidth={2.5} />
+                <h4 className="text-[16px] font-bold text-[#0F172A]">Acquired Skills</h4>
+              </div>
+              <button 
+                onClick={() => setIsAddSkillOpen(true)}
+                className="flex items-center justify-center bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#E0E7FF] hover:border-[#C7D2FE] text-[#3B28CC] text-[13px] font-bold h-8 px-3 rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add
+              </button>
             </div>
             <div className="border-t border-[#E2E8F0] mb-5 w-full" />
             
@@ -197,42 +346,33 @@ export default function ProfileTranscripts() {
               </div>
             ) : (
               <div className="flex flex-wrap gap-3 items-center">
-                {skills.slice(0, 5).map((s) => (
-                  <SkillTag key={s} label={s} />
-                ))}
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#F1F5F9]:bg-slate-700 transition-colors text-[12px] font-semibold text-[#3B28CC]">
-                  <Plus size={14} strokeWidth={3} />
-                  Add Skill
-                </button>
+                {tags.length > 0 ? (
+                  (isExpandedSkills ? tags : tags.slice(0, 5)).map((s) => (
+                    <SkillTag key={s} label={s} />
+                  ))
+                ) : (
+                  <span className="text-sm text-slate-500 font-medium">No skills acquired yet.</span>
+                )}
+                {tags.length > 5 && !isExpandedSkills && (
+                  <button 
+                    onClick={() => setIsExpandedSkills(true)}
+                    className="text-xs text-[#3B28CC] font-bold px-2.5 py-1.5 bg-[#EEF2FF] hover:bg-[#E0E7FF] rounded-full border border-[#C7D2FE] transition-colors cursor-pointer"
+                  >
+                     + {tags.length - 5} more skills
+                  </button>
+                )}
+                {isExpandedSkills && tags.length > 5 && (
+                  <button 
+                    onClick={() => setIsExpandedSkills(false)}
+                    className="text-xs text-[#64748B] font-bold px-2.5 py-1.5 bg-[#F8FAFC] hover:bg-[#F1F5F9] rounded-full border border-[#E2E8F0] transition-colors cursor-pointer"
+                  >
+                     Show less
+                  </button>
+                )}
               </div>
             )}
           </Card>
 
-          {/* AI Key Guide Card */}
-          <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-6 flex flex-col transition-colors duration-300">
-            <div className="flex items-center gap-2 mb-4">
-              <Key className="w-5 h-5 text-[#3B28CC]" strokeWidth={2.5} />
-              <h4 className="text-[16px] font-bold text-[#0F172A]">Gemini API Key Guide</h4>
-            </div>
-            <div className="border-t border-[#E2E8F0] mb-5 w-full" />
-            
-            <ol className="list-decimal pl-4 space-y-2.5 text-[13px] text-[#334155] font-medium marker:text-[#64748B] marker:font-bold mb-6">
-              <li>Go to Google AI Studio</li>
-              <li>Sign in with your Google account</li>
-              <li>Open API Keys</li>
-              <li>Create a new API key</li>
-              <li>Copy the key and paste it into the AI Configuration in Staff Console (or settings)</li>
-            </ol>
-            
-            <a 
-              href="https://aistudio.google.com/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#E0E7FF] hover:border-[#C7D2FE] text-[#3B28CC] text-[13px] font-bold h-10 rounded-xl transition-colors w-full"
-            >
-              Open Google AI Studio
-            </a>
-          </Card>
         </div>
       </div>
 
@@ -249,89 +389,91 @@ export default function ProfileTranscripts() {
             <Skeleton className="h-5 w-14 rounded-full" />
           ) : (
             <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
-              2 Active
+              {displayInProgress.length} Active
             </span>
           )}
         </div>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] hover:bg-transparent:bg-transparent">
-                <TableHead className="w-[25%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Name</TableHead>
-                <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Code</TableHead>
-                <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Duration</TableHead>
-                <TableHead className="w-[20%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Learning Outcomes</TableHead>
-                <TableHead className="w-[10%] px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">GPA</TableHead>
-                <TableHead className="w-[15%] px-5 py-3 text-right text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        <div className="flex flex-col">
+          <div className="bg-[#F8FAFC] border-b border-[#E2E8F0] pr-2">
+            <Table className="table-fixed">
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[25%]" />
+              </colgroup>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-0">
+                  <TableHead className="px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Name</TableHead>
+                  <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Code</TableHead>
+                  <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Attempts</TableHead>
+                  <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">GPA</TableHead>
+                  <TableHead className="px-5 py-3 text-right text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+            </Table>
+          </div>
+          <div className="[&>div]:max-h-[350px] [&>div]:overflow-y-scroll [&>div]:overflow-x-hidden [&>div]:custom-scrollbar">
+            <Table className="table-fixed">
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[25%]" />
+              </colgroup>
+              <TableBody>
               {loading ? (
                 Array.from({ length: 2 }).map((_, i) => (
                   <TableRow key={i} className="border-t border-[#E2E8F0]">
                     <TableCell className="px-5 py-3"><Skeleton className="h-4 w-40" /></TableCell>
                     <TableCell className="px-5 py-3"><Skeleton className="h-4 w-10" /></TableCell>
                     <TableCell className="px-5 py-3"><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell className="px-5 py-3"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
                     <TableCell className="px-5 py-3"><Skeleton className="h-6 w-16" /></TableCell>
-                    <TableCell className="px-5 py-3"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-5 w-20 rounded-full ml-auto" /></TableCell>
                   </TableRow>
                 ))
+              ) : displayInProgress.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6 text-sm text-slate-500 font-medium">
+                    No in-progress courses found.
+                  </TableCell>
+                </TableRow>
               ) : (
-                <>
-                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
-                    <TableCell className="px-5 py-3 align-top">
+                displayInProgress.map((course: any, i: number) => (
+                  <TableRow key={course.nodeId || course.courseId || i} className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
+                    <TableCell className="px-5 py-3 align-middle">
                       <div className="flex flex-col items-start gap-1">
-                        <span className="text-[13px] text-[#0F172A] font-bold">Advanced Java Programming</span>
-                        <span className="text-[10px] bg-[#FEF3C7] text-[#D97706] font-bold px-1.5 py-0.5 rounded-md">
-                          * Prerequisite
+                        <span className="text-[13px] text-[#0F172A] font-bold">{course.name || course.courseName}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-middle text-center">
+                      {course.code || course.courseCode || course.courseId || "N/A"}
+                    </TableCell>
+                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-middle text-center">
+                      {course.examAttempts ?? 0}
+                    </TableCell>
+                    <TableCell className="px-5 py-3 align-middle text-center">
+                      <div className="flex justify-center"><GpaInput value={course.gpa?.toString() || ""} readOnly /></div>
+                    </TableCell>
+                    <TableCell className="px-5 py-3 align-middle text-right">
+                      {course.state === "locked" || (course.state === undefined && (course.status === "PENDING" || course.status === "pending")) ? (
+                        <span className="bg-[#F1F5F9] text-[#64748B] px-2.5 py-1 rounded-full text-[11px] font-bold border border-[#E2E8F0]">
+                          Locked
                         </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-top">JA301</TableCell>
-                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-top">8 Weeks</TableCell>
-                    <TableCell className="px-5 py-3 align-top">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {["OOP", "Backend"].map((t) => (
-                          <SkillTag key={t} label={t} variant="green" />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-3 align-top text-center">
-                      <div className="flex justify-center"><GpaInput /></div>
-                    </TableCell>
-                    <TableCell className="px-5 py-3 align-top text-right">
-                      <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
-                        In Progress
-                      </span>
+                      ) : (
+                        <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
+                          In Progress
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
-                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
-                    <TableCell className="px-5 py-3 align-top text-[13px] text-[#0F172A] font-bold">
-                      Database Management Systems
-                    </TableCell>
-                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-top">DB202</TableCell>
-                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-top">6 Weeks</TableCell>
-                    <TableCell className="px-5 py-3 align-top">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {["SQL", "Schema"].map((t) => (
-                          <SkillTag key={t} label={t} variant="green" />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-3 align-top text-center">
-                      <div className="flex justify-center"><GpaInput /></div>
-                    </TableCell>
-                    <TableCell className="px-5 py-3 align-top text-right">
-                      <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
-                        In Progress
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                </>
+                ))
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </div>
       </div>
 
@@ -348,88 +490,188 @@ export default function ProfileTranscripts() {
             <Skeleton className="h-5 w-14 rounded-full" />
           ) : (
             <span className="bg-[#DCFCE7] text-[#16A34A] px-2.5 py-1 rounded-full text-[11px] font-bold">
-              2 Completed
+              {completedCourses.length} Completed
             </span>
           )}
         </div>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] hover:bg-transparent:bg-transparent">
-                <TableHead className="w-[25%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Name</TableHead>
-                <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Code</TableHead>
-                <TableHead className="w-[15%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Duration</TableHead>
-                <TableHead className="w-[20%] px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Learning Outcomes</TableHead>
-                <TableHead className="w-[10%] px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">GPA</TableHead>
-                <TableHead className="w-[15%] px-5 py-3 text-right text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        <div className="flex flex-col">
+          <div className="bg-[#F8FAFC] border-b border-[#E2E8F0] pr-2">
+            <Table className="table-fixed">
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[25%]" />
+              </colgroup>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-0">
+                  <TableHead className="px-5 py-3 text-left text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Name</TableHead>
+                  <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Code</TableHead>
+                  <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Attempts</TableHead>
+                  <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">GPA</TableHead>
+                  <TableHead className="px-5 py-3 text-right text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+            </Table>
+          </div>
+          <div className="[&>div]:max-h-[350px] [&>div]:overflow-y-scroll [&>div]:overflow-x-hidden [&>div]:custom-scrollbar">
+            <Table className="table-fixed">
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[25%]" />
+              </colgroup>
+              <TableBody>
               {loading ? (
                 Array.from({ length: 2 }).map((_, i) => (
                   <TableRow key={i} className="border-t border-[#E2E8F0]">
                     <TableCell className="px-5 py-3"><Skeleton className="h-4 w-40" /></TableCell>
                     <TableCell className="px-5 py-3"><Skeleton className="h-4 w-10" /></TableCell>
                     <TableCell className="px-5 py-3"><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell className="px-5 py-3"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
                     <TableCell className="px-5 py-3"><Skeleton className="h-6 w-16" /></TableCell>
-                    <TableCell className="px-5 py-3"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-3"><Skeleton className="h-5 w-20 rounded-full ml-auto" /></TableCell>
                   </TableRow>
                 ))
+              ) : completedCourses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6 text-sm text-slate-500 font-medium">
+                    No completed courses found.
+                  </TableCell>
+                </TableRow>
               ) : (
-                <>
-                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
-                    <TableCell className="px-5 py-3 align-top">
+                completedCourses.map((course) => (
+                  <TableRow key={course.courseId} className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
+                    <TableCell className="px-5 py-3 align-middle">
                       <div className="flex flex-col items-start gap-1">
-                        <span className="text-[13px] text-[#0F172A] font-bold">Introduction to Programming</span>
+                        <span className="text-[13px] text-[#0F172A] font-bold">{course.courseName}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-top">PR101</TableCell>
-                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-top">8 Weeks</TableCell>
-                    <TableCell className="px-5 py-3 align-top">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {["Logic", "Syntax"].map((t) => (
-                          <SkillTag key={t} label={t} />
-                        ))}
-                      </div>
+                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-middle text-center">
+                      {course.courseId}
                     </TableCell>
-                    <TableCell className="px-5 py-3 align-top text-center">
-                      <div className="flex justify-center"><GpaInput defaultValue="3.8" /></div>
+                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-middle text-center">
+                      {course.examAttempts ?? 1}
                     </TableCell>
-                    <TableCell className="px-5 py-3 align-top text-right">
+                    <TableCell className="px-5 py-3 align-middle text-center">
+                      <div className="flex justify-center"><GpaInput value={course.gpa?.toString() || "0"} readOnly /></div>
+                    </TableCell>
+                    <TableCell className="px-5 py-3 align-middle text-right">
                       <span className="bg-[#DCFCE7] text-[#16A34A] px-2.5 py-1 rounded-full text-[11px] font-bold">
                         Done
                       </span>
                     </TableCell>
                   </TableRow>
-                  <TableRow className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50:bg-slate-800/50 transition-colors">
-                    <TableCell className="px-5 py-3 align-top text-[13px] text-[#0F172A] font-bold">
-                      Web Foundations (External)
-                    </TableCell>
-                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-top">Coursera</TableCell>
-                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-top">4 Weeks</TableCell>
-                    <TableCell className="px-5 py-3 align-top">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {["HTML", "CSS"].map((t) => (
-                          <SkillTag key={t} label={t} />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-3 align-top text-center">
-                      <div className="flex justify-center"><GpaInput defaultValue="4.0" /></div>
-                    </TableCell>
-                    <TableCell className="px-5 py-3 align-top text-right">
-                      <span className="bg-[#DCFCE7] text-[#16A34A] px-2.5 py-1 rounded-full text-[11px] font-bold">
-                        Done
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                </>
+                ))
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </div>
       </div>
+
+      {/* Gemini API Key Guide (Footer Card) */}
+      <Card id="api-key-guide" className="bg-white rounded-xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-4 flex flex-col transition-colors duration-300 scroll-mt-6">
+        <div 
+          className="flex items-center justify-between cursor-pointer select-none" 
+          onClick={() => setIsGeminiGuideOpen(!isGeminiGuideOpen)}
+        >
+          <div className="flex items-center gap-2">
+            <Key className="w-4 h-4 text-[#3B28CC]" strokeWidth={2.5} />
+            <h4 className="text-[14px] font-bold text-[#0F172A]">Gemini API Key Guide</h4>
+          </div>
+          <button className="text-[#64748B] hover:text-[#0F172A] transition-colors p-1 bg-[#F8FAFC] hover:bg-[#F1F5F9] rounded-full border border-[#E2E8F0]">
+            {isGeminiGuideOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+
+        {isGeminiGuideOpen && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-3 pt-3 border-t border-[#E2E8F0] animate-in fade-in duration-300">
+            <div className="flex flex-col gap-1.5 max-w-sm">
+              <p className="text-[11px] text-[#64748B] leading-tight">
+                Configure your Gemini API Key to unlock AI features.
+              </p>
+              <a 
+                href="https://aistudio.google.com/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#E0E7FF] hover:border-[#C7D2FE] text-[#3B28CC] text-[11px] font-bold h-7 px-3 rounded-lg transition-colors w-fit"
+              >
+                Open AI Studio
+              </a>
+            </div>
+
+            <div className="flex-1 bg-[#F8FAFC] rounded-lg p-3 border border-[#E2E8F0] w-full sm:w-auto">
+              <ol className="list-decimal pl-4 space-y-1 text-[11.5px] text-[#334155] font-medium marker:text-[#3B28CC] marker:font-bold">
+                <li>Go to Google AI Studio & sign in.</li>
+                <li>Open <strong>API Keys</strong> section.</li>
+                <li>Click <strong>Create a new API key</strong> & copy it.</li>
+                <li>Paste it into the AI Configuration in settings.</li>
+              </ol>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Add Skill Modal (Mock) */}
+      <Dialog open={isAddSkillOpen} onOpenChange={handleCloseAddModal}>
+        <DialogContent className="max-h-[85vh] flex flex-col sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>Add Acquired Skills</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 mt-2 overflow-hidden">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+              <Input 
+                placeholder="Search skills (e.g. Java, Python...)" 
+                value={skillSearch}
+                onChange={(e) => setSkillSearch(e.target.value)}
+                className="pl-9 h-10"
+              />
+            </div>
+            <div className="overflow-y-auto max-h-[300px] border border-[#E2E8F0] rounded-lg p-2 space-y-1">
+              {filteredMockSkills.length > 0 ? (
+                filteredMockSkills.map(skill => {
+                  const isSelected = selectedNewSkills.includes(skill);
+                  const isAlreadyAcquired = tags.includes(skill);
+                  return (
+                    <button
+                      key={skill}
+                      onClick={() => !isAlreadyAcquired && handleToggleNewSkill(skill)}
+                      disabled={isAlreadyAcquired}
+                      className={`w-full text-left px-3 py-2 text-[13px] font-medium rounded transition-colors flex items-center justify-between group
+                        ${isAlreadyAcquired ? 'opacity-50 cursor-not-allowed bg-[#F8FAFC]' : 
+                          isSelected ? 'bg-[#EEF2FF] text-[#3B28CC]' : 'text-[#334155] hover:bg-[#F1F5F9]'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center
+                          ${isSelected ? 'bg-[#3B28CC] border-[#3B28CC]' : 'border-[#CBD5E1]'}`}>
+                          {isSelected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                        </div>
+                        {skill} {isAlreadyAcquired && "(Already acquired)"}
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="text-center py-4 text-[13px] text-[#64748B]">
+                  No matching skills found
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => handleCloseAddModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveSelectedSkills} className="bg-[#3B28CC] hover:bg-[#3B28CC]/90 text-white">
+              Add {selectedNewSkills.length > 0 ? `(${selectedNewSkills.length})` : ""} Skills
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
