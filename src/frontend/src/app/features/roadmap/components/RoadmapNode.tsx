@@ -317,7 +317,10 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
                     <AlertDialogAction 
                       style={{ background: style.core, color: "white" }}
                       onClick={() => {
-                        updateNodeState(node.id.toString(), "done", parseFloat(gpa));
+                        const targetId = ((node as any).nodeId || node.id)?.toString();
+                        if (targetId) {
+                          updateNodeState(targetId, "done", parseFloat(gpa));
+                        }
                         setShowConfirm(false);
                         setOpen(false);
                       }}

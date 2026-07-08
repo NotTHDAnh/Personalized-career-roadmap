@@ -7,14 +7,14 @@ export function GoalNode({ goal }: { goal: RoadmapGoal }) {
       className="flex flex-col items-center justify-center w-full"
     >
       {/* Container matching the separate card look, but positioned absolutely */}
-      <div className="bg-white/95 backdrop-blur-md rounded-[24px] flex flex-col items-center justify-center px-4 py-8 w-full"
+      <div className="bg-white/95 backdrop-blur-md rounded-[24px] flex flex-col items-center justify-center px-4 py-5 w-full max-h-[250px] overflow-hidden"
            style={{
              boxShadow: "0 10px 30px rgba(245,158,11,0.08), 0 0 0 1px rgba(253,230,138,0.5)",
              background: "linear-gradient(180deg, #FFFFFF 0%, #FFFBEB 100%)"
            }}
       >
         {/* Target Icon with glowing rings */}
-        <div className="relative flex items-center justify-center mb-8 mt-4">
+        <div className="relative flex items-center justify-center mb-5 mt-2">
           <style>
             {`
               @keyframes smoothOscillate {
