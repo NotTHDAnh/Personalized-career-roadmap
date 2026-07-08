@@ -70,7 +70,8 @@ namespace CareerSystem.API.Services.Implementations
                     {
                         CourseId = ar.CourseId,
                         CourseName = ar.Course?.CourseName ?? "Unknown Course",
-                        Gpa = ar.Gpa
+                        Gpa = ar.Gpa,
+                        ExamAttempts = ar.ExamAttempts
                     }).ToList()
             };
         }
@@ -132,12 +133,13 @@ namespace CareerSystem.API.Services.Implementations
                     var existing = existingRecords.FirstOrDefault(r => r.CourseId == incoming.CourseId);
                     if (existing != null)
                     {
-                        if (existing.Gpa != incoming.Gpa)
+                        if (existing.Gpa != incoming.Gpa || existing.ExamAttempts != incoming.ExamAttempts)
                         {
-                            var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] [UPDATE] Staff: {staffId} | Student: {student.UserId} | Course: {existing.CourseId} | Old GPA: {existing.Gpa} | New GPA: {incoming.Gpa}\n";
+                            var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] [UPDATE] Staff: {staffId} | Student: {student.UserId} | Course: {existing.CourseId} | Old GPA: {existing.Gpa} | New GPA: {incoming.Gpa} | Old Attempts: {existing.ExamAttempts} | New Attempts: {incoming.ExamAttempts}\n";
                             await System.IO.File.AppendAllTextAsync(logPath, logMessage);
                             
                             existing.Gpa = incoming.Gpa;
+                            existing.ExamAttempts = incoming.ExamAttempts;
                         }
                     }
                     else
@@ -148,7 +150,7 @@ namespace CareerSystem.API.Services.Implementations
                             UserId = student.UserId,
                             CourseId = incoming.CourseId,
                             Gpa = incoming.Gpa,
-                            ExamAttempts = 1
+                            ExamAttempts = incoming.ExamAttempts ?? 1
                         };
                         _context.AcademicRecords.Add(newRecord);
                         

@@ -45,7 +45,7 @@ interface Student {
 interface StudentDetail extends Student {
   email: string;
   createdAt: string;
-  courses: { courseId?: string, courseName: string, gpa: number }[];
+  courses: { courseId?: string, courseName: string, gpa: number, examAttempts?: number }[];
 }
 
 export function StaffStudentsView() {
@@ -77,7 +77,7 @@ export function StaffStudentsView() {
     role: "",
     status: false,
     createdAt: "",
-    courses: [] as {courseId: string, gpa: number | string}[]
+    courses: [] as {courseId: string, gpa: number | string, examAttempts: number | string}[]
   });
 
   const fetchStudents = async () => {
@@ -135,7 +135,7 @@ export function StaffStudentsView() {
         role: data.role,
         status: data.status,
         createdAt: dateVal,
-        courses: data.courses.map(c => ({ courseId: c.courseId || "", gpa: c.gpa }))
+        courses: data.courses.map(c => ({ courseId: c.courseId || "", gpa: c.gpa, examAttempts: c.examAttempts ?? 1 }))
       });
       setIsEditing(false);
       setIsDetailOpen(true);
@@ -156,7 +156,8 @@ export function StaffStudentsView() {
         createdAt: editForm.createdAt ? new Date(editForm.createdAt).toISOString() : null,
         courses: editForm.courses.map(c => ({
           courseId: c.courseId,
-          gpa: typeof c.gpa === 'string' ? (parseFloat(c.gpa) || 0) : c.gpa
+          gpa: typeof c.gpa === 'string' ? (parseFloat(c.gpa) || 0) : c.gpa,
+          examAttempts: typeof c.examAttempts === 'string' ? (parseInt(c.examAttempts) || 1) : c.examAttempts
         }))
       });
       toast.success("Updated successfully");
@@ -503,7 +504,8 @@ export function StaffStudentsView() {
                       <tr>
                         <th className="px-4 py-2 font-bold">Course Name</th>
                         <th className="px-4 py-2 font-bold w-24 text-right">GPA / Score</th>
-                        {isEditing && <th className="px-4 py-2 font-bold w-12 text-center">Xóa</th>}
+                        <th className="px-4 py-2 font-bold w-24 text-right">Exam Attempts</th>
+                        {isEditing && <th className="px-4 py-2 font-bold w-12 text-center">Delete</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -522,9 +524,21 @@ export function StaffStudentsView() {
                                   className="w-full h-8 rounded-md border border-gray-300 text-sm px-2"
                                 >
                                   <option value="" disabled>-- Chọn môn học --</option>
-                                  {availableCourses.map(ac => (
-                                    <option key={ac.courseId} value={ac.courseId}>{ac.courseName}</option>
-                                  ))}
+                                  {availableCourses.map(ac => {
+                                    // Kiểm tra xem môn học này đã được chọn ở một dòng khác chưa
+                                    const isSelectedElsewhere = editForm.courses.some(
+                                      (course, courseIdx) => courseIdx !== idx && course.courseId === ac.courseId
+                                    );
+                                    return (
+                                      <option 
+                                        key={ac.courseId} 
+                                        value={ac.courseId} 
+                                        disabled={isSelectedElsewhere}
+                                      >
+                                        {ac.courseName}
+                                      </option>
+                                    );
+                                  })}
                                 </select>
                               </td>
                               <td className="px-4 py-2 text-right">
@@ -547,6 +561,25 @@ export function StaffStudentsView() {
                                   )}
                                 </div>
                               </td>
+                              <td className="px-4 py-2 text-right">
+                                <div className="flex flex-col items-end">
+                                  <Input 
+                                    type="number" 
+                                    min="1" 
+                                    step="1"
+                                    value={c.examAttempts} 
+                                    onChange={e => {
+                                      const newCourses = [...editForm.courses];
+                                      newCourses[idx].examAttempts = e.target.value;
+                                      setEditForm({...editForm, courses: newCourses});
+                                    }}
+                                    className="h-8 w-16 text-right ml-auto"
+                                  />
+                                  {c.examAttempts !== "" && Number(c.examAttempts) < 1 && (
+                                    <span className="text-red-500 text-[11px] whitespace-nowrap mt-1 font-medium">Must be &gt;= 1</span>
+                                  )}
+                                </div>
+                              </td>
                               <td className="px-4 py-2 text-center">
                                 <button onClick={() => {
                                   const newCourses = editForm.courses.filter((_, i) => i !== idx);
@@ -558,9 +591,9 @@ export function StaffStudentsView() {
                             </tr>
                           ))}
                           <tr>
-                            <td colSpan={3} className="px-4 py-2 text-center">
+                            <td colSpan={4} className="px-4 py-2 text-center">
                               <Button variant="outline" size="sm" onClick={() => {
-                                setEditForm({...editForm, courses: [...editForm.courses, { courseId: "", gpa: 5.0 }]});
+                                setEditForm({...editForm, courses: [...editForm.courses, { courseId: "", gpa: 5.0, examAttempts: 1 }]});
                               }} className="text-blue-600 border-blue-600 hover:bg-blue-50">+ Thêm môn học</Button>
                             </td>
                           </tr>
@@ -575,11 +608,14 @@ export function StaffStudentsView() {
                                   {c.gpa.toFixed(1)}
                                 </span>
                               </td>
+                              <td className="px-4 py-2 text-right text-gray-600 font-medium">
+                                {c.examAttempts || 1}
+                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr className="border-t border-gray-200">
-                            <td colSpan={2} className="px-4 py-6 text-center text-gray-500 italic">
+                            <td colSpan={3} className="px-4 py-6 text-center text-gray-500 italic">
                               No enrolled courses yet
                             </td>
                           </tr>
@@ -598,7 +634,8 @@ export function StaffStudentsView() {
                     onClick={handleSaveDetail} 
                     disabled={isSaving || !editForm.courses.every(c => {
                       const val = typeof c.gpa === 'string' ? parseFloat(c.gpa) : c.gpa;
-                      return !isNaN(val) && val >= 5.0 && val <= 10.0 && c.gpa !== "";
+                      const attempts = typeof c.examAttempts === 'string' ? parseInt(c.examAttempts) : c.examAttempts;
+                      return !isNaN(val) && val >= 5.0 && val <= 10.0 && c.gpa !== "" && c.courseId !== "" && !isNaN(attempts) && attempts >= 1 && c.examAttempts !== "";
                     })} 
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >

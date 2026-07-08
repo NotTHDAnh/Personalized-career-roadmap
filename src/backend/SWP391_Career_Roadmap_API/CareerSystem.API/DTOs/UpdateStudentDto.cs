@@ -29,5 +29,8 @@ namespace CareerSystem.API.DTOs
 
         [Range(5.0, 10.0, ErrorMessage = "GPA must be between 5.0 and 10.0")]
         public decimal Gpa { get; set; }
+
+        [Range(1, 100, ErrorMessage = "Exam Attempts must be at least 1")]
+        public int? ExamAttempts { get; set; }
     }
 }

@@ -20,5 +20,6 @@ namespace CareerSystem.API.DTOs
         public string CourseId { get; set; }
         public string CourseName { get; set; }
         public decimal Gpa { get; set; }
+        public int? ExamAttempts { get; set; }
     }
 }
