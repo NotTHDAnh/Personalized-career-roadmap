@@ -567,6 +567,12 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(255)
                 .IsUnicode(false)
                 .HasColumnName("gemini_api_key");
+            entity.Property(e => e.Status)
+                .HasDefaultValue(true)
+                .HasColumnName("status");
+            entity.Property(e => e.DeleteHistory)
+                .HasDefaultValue(false)
+                .HasColumnName("delete_history");
         });
 
         modelBuilder.Entity<UserRefreshToken>(entity =>

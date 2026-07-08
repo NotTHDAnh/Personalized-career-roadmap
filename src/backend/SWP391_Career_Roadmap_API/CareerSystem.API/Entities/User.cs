@@ -23,6 +23,10 @@ public partial class User
 
     public string? GeminiApiKey { get; set; }
 
+    public bool Status { get; set; } = true;
+
+    public bool DeleteHistory { get; set; } = false;
+
     public virtual ICollection<AcademicRecord> AcademicRecords { get; set; } = new List<AcademicRecord>();
 
     public virtual GithubProfile? GithubProfile { get; set; }

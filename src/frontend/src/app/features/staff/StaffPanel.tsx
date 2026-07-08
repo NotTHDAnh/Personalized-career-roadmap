@@ -63,12 +63,8 @@ export default function StaffPanel() {
   const fetchStats = async () => {
     try {
       setLoadingStats(true);
-      const [students, courses, skills] = await Promise.all([
-        apiClient.get<number>("/students/count").catch(() => 0),
-        apiClient.get<number>("/courses/count").catch(() => 0),
-        apiClient.get<number>("/skills/count").catch(() => 0),
-      ]);
-      setStats({ students, courses, skills });
+      const statsData = await apiClient.get<StatCount>("/Staff/dashboard/stats");
+      setStats(statsData);
     } catch (error) {
       console.error("Failed to fetch stats", error);
       setStats({ students: 0, courses: 0, skills: 0 }); // Fallback on error

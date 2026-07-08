@@ -1,7 +1,11 @@
 using CareerSystem.API.Services.Interfaces;
+using CareerSystem.API.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using System.Threading.Tasks;
+using System;
 namespace CareerSystem.API.Controllers
 {
     [Route("api/[controller]")]
@@ -12,15 +16,18 @@ namespace CareerSystem.API.Controllers
         private readonly IStudentImportService _studentImportService;
         private readonly ICourseImportService _courseImportService;
         private readonly ICourseService _courseService;
+        private readonly IStaffStudentService _staffStudentService;
 
         public StaffController(
             IStudentImportService studentImportService, 
             ICourseImportService courseImportService, 
-            ICourseService courseService)
+            ICourseService courseService,
+            IStaffStudentService staffStudentService)
         {
             _studentImportService = studentImportService;
             _courseImportService = courseImportService;
             _courseService = courseService;
+            _staffStudentService = staffStudentService;
         }
 
         /// <summary>
@@ -140,6 +147,116 @@ namespace CareerSystem.API.Controllers
         }
 
         /// <summary>
+        /// Retrieves a list of all students for the Staff Console.
+        /// GET: api/Staff/students?deleted=false
+        /// </summary>
+        [HttpGet("students")]
+        public async Task<IActionResult> GetStudents([FromQuery] bool deleted = false)
+        {
+            var students = await _staffStudentService.GetStudentsAsync(deleted);
+            return Ok(students);
+        }
+
+        /// <summary>
+        /// Retrieves detailed information of a student.
+        /// GET: api/Staff/students/{id}
+        /// </summary>
+        [HttpGet("students/{id}")]
+        public async Task<IActionResult> GetStudentDetail(string id)
+        {
+            var detail = await _staffStudentService.GetStudentDetailAsync(id);
+
+            if (detail == null)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            return Ok(detail);
+        }
+
+        /// <summary>
+        /// Toggles the active/deactive status of a student.
+        /// PATCH: api/Staff/students/{id}/toggle-status
+        /// </summary>
+        [HttpPatch("students/{id}/toggle-status")]
+        public async Task<IActionResult> ToggleStudentStatus(string id)
+        {
+            var success = await _staffStudentService.ToggleStudentStatusAsync(id);
+            if (!success)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            return Ok(new { message = "Cập nhật trạng thái thành công." });
+        }
+
+        /// <summary>
+        /// Soft deletes or restores a student account.
+        /// PATCH: api/Staff/students/{id}/toggle-delete
+        /// </summary>
+        [HttpPatch("students/{id}/toggle-delete")]
+        public async Task<IActionResult> ToggleStudentDelete(string id)
+        {
+            var success = await _staffStudentService.ToggleStudentDeleteAsync(id);
+            if (!success)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            return Ok(new { message = "Cập nhật tài khoản thành công." });
+        }
+
+        /// <summary>
+        /// Updates a student's basic information.
+        /// PUT: api/Staff/students/{id}
+        /// </summary>
+        [HttpPut("students/{id}")]
+        public async Task<IActionResult> UpdateStudent(string id, [FromBody] CareerSystem.API.DTOs.UpdateStudentDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var staffId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+
+            var success = await _staffStudentService.UpdateStudentAsync(id, dto, staffId);
+            if (!success)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            return Ok(new { message = "Cập nhật thông tin sinh viên thành công." });
+        }
+
+        /// <summary>
+        /// Retrieves counts of students, courses, and skills for the Staff Dashboard.
+        /// GET: api/Staff/dashboard/stats
+        /// </summary>
+        [HttpGet("dashboard/stats")]
+        public async Task<IActionResult> GetDashboardStats()
+        {
+            var stats = await _staffStudentService.GetDashboardStatsAsync();
+            return Ok(stats);
+        }
+
+        /// <summary>
+        /// Retrieves a list of all courses for the Staff Console.
+        /// GET: api/Staff/courses
+        /// </summary>
+        [HttpGet("courses")]
+        public async Task<IActionResult> GetCourses()
+        {
+            var courses = await _courseService.GetCoursesAsync();
+            return Ok(courses);
+        }
+
+        /// <summary>
+        /// Xóa trực tiếp điểm môn học của một sinh viên.
+        /// DELETE: api/Staff/students/{studentId}/courses/{courseId}
+        /// </summary>
+        [HttpDelete("students/{studentId}/courses/{courseId}")]
+        public async Task<IActionResult> DeleteStudentCourseRecord(string studentId, string courseId)
+        {
+            var staffId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+            
+            var success = await _staffStudentService.DeleteStudentCourseRecordAsync(studentId, courseId, staffId);
+            if (!success)
+            {
+                return NotFound(new { message = "Không tìm thấy bản ghi điểm của sinh viên cho môn học này." });
+            }
+
+            return Ok(new { message = "Xóa điểm môn học thành công." });
         /// Cập nhật môn học thủ công (chỉ dành cho Staff).
         /// PUT: api/Staff/courses/{courseId}
         /// </summary>
