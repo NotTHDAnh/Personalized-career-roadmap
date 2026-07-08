@@ -2,9 +2,41 @@ import { useState, useEffect } from "react";
 import { Search, ShieldCheck, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { MOCK_COURSES } from "../../data/mockData";
+import { CourseMockData } from "../../data/mockData";
+import { apiClient } from "@/shared/api/apiClient";
 
 export function StaffCoursesView() {
+  const [courses, setCourses] = useState<CourseMockData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setIsLoading(true);
+        // Assuming the endpoint is GET /Course or /courses and returns a list of CourseDetailDto
+        const data = await apiClient.get<any[]>('/Course');
+        
+        const formattedCourses: CourseMockData[] = data.map(c => ({
+          courseId: c.courseId || c.CourseId,
+          courseCode: c.courseCode || c.CourseCode,
+          courseName: c.courseName || c.CourseName,
+          credits: c.credits ?? c.Credits ?? 3,
+          totalStudyHours: c.totalStudyHours ?? c.TotalStudyHours ?? 45,
+          skills: (c.learningOutcomes || c.LearningOutcomes || []).map((lo: any) => lo.skillName || lo.SkillName),
+          prerequisites: (c.prerequisites || c.Prerequisites) ? (c.prerequisites || c.Prerequisites).split(';') : [],
+          is_active: true
+        }));
+        
+        setCourses(formattedCourses);
+      } catch (error) {
+        console.error("Failed to fetch courses:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchCourses();
+  }, []);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;

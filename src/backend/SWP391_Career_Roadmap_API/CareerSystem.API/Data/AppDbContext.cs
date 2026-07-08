@@ -160,6 +160,13 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.IsFoundationalCourse)
                 .HasDefaultValue(false)
                 .HasColumnName("is_foundational_course");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+            entity.Property(e => e.Prerequisites)
+                .HasMaxLength(500)
+                .IsUnicode(false)
+                .HasColumnName("prerequisites");
         });
 
         modelBuilder.Entity<CourseLearningOutcome>(entity =>
