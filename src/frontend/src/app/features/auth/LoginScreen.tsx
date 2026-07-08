@@ -28,7 +28,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     // Dynamically load Google Identity Services SDK
@@ -294,20 +293,7 @@ export default function LoginScreen() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1 pb-2">
-                <input
-                  type="checkbox"
-                  id="remember-me"
-                  defaultChecked
-                  className="w-[14px] h-[14px] rounded-[3px] border-[#CBD5E1] text-[#3B28CC] focus:ring-[#3B28CC] cursor-pointer transition-all"
-                />
-                <label
-                  htmlFor="remember-me"
-                  className="text-[13px] font-medium cursor-pointer select-none text-[#64748B]"
-                >
-                  Remember me on this device
-                </label>
-              </div>
+
 
               <Button
                 type="submit"
