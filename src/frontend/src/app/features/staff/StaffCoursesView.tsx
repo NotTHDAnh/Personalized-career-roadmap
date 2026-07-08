@@ -42,7 +42,7 @@ export function StaffCoursesView() {
   const itemsPerPage = 8;
 
   // Filter courses by code, name, or associated skills
-  const filteredCourses = MOCK_COURSES.filter(course =>
+  const filteredCourses = courses.filter(course =>
     course.courseCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
     course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     course.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))
