@@ -85,7 +85,7 @@ export function StaffStudentsView() {
   const fetchStudents = async () => {
     try {
       setIsLoading(true);
-      const data = await apiClient.get<Student[]>(`/Staff/students?deleted=${isRecycleBin}`);
+      const data = await apiClient.get<Student[]>(`/staff/students?deleted=${isRecycleBin}`);
       setStudentsData(data);
     } catch (error) {
       toast.error("Failed to fetch students data");
@@ -96,7 +96,7 @@ export function StaffStudentsView() {
 
   const fetchCourses = async () => {
     try {
-      const data = await apiClient.get<any[]>('/Staff/courses');
+      const data = await apiClient.get<any[]>('/staff/courses');
       setAvailableCourses(data.map(c => ({ courseId: c.courseId, courseName: c.courseName })));
     } catch (error) {
       console.error("Failed to fetch courses");
@@ -124,7 +124,7 @@ export function StaffStudentsView() {
   // Actions
   const handleOpenDetail = async (id: string) => {
     try {
-      const data = await apiClient.get<StudentDetail>(`/Staff/students/${id}`);
+      const data = await apiClient.get<StudentDetail>(`/Student/students/${id}`);
       setDetailData(data);
       
       let dateVal = "";
@@ -150,7 +150,7 @@ export function StaffStudentsView() {
     if (!detailData) return;
     try {
       setIsSaving(true);
-      await apiClient.put(`/Staff/students/${detailData.id}`, {
+      await apiClient.put(`/staff/students/${detailData.id}`, {
         fullName: editForm.name,
         email: editForm.email,
         role: editForm.role,
@@ -176,7 +176,7 @@ export function StaffStudentsView() {
   const handleToggleStatus = async () => {
     if (!selectedStudentId) return;
     try {
-      await apiClient.patch(`/Staff/students/${selectedStudentId}/toggle-status`, {});
+      await apiClient.patch(`/staff/students/${selectedStudentId}/toggle-status`, {});
       toast.success("Cập nhật trạng thái thành công");
       fetchStudents();
     } catch (error) {
@@ -189,7 +189,7 @@ export function StaffStudentsView() {
   const handleToggleDelete = async () => {
     if (!selectedStudentId) return;
     try {
-      await apiClient.patch(`/Staff/students/${selectedStudentId}/toggle-delete`, {});
+      await apiClient.patch(`/staff/students/${selectedStudentId}/toggle-delete`, {});
       toast.success("Cập nhật thành công");
       fetchStudents();
     } catch (error) {
@@ -208,7 +208,7 @@ export function StaffStudentsView() {
   const handleDeleteGrade = async () => {
     if (!detailData || !deleteGradeInfo) return;
     try {
-      await apiClient.delete(`/Staff/students/${detailData.id}/courses/${deleteGradeInfo.courseId}`);
+      await apiClient.delete(`/staff/students/${detailData.id}/courses/${deleteGradeInfo.courseId}`);
       toast.success(`Đã xóa điểm môn học ${deleteGradeInfo.courseName}`);
       handleOpenDetail(detailData.id); // refresh modal data
       fetchStudents(); // refresh list

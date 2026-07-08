@@ -1,12 +1,12 @@
 
 using CareerSystem.API.Data;
 using CareerSystem.API.Services.Implementations;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using Microsoft.OpenApi;
 using OfficeOpenXml;
+using System.Text;
 
 namespace CareerSystem.API
 {
@@ -59,8 +59,11 @@ namespace CareerSystem.API
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IAcademicRecordImportService,
                 CareerSystem.API.Services.Implementations.AcademicRecordImportService>();
 
-            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStaffStudentService,
-                CareerSystem.API.Services.Implementations.StaffStudentService>();
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStudentService,
+               CareerSystem.API.Services.Implementations.StudentService>();
+
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStaffService,
+                CareerSystem.API.Services.Implementations.StaffService>();
 
             // EPPlus License (NonCommercial cho mục đích học tập)
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;

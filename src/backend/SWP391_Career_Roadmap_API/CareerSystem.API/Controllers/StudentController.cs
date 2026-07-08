@@ -1,22 +1,22 @@
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace CareerSystem.API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/student")]
     [ApiController]
+    [Authorize]
     public class StudentController : ControllerBase
     {
         private readonly IAcademicRecordImportService _academicRecordImportService;
+        private readonly IStudentService _studentService;
 
-        public StudentController(IAcademicRecordImportService academicRecordImportService)
+        public StudentController(IAcademicRecordImportService academicRecordImportService, IStudentService studentService)
         {
             _academicRecordImportService = academicRecordImportService;
+            _studentService = studentService;
         }
 
         /// <summary>
@@ -69,6 +69,58 @@ namespace CareerSystem.API.Controllers
             {
                 return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
             }
+        }
+
+        /// <summary>
+        /// Retrieves detailed information of a student.
+        /// GET: api/Student/students/{id}
+        /// </summary>
+        [HttpGet("students/{id}")]
+        public async Task<IActionResult> GetStudentDetail(string id)
+        {
+            var detail = await _studentService.GetStudentDetailAsync(id);
+
+            if (detail == null)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            return Ok(detail);
+        }
+
+        /// <summary>
+        /// Xóa trực tiếp điểm môn học của một sinh viên.
+        /// DELETE: api/Student/students/{studentId}/courses/{courseId}
+        /// </summary>
+        [HttpDelete("students/{studentId}/courses/{courseId}")]
+        public async Task<IActionResult> DeleteStudentCourseRecord(string studentId, string courseId)
+        {
+            var staffId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+
+            var success = await _studentService.DeleteStudentCourseRecordAsync(studentId, courseId);
+            if (!success)
+            {
+                return NotFound(new { message = "Không tìm thấy bản ghi điểm của sinh viên cho môn học này." });
+            }
+
+            return Ok(new { message = "Xóa điểm môn học thành công." });
+        }
+
+        /// <summary>
+        /// Updates a student's basic information.
+        /// PUT: api/Student/students/{id}
+        /// </summary>
+        [HttpPut("students/{id}")]
+        public async Task<IActionResult> UpdateStudent(string id, [FromBody] CareerSystem.API.DTOs.UpdateStudentDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var staffId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+
+            var success = await _studentService.UpdateStudentAsync(id, dto);
+            if (!success)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            return Ok(new { message = "Cập nhật thông tin sinh viên thành công." });
         }
     }
 }

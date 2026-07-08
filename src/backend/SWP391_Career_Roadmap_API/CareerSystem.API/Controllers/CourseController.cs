@@ -1,11 +1,10 @@
-using System.Threading.Tasks;
 using CareerSystem.API.Services.Interfaces;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CareerSystem.API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/course")]
     [ApiController]
     [Authorize]
     public class CourseController : ControllerBase
