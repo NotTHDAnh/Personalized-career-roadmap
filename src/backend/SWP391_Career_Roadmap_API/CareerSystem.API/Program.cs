@@ -1,12 +1,12 @@
 
 using CareerSystem.API.Data;
 using CareerSystem.API.Services.Implementations;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using Microsoft.OpenApi;
 using OfficeOpenXml;
+using System.Text;
 
 namespace CareerSystem.API
 {
@@ -127,6 +127,7 @@ namespace CareerSystem.API
                     }
                 });
             });
+            builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
 
             var app = builder.Build();
 

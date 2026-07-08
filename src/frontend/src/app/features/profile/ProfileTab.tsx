@@ -3,12 +3,13 @@ import { Card } from "@/app/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Progress } from "@/app/components/ui/progress";
 import { Skeleton } from "@/app/components/ui/skeleton";
-import { TrendingUp, Code2, Plus, Key, Github } from "lucide-react";
+import { TrendingUp, Code2, Plus, Key, Github, RefreshCw, Link2Off } from "lucide-react";
 import { SkillTag } from "./components/SkillTag";
 import { StudentProfileCard } from "./components/StudentProfileCard";
 import { GpaInput } from "./components/GpaInput";
 import { ErrorAlert } from "@/app/components/common/ErrorAlert";
 import { useNotification } from "@/shared/contexts/NotificationContext";
+import { getGithubProfile, syncGithubRepos, disconnectGithub, GithubProfileStatus } from "../../services/githubApi";
 
 const skills = [
   "JavaScript", "React", "TypeScript", "Next.js", "Tailwind CSS",
@@ -19,25 +20,55 @@ export default function ProfileTranscripts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Notification hooks & state simulations
+  // Notification hooks & GitHub status
   const { openNotification, updateNotification } = useNotification();
+  const [githubProfile, setGithubProfile] = useState<GithubProfileStatus | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncMode, setSyncMode] = useState<"success" | "error">("success");
 
-  const handleSyncToGithub = () => {
+  useEffect(() => {
+    getGithubProfile()
+      .then((res) => {
+        setGithubProfile(res);
+      })
+      .catch((err) => {
+        console.error("Lấy thông tin GitHub thất bại:", err);
+      });
+  }, []);
+
+  const handleConnectGithub = () => {
+    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID || "Ov23liR1nYSRcwIsn0r7";
+    const redirectUri = import.meta.env.VITE_GITHUB_REDIRECT_URI || "http://localhost:5173/github-callback";
+    const scope = "read:user repo";
+    window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`;
+  };
+
+  const handleSyncGithub = async () => {
     if (isSyncing) return;
-    
     setIsSyncing(true);
-    // 1. Mở thông báo loading và lấy ID của toast
-    const notifId = openNotification("loading", "Syncing profile data with GitHub...");
+    const notifId = openNotification("loading", "Đang đồng bộ repositories từ GitHub...");
+    try {
+      const res = await syncGithubRepos();
+      updateNotification(notifId, "success", res.message || "Đồng bộ hoàn tất!");
+      // reload profile
+      const profile = await getGithubProfile();
+      setGithubProfile(profile);
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || "Đồng bộ thất bại.";
+      updateNotification(notifId, "error", errMsg);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
-    setIsSyncing(false);
-    if (syncMode === "success") {
-        // 3a. Đồng bộ thành công
-      updateNotification(notifId, "success", "Syncing completed successfully! Your profile data is now up-to-date on GitHub.");
-    } else {
-        // 3b. Đồng bộ thất bại
-      updateNotification(notifId, "error", "Error: Failed to sync with GitHub. Please check your connection or try again later.");
+  const handleDisconnectGithub = async () => {
+    const notifId = openNotification("loading", "Đang hủy liên kết tài khoản GitHub...");
+    try {
+      await disconnectGithub();
+      updateNotification(notifId, "success", "Hủy liên kết tài khoản GitHub thành công.");
+      setGithubProfile({ isConnected: false });
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || "Hủy liên kết thất bại.";
+      updateNotification(notifId, "error", errMsg);
     }
   };
 
@@ -75,33 +106,54 @@ export default function ProfileTranscripts() {
           </p>
         </div>
 
-        {/* Syncing to GitHub Button & Simulator */}
+        {/* GitHub Integration */}
         <div className="flex items-center gap-3 bg-white border border-[#E2E8F0] px-3.5 py-2 rounded-2xl shadow-[0_2px_8px_-3px_rgba(6,81,237,0.05)]">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold border-r border-[#E2E8F0] pr-3 mr-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-            Simulate:
-            <select
-              value={syncMode}
-              onChange={(e) => setSyncMode(e.target.value as "success" | "error")}
-              className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+          {githubProfile === null ? (
+            <Skeleton className="h-8 w-32 rounded-full" />
+          ) : githubProfile.isConnected ? (
+            <>
+              <div className="flex items-center gap-2 border-r border-[#E2E8F0] pr-3 mr-1">
+                {githubProfile.avatarUrl ? (
+                  <img
+                    src={githubProfile.avatarUrl}
+                    alt="GitHub Avatar"
+                    className="w-6 h-6 rounded-full border border-slate-200"
+                  />
+                ) : (
+                  <Github size={16} className="text-slate-700" />
+                )}
+                <span className="text-xs font-bold text-slate-700">
+                  {githubProfile.githubUsername}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSyncGithub}
+                  disabled={isSyncing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                >
+                  <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
+                  Sync Now
+                </button>
+                <button
+                  onClick={handleDisconnectGithub}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors"
+                >
+                  <Link2Off size={13} />
+                  Disconnect
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              onClick={handleConnectGithub}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all text-white shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+              style={{ background: "linear-gradient(to right, #24292F, #040D21)" }}
             >
-              <option value="success">Success (Happy)</option>
-              <option value="error">Fail (Unhappy)</option>
-            </select>
-          </div>
-
-          {/* Nút Đồng bộ GitHub */}
-          <button
-            onClick={handleSyncToGithub}
-            disabled={isSyncing}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all text-white shadow-sm hover:scale-[1.02] active:scale-[0.98] ${
-              isSyncing ? "opacity-75 cursor-not-allowed" : ""
-            }`}
-            style={{ background: "linear-gradient(to right, #3B28CC, #6366F1)" }}
-          >
-            <Github size={14} className={isSyncing ? "animate-spin" : ""} />
-            {isSyncing ? "Syncing..." : "Sync to GitHub"}
-          </button>
+              <Github size={14} />
+              Connect GitHub
+            </button>
+          )}
         </div>
       </div>
 
