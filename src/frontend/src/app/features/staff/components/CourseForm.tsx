@@ -31,6 +31,18 @@ export function CourseForm({ form, setForm, onSubmit }: CourseFormProps) {
           />
         </div>
       ))}
+      <div className="flex items-center gap-2 mt-2">
+        <input
+          type="checkbox"
+          id="isFoundationalCourse"
+          checked={form.isFoundationalCourse}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((prev) => ({ ...prev, isFoundationalCourse: e.target.checked }))}
+          className="w-4 h-4 text-[#3B28CC] border-[#E2E8F0] rounded focus:ring-[#3B28CC]"
+        />
+        <label htmlFor="isFoundationalCourse" className="text-[13px] font-medium text-[#0F172A] cursor-pointer">
+          Is Foundational Course?
+        </label>
+      </div>
       <Button type="submit" className="w-full bg-[#3B28CC] hover:bg-[#3B28CC]/90 text-white font-medium rounded-lg mt-2 h-10">
         Add Course
       </Button>

@@ -5,6 +5,8 @@ import { Input } from "@/app/components/ui/input";
 import { apiClient } from "@/shared/api/apiClient";
 import { Skeleton } from "@/app/components/ui/skeleton";
 import { toast } from "sonner";
+import { CourseMockData } from "../../data/mockData";
+import { apiClient } from "@/shared/api/apiClient";
 
 interface Course {
   courseId: string;
@@ -15,6 +17,37 @@ interface Course {
   skills: string[];
 }
 export function StaffCoursesView() {
+  const [courses, setCourses] = useState<CourseMockData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setIsLoading(true);
+        // Assuming the endpoint is GET /Course or /courses and returns a list of CourseDetailDto
+        const data = await apiClient.get<any[]>('/Course');
+        
+        const formattedCourses: CourseMockData[] = data.map(c => ({
+          courseId: c.courseId || c.CourseId,
+          courseCode: c.courseCode || c.CourseCode,
+          courseName: c.courseName || c.CourseName,
+          credits: c.credits ?? c.Credits ?? 3,
+          totalStudyHours: c.totalStudyHours ?? c.TotalStudyHours ?? 45,
+          skills: (c.learningOutcomes || c.LearningOutcomes || []).map((lo: any) => lo.skillName || lo.SkillName),
+          prerequisites: (c.prerequisites || c.Prerequisites) ? (c.prerequisites || c.Prerequisites).split(';') : [],
+          is_active: true
+        }));
+        
+        setCourses(formattedCourses);
+      } catch (error) {
+        console.error("Failed to fetch courses:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchCourses();
+  }, []);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
@@ -38,7 +71,7 @@ export function StaffCoursesView() {
   }, []);
 
   // Filter courses by code, name, or associated skills
-  const filteredCourses = coursesData.filter(course =>
+  const filteredCourses = courses.filter(course =>
     course.courseCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
     course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     course.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))

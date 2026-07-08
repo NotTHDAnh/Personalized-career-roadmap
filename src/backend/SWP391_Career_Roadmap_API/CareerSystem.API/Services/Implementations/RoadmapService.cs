@@ -12,6 +12,11 @@ namespace CareerSystem.API.Services.Implementations
         private readonly IAiRecommendationService _aiRecommendationService;
         private readonly IPromptContextService _promptContextService;
         private const decimal DefaultDailyStudyHours = 2.0m;
+        // Defining Alpha Coefficient for each Phase, which is used for determined the level of courses
+        // There are 3 types of Alpha represents for 3 Phase: Beginner, Intermediate, Advanced
+        private const decimal APLPHA_PHASE_1 = 1.0M;
+        private const decimal APLPHA_PHASE_2 = 1.2M;
+        private const decimal APLPHA_PHASE_3 = 1.5M;
 
         public RoadmapService(AppDbContext context, IAiRecommendationService aiRecommendationService, IPromptContextService promptContextService)
         {
@@ -81,7 +86,7 @@ namespace CareerSystem.API.Services.Implementations
                     }
                     seenCourseCodes.Add(normalizedCode);
 
-                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == normalizedCode);
+                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.IsActive && c.CourseCode == normalizedCode);
                     if (courseDb == null) continue; // Bỏ qua nếu AI bịa mã môn sai
 
                     // 6.2. Truy xuất kỹ năng cốt lõi của môn học (Để map vào SkillId)
@@ -106,9 +111,18 @@ namespace CareerSystem.API.Services.Implementations
 
 
                     // 6.3. Thuật toán tính toán thời gian hoàn thành (Deadline)
+                    decimal alpha = rec.Level switch
+                    {
+                        "Beginner" => APLPHA_PHASE_1,
+                        "Intermediate" => APLPHA_PHASE_2,
+                        "Advanced" => APLPHA_PHASE_3,
+                        _ => APLPHA_PHASE_1
+                    };
+                    decimal lc = rec.LearningCoefficient ?? 1.0m;
                     int totalHours = courseDb.TotalStudyHours ?? 30;
-                    int daysRequired = (int)Math.Ceiling(totalHours / dailyHours);
+                    int daysRequired = (int)Math.Ceiling((totalHours * alpha) / (dailyHours * lc));
                     currentDeadline = currentDeadline.AddDays(daysRequired);
+
 
                     // Kiểm tra xem môn học đã được hoàn thành chưa, nếu rồi thì không thêm vào lộ trình nữa
                     bool isCompleted = passedCourseIds.Contains(courseDb.CourseId);
@@ -283,14 +297,22 @@ namespace CareerSystem.API.Services.Implementations
                     if (seenCourseCodes.Contains(normalizedCode)) continue;
                     seenCourseCodes.Add(normalizedCode);
 
-                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == normalizedCode);
+                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.IsActive && c.CourseCode == normalizedCode);
                     if (courseDb == null) continue;
 
                     bool isCompleted = passedCourseIds.Contains(courseDb.CourseId);
                     if (isCompleted) continue; // Bỏ qua môn học đã hoàn thành
 
+                    decimal alpha = rec.Level switch
+                    {
+                        "Beginner" => APLPHA_PHASE_1,
+                        "Intermediate" => APLPHA_PHASE_2,
+                        "Advanced" => APLPHA_PHASE_3,
+                        _ => APLPHA_PHASE_1
+                    };
+                    decimal lc = rec.LearningCoefficient ?? 1.0m;
                     int totalHours = courseDb.TotalStudyHours ?? 30;
-                    int daysRequired = (int)Math.Ceiling(totalHours / (double)dailyHours);
+                    int daysRequired = (int)Math.Ceiling((totalHours * alpha) / (dailyHours * lc));
                     currentDeadline = currentDeadline.AddDays(daysRequired);
 
                     orderedNodes.Add(new SkillNodeDetailDto
@@ -367,11 +389,11 @@ namespace CareerSystem.API.Services.Implementations
 
             // 2. Loop through phases and save SkillNodes
             string? previousNodeId = null;
-            
+
             // Collect all nodes from phases in order of standard phase order
             var orderedNodes = new List<SkillNodeDetailDto>();
             var phaseOrder = new List<string> { "Beginner", "Intermediate", "Advanced" };
-            
+
             // Flatten phases in logical order
             foreach (var phaseName in phaseOrder)
             {
@@ -381,7 +403,7 @@ namespace CareerSystem.API.Services.Implementations
                     orderedNodes.AddRange(phase.Nodes);
                 }
             }
-            
+
             // Add remaining phases if any
             foreach (var phase in request.Phases)
             {
@@ -393,7 +415,7 @@ namespace CareerSystem.API.Services.Implementations
 
             foreach (var nodeDto in orderedNodes)
             {
-                var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.CourseCode == nodeDto.CourseCode);
+                var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.IsActive && c.CourseCode == nodeDto.CourseCode);
                 if (courseDb == null) continue;
 
                 var skillDb = await (
@@ -446,13 +468,13 @@ namespace CareerSystem.API.Services.Implementations
 
             // Fetch all associated SkillNodes
             var skillNodes = await _context.SkillNodes.Where(sn => sn.RoadmapId == roadmapId).ToListAsync();
-            
+
             // Remove self-referencing foreign keys to avoid constraint violations during deletion
             foreach (var node in skillNodes)
             {
                 node.ParentNodeId = null;
             }
-            
+
             if (skillNodes.Any())
             {
                 await _context.SaveChangesAsync(); // Apply ParentNodeId = null

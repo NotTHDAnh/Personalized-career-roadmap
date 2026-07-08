@@ -8,6 +8,7 @@ export interface CourseFormData {
   totalStudyHours: string;
   hashtags: string;
   outcomes: string;
+  isFoundationalCourse: boolean;
 }
 
 export interface StaffCourse {

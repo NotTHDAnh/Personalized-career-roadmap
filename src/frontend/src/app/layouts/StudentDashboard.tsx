@@ -57,7 +57,7 @@ export function StudentDashboard() {
     >
       {/* ── Sidebar ── */}
       <aside
-        className={`fixed left-0 top-0 h-screen text-[#0F172A] flex flex-col z-40 transition-all duration-300 bg-[#EFF4FF] border-r border-[#E2E8F0] shadow-[4px_0_24px_rgba(0,0,0,0.02)] ${
+        className={`fixed left-0 top-0 h-screen text-[#0F172A] flex flex-col z-[100] transition-all duration-300 bg-[#EFF4FF] border-r border-[#E2E8F0] shadow-[4px_0_24px_rgba(0,0,0,0.02)] ${
           isSidebarOpen ? "w-[260px]" : "w-[80px]"
         }`}
       >
@@ -65,7 +65,7 @@ export function StudentDashboard() {
         <button
           type="button"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute top-8 -right-3.5 flex items-center justify-center w-7 h-7 bg-white border border-[#E2E8F0] rounded-full shadow-sm text-[#64748B] hover:text-[#3B28CC] hover:border-[#3B28CC] transition-colors z-50"
+          className="absolute top-8 right-[-14px] flex items-center justify-center w-7 h-7 bg-white border border-[#E2E8F0] rounded-full shadow-sm text-[#64748B] hover:text-[#3B28CC] hover:border-[#3B28CC] transition-colors z-[999]"
           title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
         >
           {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}

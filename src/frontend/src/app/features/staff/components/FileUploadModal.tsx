@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/app/components/ui/dialog";
-import { Upload, X, FileIcon, CheckCircle2, Loader2, Trash2, FileText, Eye } from "lucide-react";
+import { Upload, X, FileIcon, CheckCircle2, Loader2, Trash2, FileText, Eye, Download } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Progress } from "@/app/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { apiClient } from "@/shared/api/apiClient";
+import { parseApiError } from "@/shared/utils/errorHelper";
 
 interface FileUploadModalProps {
   isOpen: boolean;
@@ -33,6 +34,39 @@ export function FileUploadModal({ isOpen, onClose, title, importType, acceptedTy
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<{ headers: string[], rows: string[][] } | null>(null);
   const [previewFileName, setPreviewFileName] = useState("");
+
+  const handleDownloadTemplate = async () => {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://localhost:5007/api";
+    const endpoint = importType === 'students' 
+      ? "/Staff/student-import-template" 
+      : "/Staff/course-import-template";
+    const fileName = importType === 'students'
+      ? "StudentImportTemplate.xlsx"
+      : "CourseImportTemplate.xlsx";
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, { headers });
+      if (!response.ok) throw new Error("Failed to download");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Template downloaded successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to download template.");
+    }
+  };
 
   // Simulate file upload progress and validate file locally
   useEffect(() => {
@@ -133,7 +167,8 @@ export function FileUploadModal({ isOpen, onClose, title, importType, acceptedTy
       } catch (err: any) {
         hasError = true;
         setFiles(prev => prev.map(f => f.id === upload.id ? { ...f, status: "error" } : f));
-        toast.error(`Failed to import ${upload.file.name}: ${err.response?.data?.message || err.message}`);
+        const parsedError = parseApiError(err);
+        toast.error(`Failed to import ${upload.file.name}: ${err.response?.data?.message || parsedError.message}`);
       }
     }
 
@@ -311,6 +346,18 @@ export function FileUploadModal({ isOpen, onClose, title, importType, acceptedTy
               accept={acceptedTypes}
               onChange={handleFileSelect}
             />
+          </div>
+
+          {/* Download Template Section */}
+          <div className="flex items-center justify-between px-1.5 text-[13px] bg-slate-50 border border-[#E2E8F0] p-3.5 rounded-xl transition-colors">
+            <span className="text-[#64748B] font-medium">Need the correct file format?</span>
+            <button
+              onClick={handleDownloadTemplate}
+              className="text-[#8B5CF6] hover:text-[#7C3AED] font-bold flex items-center gap-1.5 transition-colors focus:outline-none hover:underline cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download template
+            </button>
           </div>
 
           {/* File List */}
