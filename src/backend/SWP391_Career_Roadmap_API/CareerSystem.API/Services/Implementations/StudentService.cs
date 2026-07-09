@@ -1,5 +1,6 @@
 using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
+using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -155,6 +156,67 @@ namespace CareerSystem.API.Services.Implementations
                 }
             }
 
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> AddStudentSkillAsync(string studentId, string skillId)
+        {
+            var studentExists = await _context.Users.AnyAsync(u => u.UserId == studentId && u.Role == "STUDENT");
+            if (!studentExists)
+            {
+                throw new ArgumentException("Không tìm thấy sinh viên hợp lệ.");
+            }
+
+            var skillExists = await _context.Skills.AnyAsync(s => s.SkillId == skillId);
+            if (!skillExists)
+            {
+                throw new ArgumentException("Kỹ năng này không tồn tại trong hệ thống.");
+            }
+
+            var hasSkillAlready = await _context.StudentSkills
+                .AnyAsync(ss => ss.UserId == studentId && ss.SkillId == skillId);
+            if (hasSkillAlready)
+            {
+                throw new ArgumentException("Kỹ năng này đã có sẵn trong hồ sơ của sinh viên.");
+            }
+
+            // Sinh mã StudentSkillId tuần tự dạng SSK_xxxx
+            int maxNum = 0;
+            var ids = await _context.StudentSkills.Select(ss => ss.StudentSkillId).ToListAsync();
+            foreach (var id in ids)
+            {
+                if (id != null && id.StartsWith("SSK_") && int.TryParse(id.Substring(4), out int num))
+                {
+                    if (num > maxNum) maxNum = num;
+                }
+            }
+            string newStudentSkillId = $"SSK_{maxNum + 1:D4}";
+
+            var studentSkill = new StudentSkill
+            {
+                StudentSkillId = newStudentSkillId,
+                UserId = studentId,
+                SkillId = skillId,
+                Source = "MANUAL"
+            };
+
+            _context.StudentSkills.Add(studentSkill);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> RemoveStudentSkillAsync(string studentId, string skillId)
+        {
+            var studentSkill = await _context.StudentSkills
+                .FirstOrDefaultAsync(ss => ss.UserId == studentId && ss.SkillId == skillId);
+
+            if (studentSkill == null)
+            {
+                return false;
+            }
+
+            _context.StudentSkills.Remove(studentSkill);
             await _context.SaveChangesAsync();
             return true;
         }

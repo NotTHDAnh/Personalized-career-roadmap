@@ -1,4 +1,4 @@
-﻿using CareerSystem.API.DTOs;
+using CareerSystem.API.DTOs;
 
 namespace CareerSystem.API.Services.Interfaces
 {
@@ -9,5 +9,9 @@ namespace CareerSystem.API.Services.Interfaces
         Task<bool> UpdateStudentAsync(string id, UpdateStudentDto dto);
 
         Task<bool> DeleteStudentCourseRecordAsync(string studentId, string courseId);
+
+        Task<bool> AddStudentSkillAsync(string studentId, string skillId);
+
+        Task<bool> RemoveStudentSkillAsync(string studentId, string skillId);
     }
 }
