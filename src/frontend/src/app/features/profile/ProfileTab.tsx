@@ -36,8 +36,8 @@ export default function ProfileTranscripts() {
 
   // Notification hooks & state simulations
   const { openNotification, updateNotification } = useNotification();
+  const [githubProfile, setGithubProfile] = useState<GithubProfileStatus | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncMode, setSyncMode] = useState<"success" | "error">("success");
 
   // Mock Add Skill State
   const [localTags, setLocalTags] = useState<string[]>([]);
@@ -602,15 +602,49 @@ export default function ProfileTranscripts() {
           </p>
         </div>
 
-        {/* Syncing to GitHub Button & Simulator */}
+        {/* GitHub Integration */}
         <div className="flex items-center gap-3 bg-white border border-[#E2E8F0] px-3.5 py-2 rounded-2xl shadow-[0_2px_8px_-3px_rgba(6,81,237,0.05)]">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold border-r border-[#E2E8F0] pr-3 mr-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-            Simulate:
-            <select
-              value={syncMode}
-              onChange={(e) => setSyncMode(e.target.value as "success" | "error")}
-              className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+          {githubProfile === null ? (
+            <Skeleton className="h-8 w-32 rounded-full" />
+          ) : githubProfile.isConnected ? (
+            <>
+              <div className="flex items-center gap-2 border-r border-[#E2E8F0] pr-3 mr-1">
+                {githubProfile.avatarUrl ? (
+                  <img
+                    src={githubProfile.avatarUrl}
+                    alt="GitHub Avatar"
+                    className="w-6 h-6 rounded-full border border-slate-200"
+                  />
+                ) : (
+                  <Github size={16} className="text-slate-700" />
+                )}
+                <span className="text-xs font-bold text-slate-700">
+                  {githubProfile.githubUsername}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSyncGithub}
+                  disabled={isSyncing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                >
+                  <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
+                  Sync Now
+                </button>
+                <button
+                  onClick={handleDisconnectGithub}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors"
+                >
+                  <Link2Off size={13} />
+                  Disconnect
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              onClick={handleConnectGithub}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all text-white shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+              style={{ background: "linear-gradient(to right, #24292F, #040D21)" }}
             >
               <option value="success">Success (Happy)</option>
               <option value="error">Fail (Unhappy)</option>

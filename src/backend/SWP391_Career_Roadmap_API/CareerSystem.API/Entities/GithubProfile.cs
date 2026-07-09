@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace CareerSystem.API.Entities;
@@ -12,6 +12,10 @@ public partial class GithubProfile
     public string GithubUsername { get; set; } = null!;
 
     public string? PortfolioUrl { get; set; }
+
+    public string? GithubAccessToken { get; set; }
+
+    public string? AvatarUrl { get; set; }
 
     public virtual ICollection<Repository> Repositories { get; set; } = new List<Repository>();
 

@@ -11,8 +11,11 @@ import { toast } from "sonner";
 import { CourseMockData } from "../../data/mockData";
 
 export function StaffCoursesView() {
-  const [courses, setCourses] = useState<CourseMockData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [courses, setCourses] = useState<CourseMockData[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
   
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [editMode, setEditMode] = useState<'none' | 'single' | 'bulk'>('none');
@@ -206,7 +209,7 @@ export function StaffCoursesView() {
           prerequisites: formData.prerequisites.join(';')
         };
         
-        const updatedDetail = await apiClient.put<any>(`/Staff/courses/${editingCourseId}`, payload);
+        const updatedDetail = await apiClient.put<any>(`/staff/courses/${editingCourseId}`, payload);
         
         setCourses(prev => prev.map(course => {
           if (course.courseId === editingCourseId) {
@@ -354,8 +357,7 @@ export function StaffCoursesView() {
     setDeleteModalOpen(false);
   };
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+
   const itemsPerPage = 8;
 
   const filteredCourses = courses.filter(course => {

@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router";
 import LoginScreen from "./features/auth/LoginScreen";
+import GithubCallbackScreen from "./features/auth/GithubCallbackScreen";
 import { StudentDashboard } from "./layouts/StudentDashboard";
 import StaffPanel from "./features/staff/StaffPanel";
 import { StaffLayout } from "./layouts/StaffLayout";
@@ -23,6 +24,14 @@ export const router = createBrowserRouter([
       {
         path: "/login",
         element: <LoginScreen />,
+      },
+      {
+        path: "/github-callback",
+        element: (
+          <ProtectedRoute allowedRoles={["STUDENT"]}>
+            <GithubCallbackScreen />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/dashboard",

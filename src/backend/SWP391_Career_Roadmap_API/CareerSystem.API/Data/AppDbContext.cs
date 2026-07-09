@@ -226,6 +226,14 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false)
                 .HasColumnName("user_id");
+            entity.Property(e => e.GithubAccessToken)
+                .HasMaxLength(255)
+                .IsUnicode(false)
+                .HasColumnName("github_access_token");
+            entity.Property(e => e.AvatarUrl)
+                .HasMaxLength(500)
+                .IsUnicode(false)
+                .HasColumnName("avatar_url");
 
             entity.HasOne(d => d.User).WithOne(p => p.GithubProfile)
                 .HasForeignKey<GithubProfile>(d => d.UserId)
