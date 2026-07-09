@@ -206,7 +206,8 @@ namespace CareerSystem.API.Services.Implementations
                     Status = computedStatus,
                     Deadline = sn.Deadline,
                     ParentNodeId = sn.ParentNodeId,
-                    AcademicLevel = sn.AcademicLevel
+                    AcademicLevel = sn.AcademicLevel,
+                    Gpa = gpa
                 });
             }
 

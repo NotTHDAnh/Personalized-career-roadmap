@@ -45,7 +45,7 @@ interface Student {
 interface StudentDetail extends Student {
   email: string;
   createdAt: string;
-  courses: { courseId?: string, courseName: string, gpa: number, examAttempts?: number }[];
+  courses: { courseId?: string, courseName: string, gpa: number | null, examAttempts?: number }[];
 }
 
 export function StaffStudentsView() {
@@ -68,7 +68,7 @@ export function StaffStudentsView() {
   const [isConfirmDeleteGradeOpen, setIsConfirmDeleteGradeOpen] = useState(false);
   const [deleteGradeInfo, setDeleteGradeInfo] = useState<{ courseId: string, courseName: string } | null>(null);
 
-  const [availableCourses, setAvailableCourses] = useState<{courseId: string, courseName: string}[]>([]);
+  const [availableCourses, setAvailableCourses] = useState<{courseId: string, courseCode: string, courseName: string, prerequisites?: string[]}[]>([]);
 
   // Edit state
   const [isEditing, setIsEditing] = useState(false);
@@ -79,13 +79,41 @@ export function StaffStudentsView() {
     role: "",
     status: false,
     createdAt: "",
-    courses: [] as {courseId: string, gpa: number | string, examAttempts: number | string}[]
+    courses: [] as {courseId: string, gpa: number | string | null, examAttempts: number | string | null}[],
+    inProgressCourses: [] as {courseId: string, gpa: number | string | null, examAttempts: number | string | null}[]
   });
+
+  const getCascadeDeleteCourses = (courseIdToRemove: string, currentCourses: {courseId: string}[], currentInProgress: {courseId: string}[]) => {
+    let toDelete = [courseIdToRemove];
+    let queue = [courseIdToRemove];
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const currentCourse = availableCourses.find(c => c.courseId === currentId);
+      if (!currentCourse) continue;
+      
+      const dependents = availableCourses.filter(c => 
+        c.prerequisites && (c.prerequisites.includes(currentCourse.courseId) || c.prerequisites.includes(currentCourse.courseCode))
+      );
+      
+      for (const dep of dependents) {
+        if (!toDelete.includes(dep.courseId)) {
+          const isInPassed = currentCourses.some(c => c.courseId === dep.courseId);
+          const isInProgress = currentInProgress.some(c => c.courseId === dep.courseId);
+          if (isInPassed || isInProgress) {
+            toDelete.push(dep.courseId);
+            queue.push(dep.courseId);
+          }
+        }
+      }
+    }
+    return toDelete;
+  };
 
   const fetchStudents = async () => {
     try {
       setIsLoading(true);
-      const data = await apiClient.get<Student[]>(`/Staff/students?deleted=${isRecycleBin}`);
+      const data = await apiClient.get<Student[]>(`/staff/students?deleted=${isRecycleBin}`);
       setStudentsData(data);
     } catch (error) {
       toast.error("Failed to fetch students data");
@@ -96,8 +124,22 @@ export function StaffStudentsView() {
 
   const fetchCourses = async () => {
     try {
-      const data = await apiClient.get<any[]>('/Staff/courses');
-      setAvailableCourses(data.map(c => ({ courseId: c.courseId, courseName: c.courseName })));
+      const data = await apiClient.get<any[]>('/course/courses');
+      const detailedCourses = await Promise.all(data.map(async (c) => {
+        let prerequisites: string[] = [];
+        try {
+          const detailData = await apiClient.get<any>(`/course/${c.courseId || c.CourseId}`);
+          if (detailData.prerequisites) {
+            prerequisites = detailData.prerequisites.split(';').map((p: string) => p.trim()).filter(Boolean);
+          } else if (detailData.Prerequisites) {
+            prerequisites = detailData.Prerequisites.split(';').map((p: string) => p.trim()).filter(Boolean);
+          }
+        } catch (e) {
+          console.error(`Failed to fetch details for course ${c.courseId}`, e);
+        }
+        return { courseId: c.courseId || c.CourseId, courseCode: c.courseCode || c.CourseCode, courseName: c.courseName || c.CourseName, prerequisites };
+      }));
+      setAvailableCourses(detailedCourses);
     } catch (error) {
       console.error("Failed to fetch courses");
     }
@@ -124,7 +166,7 @@ export function StaffStudentsView() {
   // Actions
   const handleOpenDetail = async (id: string) => {
     try {
-      const data = await apiClient.get<StudentDetail>(`/Staff/students/${id}`);
+      const data = await apiClient.get<StudentDetail>(`/student/students/${id}`);
       setDetailData(data);
       
       let dateVal = "";
@@ -137,7 +179,12 @@ export function StaffStudentsView() {
         role: data.role,
         status: data.status,
         createdAt: dateVal,
-        courses: data.courses.map(c => ({ courseId: c.courseId || "", gpa: c.gpa, examAttempts: c.examAttempts ?? 1 }))
+        courses: data.courses
+          .filter(c => c.gpa !== null && c.gpa !== undefined)
+          .map(c => ({ courseId: c.courseId || "", gpa: c.gpa, examAttempts: c.examAttempts ?? 1 })),
+        inProgressCourses: data.courses
+          .filter(c => c.gpa === null || c.gpa === undefined)
+          .map(c => ({ courseId: c.courseId || "", gpa: "", examAttempts: "" }))
       });
       setIsEditing(false);
       setIsDetailOpen(true);
@@ -150,17 +197,24 @@ export function StaffStudentsView() {
     if (!detailData) return;
     try {
       setIsSaving(true);
-      await apiClient.put(`/Staff/students/${detailData.id}`, {
+      await apiClient.put(`/student/students/${detailData.id}`, {
         fullName: editForm.name,
         email: editForm.email,
         role: editForm.role,
         status: editForm.status,
         createdAt: editForm.createdAt ? new Date(editForm.createdAt).toISOString() : null,
-        courses: editForm.courses.map(c => ({
-          courseId: c.courseId,
-          gpa: typeof c.gpa === 'string' ? (parseFloat(c.gpa) || 0) : c.gpa,
-          examAttempts: typeof c.examAttempts === 'string' ? (parseInt(c.examAttempts) || 1) : c.examAttempts
-        }))
+        courses: [
+          ...editForm.courses.map(c => ({
+            courseId: c.courseId,
+            gpa: typeof c.gpa === 'string' ? (c.gpa === "" ? null : parseFloat(c.gpa)) : c.gpa,
+            examAttempts: typeof c.examAttempts === 'string' ? (c.examAttempts === "" ? null : parseInt(c.examAttempts)) : c.examAttempts
+          })),
+          ...editForm.inProgressCourses.map(c => ({
+            courseId: c.courseId,
+            gpa: (c.gpa === "" || c.gpa === null) ? null : (typeof c.gpa === 'string' ? parseFloat(c.gpa) : c.gpa),
+            examAttempts: (c.examAttempts === "" || c.examAttempts === null) ? null : (typeof c.examAttempts === 'string' ? parseInt(c.examAttempts) : c.examAttempts)
+          }))
+        ]
       });
       toast.success("Updated successfully");
       setIsEditing(false);
@@ -176,7 +230,7 @@ export function StaffStudentsView() {
   const handleToggleStatus = async () => {
     if (!selectedStudentId) return;
     try {
-      await apiClient.patch(`/Staff/students/${selectedStudentId}/toggle-status`, {});
+      await apiClient.patch(`/staff/students/${selectedStudentId}/toggle-status`, {});
       toast.success("Cập nhật trạng thái thành công");
       fetchStudents();
     } catch (error) {
@@ -189,7 +243,7 @@ export function StaffStudentsView() {
   const handleToggleDelete = async () => {
     if (!selectedStudentId) return;
     try {
-      await apiClient.patch(`/Staff/students/${selectedStudentId}/toggle-delete`, {});
+      await apiClient.patch(`/staff/students/${selectedStudentId}/toggle-delete`, {});
       toast.success("Cập nhật thành công");
       fetchStudents();
     } catch (error) {
@@ -208,7 +262,7 @@ export function StaffStudentsView() {
   const handleDeleteGrade = async () => {
     if (!detailData || !deleteGradeInfo) return;
     try {
-      await apiClient.delete(`/Staff/students/${detailData.id}/courses/${deleteGradeInfo.courseId}`);
+      await apiClient.delete(`/student/students/${detailData.id}/courses/${deleteGradeInfo.courseId}`);
       toast.success(`Đã xóa điểm môn học ${deleteGradeInfo.courseName}`);
       handleOpenDetail(detailData.id); // refresh modal data
       fetchStudents(); // refresh list
@@ -519,15 +573,17 @@ export function StaffStudentsView() {
               </div>
 
               <div>
-                <p className="text-sm text-gray-500 font-bold mb-2">Academic Records (Courses)</p>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-sm text-gray-500 font-bold">Academic Records (Passed / Failed Courses)</p>
+                </div>
                 <div className="border border-gray-200 rounded-md overflow-hidden">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-gray-50 text-gray-700">
                       <tr>
                         <th className="px-4 py-2 font-bold">Course Name</th>
-                        <th className="px-4 py-2 font-bold w-24 text-right">GPA / Score</th>
-                        <th className="px-4 py-2 font-bold w-24 text-right">Exam Attempts</th>
-                        <th className="px-4 py-2 font-bold w-12 text-center">Action</th>
+                        <th className="px-4 py-2 font-bold w-32 text-right">GPA / Score</th>
+                        <th className="px-4 py-2 font-bold w-32 text-right">Exam Attempts</th>
+                        {isEditing && <th className="px-4 py-2 font-bold w-12 text-center">Action</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -547,15 +603,30 @@ export function StaffStudentsView() {
                                 >
                                   <option value="" disabled>-- Chọn môn học --</option>
                                   {availableCourses.map(ac => {
-                                    // Kiểm tra xem môn học này đã được chọn ở một dòng khác chưa
-                                    const isSelectedElsewhere = editForm.courses.some(
-                                      (course, courseIdx) => courseIdx !== idx && course.courseId === ac.courseId
-                                    );
+                                    const isSelectedElsewhere = 
+                                      editForm.courses.some((course, courseIdx) => courseIdx !== idx && course.courseId === ac.courseId) ||
+                                      editForm.inProgressCourses.some(course => course.courseId === ac.courseId);
+                                    let missingPrereqs = false;
+                                    if (ac.prerequisites && ac.prerequisites.length > 0) {
+                                      for (const pre of ac.prerequisites) {
+                                        const preDef = availableCourses.find(av => av.courseCode === pre || av.courseId === pre);
+                                        const found = preDef ? editForm.courses.find(c => c.courseId === preDef.courseId) : editForm.courses.find(c => c.courseId === pre);
+                                        const preGpa = found ? (typeof found.gpa === 'string' ? parseFloat(found.gpa) : found.gpa) : null;
+                                        if (!found || preGpa === null || isNaN(preGpa) || preGpa < 5.0) {
+                                          missingPrereqs = true;
+                                          break;
+                                        }
+                                      }
+                                    }
+                                    const isDisabled = isSelectedElsewhere || missingPrereqs;
+                                    const title = missingPrereqs ? "Chưa hoàn thành môn tiên quyết" : (isSelectedElsewhere ? "Đã chọn môn này" : "");
+
                                     return (
                                       <option 
                                         key={ac.courseId} 
                                         value={ac.courseId} 
-                                        disabled={isSelectedElsewhere}
+                                        disabled={isDisabled}
+                                        title={title}
                                       >
                                         {ac.courseName}
                                       </option>
@@ -570,7 +641,7 @@ export function StaffStudentsView() {
                                     min="5.0" 
                                     max="10.0" 
                                     step="0.1"
-                                    value={c.gpa} 
+                                    value={c.gpa ?? ""} 
                                     onChange={e => {
                                       const newCourses = [...editForm.courses];
                                       newCourses[idx].gpa = e.target.value;
@@ -589,7 +660,7 @@ export function StaffStudentsView() {
                                     type="number" 
                                     min="1" 
                                     step="1"
-                                    value={c.examAttempts} 
+                                    value={c.examAttempts ?? ""} 
                                     onChange={e => {
                                       const newCourses = [...editForm.courses];
                                       newCourses[idx].examAttempts = e.target.value;
@@ -604,8 +675,16 @@ export function StaffStudentsView() {
                               </td>
                               <td className="px-4 py-2 text-center">
                                 <button onClick={() => {
-                                  const newCourses = editForm.courses.filter((_, i) => i !== idx);
-                                  setEditForm({...editForm, courses: newCourses});
+                                  const courseIdToRemove = editForm.courses[idx].courseId;
+                                  if (!courseIdToRemove) {
+                                    const newCourses = editForm.courses.filter((_, i) => i !== idx);
+                                    setEditForm({...editForm, courses: newCourses});
+                                    return;
+                                  }
+                                  const toDeleteIds = getCascadeDeleteCourses(courseIdToRemove, editForm.courses, editForm.inProgressCourses);
+                                  const newCourses = editForm.courses.filter(c => !toDeleteIds.includes(c.courseId));
+                                  const newInProgress = editForm.inProgressCourses.filter(c => !toDeleteIds.includes(c.courseId));
+                                  setEditForm({...editForm, courses: newCourses, inProgressCourses: newInProgress});
                                 }} className="text-red-500 hover:text-red-700">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -621,32 +700,185 @@ export function StaffStudentsView() {
                           </tr>
                         </>
                       ) : (
-                        detailData.courses && detailData.courses.length > 0 ? (
-                          detailData.courses.map((c, idx) => (
+                        detailData.courses && detailData.courses.filter(c => c.gpa !== null && c.gpa !== undefined).length > 0 ? (
+                          detailData.courses.filter(c => c.gpa !== null && c.gpa !== undefined).map((c, idx) => (
                             <tr key={idx} className="border-t border-gray-200">
                               <td className="px-4 py-2 font-medium text-gray-900">{c.courseName}</td>
                               <td className="px-4 py-2 text-right">
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${c.gpa >= 5.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                  {c.gpa.toFixed(1)}
-                                </span>
+                                {c.gpa !== null && c.gpa !== undefined ? (
+                                  <span className={`px-2 py-1 rounded text-xs font-bold ${c.gpa >= 5.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    {Number(c.gpa).toFixed(1)}
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-500">
+                                    N/A
+                                  </span>
+                                )}
                               </td>
                               <td className="px-4 py-2 text-right text-gray-600 font-medium">
-                                {c.examAttempts || 1}
-                              </td>
-                              <td className="px-4 py-2 text-center">
-                                <button 
-                                  onClick={() => handleOpenConfirmDeleteGrade(c.courseId || "", c.courseName)} 
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                 {c.examAttempts !== null && c.examAttempts !== undefined ? c.examAttempts : "N/A"}
                               </td>
                             </tr>
                           ))
                         ) : (
                           <tr className="border-t border-gray-200">
-                            <td colSpan={4} className="px-4 py-6 text-center text-gray-500 italic">
+                            <td colSpan={isEditing ? 4 : 3} className="px-4 py-6 text-center text-gray-500 italic">
                               No enrolled courses yet
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="flex justify-between items-center mb-2 mt-4">
+                  <p className="text-sm text-gray-500 font-bold">In-Progress Courses</p>
+                </div>
+                <div className="border border-gray-200 rounded-md overflow-hidden">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-700">
+                      <tr>
+                        <th className="px-4 py-2 font-bold">Course Name</th>
+                        <th className="px-4 py-2 font-bold w-32 text-right">GPA / Score</th>
+                        <th className="px-4 py-2 font-bold w-32 text-right">Exam Attempts</th>
+                        {isEditing && <th className="px-4 py-2 font-bold w-12 text-center">Action</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isEditing ? (
+                        <>
+                          {editForm.inProgressCourses.map((c, idx) => (
+                            <tr key={`ip-${idx}`} className="border-t border-gray-200">
+                              <td className="px-4 py-2">
+                                <select 
+                                  value={c.courseId} 
+                                  onChange={e => {
+                                    const newCourses = [...editForm.inProgressCourses];
+                                    newCourses[idx].courseId = e.target.value;
+                                    setEditForm({...editForm, inProgressCourses: newCourses});
+                                  }}
+                                  className="w-full h-8 rounded-md border border-gray-300 text-sm px-2"
+                                >
+                                  <option value="" disabled>-- Chọn môn học --</option>
+                                  {availableCourses.map(ac => {
+                                    const isSelectedElsewhere = 
+                                      editForm.courses.some(course => course.courseId === ac.courseId) ||
+                                      editForm.inProgressCourses.some((course, courseIdx) => courseIdx !== idx && course.courseId === ac.courseId);
+                                    let missingPrereqs = false;
+                                    if (ac.prerequisites && ac.prerequisites.length > 0) {
+                                      for (const pre of ac.prerequisites) {
+                                        const preDef = availableCourses.find(av => av.courseCode === pre || av.courseId === pre);
+                                        const found = preDef ? editForm.courses.find(c => c.courseId === preDef.courseId) : editForm.courses.find(c => c.courseId === pre);
+                                        const preGpa = found ? (typeof found.gpa === 'string' ? parseFloat(found.gpa) : found.gpa) : null;
+                                        if (!found || preGpa === null || isNaN(preGpa) || preGpa < 5.0) {
+                                          missingPrereqs = true;
+                                          break;
+                                        }
+                                      }
+                                    }
+                                    const isDisabled = isSelectedElsewhere || missingPrereqs;
+                                    const title = missingPrereqs ? "Chưa hoàn thành môn tiên quyết" : (isSelectedElsewhere ? "Đã chọn môn này" : "");
+
+                                    return (
+                                      <option 
+                                        key={ac.courseId} 
+                                        value={ac.courseId} 
+                                        disabled={isDisabled}
+                                        title={title}
+                                      >
+                                        {ac.courseName}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <div className="flex flex-col items-end">
+                                  <Input 
+                                    type="number" 
+                                    min="5.0" 
+                                    max="10.0" 
+                                    step="0.1"
+                                    value={c.gpa ?? ""} 
+                                    placeholder="N/A"
+                                    onChange={e => {
+                                      const newCourses = [...editForm.inProgressCourses];
+                                      newCourses[idx].gpa = e.target.value;
+                                      setEditForm({...editForm, inProgressCourses: newCourses});
+                                    }}
+                                    className="h-8 w-20 text-right ml-auto"
+                                  />
+                                  {c.gpa !== "" && c.gpa !== null && (Number(c.gpa) < 5.0 || Number(c.gpa) > 10.0) && (
+                                    <span className="text-red-500 text-[11px] whitespace-nowrap mt-1 font-medium">Must between: 5.0 - 10.0</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <div className="flex flex-col items-end">
+                                  <Input 
+                                    type="number" 
+                                    min="1" 
+                                    step="1"
+                                    value={c.examAttempts ?? ""} 
+                                    placeholder="N/A"
+                                    onChange={e => {
+                                      const newCourses = [...editForm.inProgressCourses];
+                                      newCourses[idx].examAttempts = e.target.value;
+                                      setEditForm({...editForm, inProgressCourses: newCourses});
+                                    }}
+                                    className="h-8 w-16 text-right ml-auto"
+                                  />
+                                  {c.examAttempts !== "" && c.examAttempts !== null && Number(c.examAttempts) < 1 && (
+                                    <span className="text-red-500 text-[11px] whitespace-nowrap mt-1 font-medium">Must be &gt;= 1</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2 text-center">
+                                <button onClick={() => {
+                                  const courseIdToRemove = editForm.inProgressCourses[idx].courseId;
+                                  if (!courseIdToRemove) {
+                                    const newCourses = editForm.inProgressCourses.filter((_, i) => i !== idx);
+                                    setEditForm({...editForm, inProgressCourses: newCourses});
+                                    return;
+                                  }
+                                  const toDeleteIds = getCascadeDeleteCourses(courseIdToRemove, editForm.courses, editForm.inProgressCourses);
+                                  const newCourses = editForm.courses.filter(c => !toDeleteIds.includes(c.courseId));
+                                  const newInProgress = editForm.inProgressCourses.filter(c => !toDeleteIds.includes(c.courseId));
+                                  setEditForm({...editForm, courses: newCourses, inProgressCourses: newInProgress});
+                                }} className="text-red-500 hover:text-red-700">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          <tr>
+                            <td colSpan={4} className="px-4 py-2 text-center">
+                              <Button variant="outline" size="sm" onClick={() => {
+                                setEditForm({...editForm, inProgressCourses: [...editForm.inProgressCourses, { courseId: "", gpa: "", examAttempts: "" }]});
+                              }} className="text-blue-600 border-blue-600 hover:bg-blue-50">+ Thêm môn đang học</Button>
+                            </td>
+                          </tr>
+                        </>
+                      ) : (
+                        detailData.courses && detailData.courses.filter(c => c.gpa === null || c.gpa === undefined).length > 0 ? (
+                          detailData.courses.filter(c => c.gpa === null || c.gpa === undefined).map((c, idx) => (
+                            <tr key={`ip-view-${idx}`} className="border-t border-gray-200">
+                              <td className="px-4 py-2 font-medium text-gray-900">{c.courseName}</td>
+                              <td className="px-4 py-2 text-right">
+                                <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-500 whitespace-nowrap">
+                                  In-Progress
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-right text-gray-600 font-medium">
+                                 N/A
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr className="border-t border-gray-200">
+                            <td colSpan={isEditing ? 4 : 3} className="px-4 py-6 text-center text-gray-500 italic">
+                              No in-progress courses
                             </td>
                           </tr>
                         )
@@ -663,9 +895,14 @@ export function StaffStudentsView() {
                   <Button 
                     onClick={handleSaveDetail} 
                     disabled={isSaving || !editForm.courses.every(c => {
-                      const val = typeof c.gpa === 'string' ? parseFloat(c.gpa) : c.gpa;
-                      const attempts = typeof c.examAttempts === 'string' ? parseInt(c.examAttempts) : c.examAttempts;
-                      return !isNaN(val) && val >= 5.0 && val <= 10.0 && c.gpa !== "" && c.courseId !== "" && !isNaN(attempts) && attempts >= 1 && c.examAttempts !== "";
+                      const val = typeof c.gpa === 'string' ? parseFloat(c.gpa) : (c.gpa as number);
+                      const attempts = typeof c.examAttempts === 'string' ? parseInt(c.examAttempts) : (c.examAttempts as number);
+                      return val !== null && !isNaN(val) && val >= 5.0 && val <= 10.0 && c.gpa !== "" && c.courseId !== "" && attempts !== null && !isNaN(attempts) && attempts >= 1 && c.examAttempts !== "";
+                    }) || !editForm.inProgressCourses.every(c => {
+                      if ((c.gpa === "" || c.gpa === null) && (c.examAttempts === "" || c.examAttempts === null)) return c.courseId !== "";
+                      const val = typeof c.gpa === 'string' ? parseFloat(c.gpa) : (c.gpa as number);
+                      const attempts = typeof c.examAttempts === 'string' ? parseInt(c.examAttempts) : (c.examAttempts as number);
+                      return val !== null && !isNaN(val) && val >= 5.0 && val <= 10.0 && c.gpa !== "" && c.courseId !== "" && attempts !== null && !isNaN(attempts) && attempts >= 1 && c.examAttempts !== "";
                     })} 
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >

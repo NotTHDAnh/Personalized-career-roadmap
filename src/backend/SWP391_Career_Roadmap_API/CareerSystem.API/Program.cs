@@ -50,6 +50,9 @@ namespace CareerSystem.API
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.ICourseService,
                 CareerSystem.API.Services.Implementations.CourseService>();
 
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.ISkillService,
+                CareerSystem.API.Services.Implementations.SkillService>();
+
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStudentImportService,
                 CareerSystem.API.Services.Implementations.StudentImportService>();
 
@@ -59,8 +62,11 @@ namespace CareerSystem.API
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IAcademicRecordImportService,
                 CareerSystem.API.Services.Implementations.AcademicRecordImportService>();
 
-            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStaffStudentService,
-                CareerSystem.API.Services.Implementations.StaffStudentService>();
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStudentService,
+               CareerSystem.API.Services.Implementations.StudentService>();
+
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStaffService,
+                CareerSystem.API.Services.Implementations.StaffService>();
 
             // EPPlus License (NonCommercial cho mục đích học tập)
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;

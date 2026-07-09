@@ -18,6 +18,7 @@ namespace CareerSystem.API.Services.Implementations
     public class AcademicRecordImportService : IAcademicRecordImportService
     {
         private readonly AppDbContext _context;
+        private readonly IStudentService _studentService;
 
         // Header tiêu chuẩn của file Excel import bảng điểm (4 cột)
         private static readonly string[] ExpectedHeaders =
@@ -25,9 +26,10 @@ namespace CareerSystem.API.Services.Implementations
 
         private const int ColCount = 4;
 
-        public AcademicRecordImportService(AppDbContext context)
+        public AcademicRecordImportService(AppDbContext context, IStudentService studentService)
         {
             _context = context;
+            _studentService = studentService;
         }
 
         /// <inheritdoc />
@@ -77,22 +79,10 @@ namespace CareerSystem.API.Services.Implementations
             var studentRecordMap = studentRecords.ToDictionary(r => r.CourseId, r => r);
 
             // 6. Tìm mã REC_xxxx lớn nhất hiện tại trong Database để tự sinh ID tuần tự
-            int maxRecordNumber = 0;
-            var recordIdsInDb = await _context.AcademicRecords.Select(r => r.RecordId).ToListAsync();
-            foreach (var id in recordIdsInDb)
-            {
-                if (id.StartsWith("REC_") && int.TryParse(id.Substring(4), out int num))
-                {
-                    if (num > maxRecordNumber) maxRecordNumber = num;
-                }
-            }
-            int nextRecordNum = maxRecordNumber + 1;
-
             // Bộ theo dõi trùng lặp mã môn học trong cùng file Excel
             var courseCodesInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            var recordsToAdd = new List<AcademicRecord>();
-            var recordsToUpdate = new List<AcademicRecord>();
+            var importItems = new List<(string CourseId, decimal Gpa, int ExamAttempts)>();
 
             // 7. Quét dữ liệu từng dòng
             for (int row = 2; row <= totalRows; row++)
@@ -169,58 +159,25 @@ namespace CareerSystem.API.Services.Implementations
                     continue;
                 }
 
-                // 8. Tiến hành thêm mới hoặc cập nhật điểm môn học
+                // 8. Lưu thông tin để tiến hành import
                 if (matchedCourse != null)
                 {
-                    if (studentRecordMap.TryGetValue(matchedCourse.CourseId, out var existingRecord))
-                    {
-                        existingRecord.Gpa = gpa;
-                        existingRecord.ExamAttempts = examAttempts;
-                        recordsToUpdate.Add(existingRecord);
-                    }
-                    else
-                    {
-                        var newRecord = new AcademicRecord
-                        {
-                            RecordId = $"REC_{nextRecordNum++:D4}",
-                            UserId = studentId,
-                            CourseId = matchedCourse.CourseId,
-                            Gpa = gpa,
-                            ExamAttempts = examAttempts
-                        };
-                        recordsToAdd.Add(newRecord);
-                        
-                        // Cập nhật map để tránh conflict nếu có sự cố
-                        studentRecordMap[matchedCourse.CourseId] = newRecord;
-                    }
-                    
+                    importItems.Add((matchedCourse.CourseId, gpa, examAttempts));
                     result.SuccessCount++;
                 }
             }
 
-            // 9. Lưu dữ liệu sử dụng Transaction
+            // 9. Thực hiện gọi UpdateCourseGradeAsync từ StudentService để đồng bộ điểm và kỹ năng
             if (result.SuccessCount > 0)
             {
-                using var transaction = await _context.Database.BeginTransactionAsync();
-                try
+                foreach (var item in importItems)
                 {
-                    if (recordsToAdd.Count > 0)
+                    await _studentService.UpdateCourseGradeAsync(studentId, new UpdateCourseGradeDto
                     {
-                        await _context.AcademicRecords.AddRangeAsync(recordsToAdd);
-                    }
-
-                    if (recordsToUpdate.Count > 0)
-                    {
-                        _context.AcademicRecords.UpdateRange(recordsToUpdate);
-                    }
-
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-                }
-                catch (Exception ex)
-                {
-                    await transaction.RollbackAsync();
-                    throw new Exception($"Lỗi xảy ra khi lưu dữ liệu bảng điểm vào database: {ex.Message}", ex);
+                        CourseId = item.CourseId,
+                        Gpa = item.Gpa,
+                        ExamAttempts = item.ExamAttempts
+                    });
                 }
             }
 

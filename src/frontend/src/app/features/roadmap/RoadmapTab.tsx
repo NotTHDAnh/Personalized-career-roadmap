@@ -68,6 +68,30 @@ export default function MyRoadmaps() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPhaseBoard, setShowPhaseBoard] = useState(true);
   const [showCongratModal, setShowCongratModal] = useState(false);
+  const [studentSkills, setStudentSkills] = useState<string[]>([]);
+
+  const fetchStudentSkills = async () => {
+    if (!userId) return;
+    try {
+      const data = await apiClient.get<any>(`/student/students/${userId}`);
+      if (data && data.tags) {
+        setStudentSkills(data.tags);
+      }
+    } catch (err) {
+      console.error("Lỗi lấy thông tin kỹ năng sinh viên:", err);
+    }
+  };
+
+  useEffect(() => {
+    void fetchStudentSkills();
+    const handleGpaUpdate = () => {
+      void fetchStudentSkills();
+    };
+    window.addEventListener('gpa_updated', handleGpaUpdate);
+    return () => {
+      window.removeEventListener('gpa_updated', handleGpaUpdate);
+    };
+  }, [userId]);
 
   const handleDeleteRoadmap = async () => {
     if (!selectedRoadmapId) return;
@@ -174,14 +198,23 @@ export default function MyRoadmaps() {
         roadmapId: selectedRoadmapId,
         updates: updates
       }).then(() => {
-        // Báo cho chuông thông báo biết dữ liệu đã thay đổi để cập nhật ngay lập tức
+        const targetNode = flatNodes.find((n: any) => n.nodeId === nodeId);
+        if (targetNode && targetNode.courseId) {
+          return apiClient.put("/student/course-grade", {
+            courseId: targetNode.courseId,
+            gpa: newDtoStatus === "COMPLETED" ? gpa : null,
+            examAttempts: 1
+          });
+        }
+      }).then(() => {
         window.dispatchEvent(new Event('roadmap_updated'));
+        window.dispatchEvent(new Event('gpa_updated'));
       }).catch((err) => {
         console.error("Lỗi cập nhật trạng thái node trên Database:", err);
       });
     } else {
-      // Dù là preview cũng dispatch để UI cập nhật mượt mà
       window.dispatchEvent(new Event('roadmap_updated'));
+      window.dispatchEvent(new Event('gpa_updated'));
     }
   };
 
@@ -265,7 +298,7 @@ export default function MyRoadmaps() {
               return {
                 ...n,
                 courseDetails: details,
-                gpa: storedGpas[n.nodeId] !== undefined ? storedGpas[n.nodeId] : n.gpa,
+                gpa: n.gpa !== undefined && n.gpa !== null ? n.gpa : storedGpas[n.nodeId],
               };
             }) || [],
           }));
@@ -335,17 +368,17 @@ export default function MyRoadmaps() {
   }, [roadmapData]);
 
   //chúc mừng mỗi khi load roadmap
-  useEffect(() => {
-    if (stats.progress === 100) {
-      confetti({
-        particleCount: 200,
-        spread: 100,
-        origin: { y: 0.6 },
-        zIndex: 9999
-      });
-      setShowCongratModal(true);
-    }
-  }, [stats.progress, selectedRoadmapId]);
+  // useEffect(() => {
+  //   if (stats.progress === 100) {
+  //     confetti({
+  //       particleCount: 200,
+  //       spread: 100,
+  //       origin: { y: 0.6 },
+  //       zIndex: 9999
+  //     });
+  //     setShowCongratModal(true);
+  //   }
+  // }, [stats.progress, selectedRoadmapId]);
 
   // 1. Chạy Layout Engine để chuyển DTO thành Graph có tọa độ
   const computedGraph = useMemo(() => {
@@ -607,7 +640,7 @@ export default function MyRoadmaps() {
       )}
 
       {roadmaps.length > 0 && (
-        <SkillAnalyticsDashboard roadmaps={roadmaps} activeRoadmapData={roadmapData} />
+        <SkillAnalyticsDashboard roadmaps={roadmaps} activeRoadmapData={roadmapData} studentSkills={studentSkills} />
       )}
         </>
       )}

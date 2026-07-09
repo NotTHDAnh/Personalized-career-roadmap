@@ -1,22 +1,22 @@
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace CareerSystem.API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/student")]
     [ApiController]
+    [Authorize]
     public class StudentController : ControllerBase
     {
         private readonly IAcademicRecordImportService _academicRecordImportService;
+        private readonly IStudentService _studentService;
 
-        public StudentController(IAcademicRecordImportService academicRecordImportService)
+        public StudentController(IAcademicRecordImportService academicRecordImportService, IStudentService studentService)
         {
             _academicRecordImportService = academicRecordImportService;
+            _studentService = studentService;
         }
 
         /// <summary>
@@ -64,6 +64,189 @@ namespace CareerSystem.API.Controllers
             catch (ArgumentException ex)
             {
                 return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Retrieves detailed information of a student.
+        /// GET: api/Student/students/{id}
+        /// </summary>
+        [HttpGet("students/{id}")]
+        public async Task<IActionResult> GetStudentDetail(string id)
+        {
+            var detail = await _studentService.GetStudentDetailAsync(id);
+
+            if (detail == null)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            return Ok(detail);
+        }
+
+        /// <summary>
+        /// Xóa trực tiếp điểm môn học của một sinh viên.
+        /// DELETE: api/Student/students/{studentId}/courses/{courseId}
+        /// </summary>
+        [HttpDelete("students/{studentId}/courses/{courseId}")]
+        public async Task<IActionResult> DeleteStudentCourseRecord(string studentId, string courseId)
+        {
+            var staffId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+
+            var success = await _studentService.DeleteStudentCourseRecordAsync(studentId, courseId);
+            if (!success)
+            {
+                return NotFound(new { message = "Không tìm thấy bản ghi điểm của sinh viên cho môn học này." });
+            }
+
+            return Ok(new { message = "Xóa điểm môn học thành công." });
+        }
+
+        /// <summary>
+        /// Updates a student's basic information.
+        /// PUT: api/Student/students/{id}
+        /// </summary>
+        [HttpPut("students/{id}")]
+        public async Task<IActionResult> UpdateStudent(string id, [FromBody] CareerSystem.API.DTOs.UpdateStudentDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var staffId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+
+            var success = await _studentService.UpdateStudentAsync(id, dto);
+            if (!success)
+                return NotFound(new { message = "Không tìm thấy sinh viên." });
+
+            return Ok(new { message = "Cập nhật thông tin sinh viên thành công." });
+        }
+
+        /// <summary>
+        /// Sinh viên tự thêm một kỹ năng từ danh sách có sẵn vào hồ sơ cá nhân.
+        /// POST: api/Student/skills
+        /// </summary>
+        [HttpPost("skills")]
+        [Authorize(Roles = "STUDENT")]
+        public async Task<IActionResult> AddStudentSkill([FromBody] CareerSystem.API.DTOs.AddStudentSkillDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var studentId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(studentId))
+            {
+                return Unauthorized(new { message = "Không xác định được danh tính sinh viên. Vui lòng đăng nhập lại." });
+            }
+
+            try
+            {
+                var success = await _studentService.AddStudentSkillAsync(studentId, dto.SkillId);
+                return Ok(new { message = "Đã thêm kỹ năng vào hồ sơ thành công." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Sinh viên tự xóa một kỹ năng ra khỏi hồ sơ cá nhân.
+        /// DELETE: api/Student/skills/{skillId}
+        /// </summary>
+        [HttpDelete("skills/{skillId}")]
+        [Authorize(Roles = "STUDENT")]
+        public async Task<IActionResult> RemoveStudentSkill(string skillId)
+        {
+            var studentId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(studentId))
+            {
+                return Unauthorized(new { message = "Không xác định được danh tính sinh viên. Vui lòng đăng nhập lại." });
+            }
+
+            try
+            {
+                var success = await _studentService.RemoveStudentSkillAsync(studentId, skillId);
+                if (!success)
+                {
+                    return NotFound(new { message = "Kỹ năng này không tồn tại trong hồ sơ của sinh viên." });
+                }
+                return Ok(new { message = "Đã xóa kỹ năng khỏi hồ sơ thành công." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Sinh viên tự cập nhật điểm môn học và hệ thống sẽ tự động đồng bộ kỹ năng và trạng thái Roadmap.
+        /// PUT: api/student/course-grade
+        /// </summary>
+        [HttpPut("course-grade")]
+        [Authorize(Roles = "STUDENT")]
+        public async Task<IActionResult> UpdateCourseGrade([FromBody] CareerSystem.API.DTOs.UpdateCourseGradeDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var studentId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(studentId))
+            {
+                return Unauthorized(new { message = "Không xác định được danh tính sinh viên. Vui lòng đăng nhập lại." });
+            }
+
+            try
+            {
+                var success = await _studentService.UpdateCourseGradeAsync(studentId, dto);
+                return Ok(new { message = "Cập nhật điểm môn học và đồng bộ kỹ năng thành công." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Sinh viên tự xóa điểm môn học (tương đương chưa hoàn thành) và hệ thống sẽ tự động đồng bộ kỹ năng và trạng thái Roadmap.
+        /// DELETE: api/student/course-grade
+        /// </summary>
+        [HttpDelete("course-grade")]
+        [Authorize(Roles = "STUDENT")]
+        public async Task<IActionResult> DeleteCourseGrade([FromQuery] string courseId)
+        {
+            if (string.IsNullOrWhiteSpace(courseId))
+            {
+                return BadRequest(new { message = "Mã môn học (courseId) là bắt buộc." });
+            }
+
+            var studentId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(studentId))
+            {
+                return Unauthorized(new { message = "Không xác định được danh tính sinh viên. Vui lòng đăng nhập lại." });
+            }
+
+            try
+            {
+                var success = await _studentService.DeleteCourseGradeAsync(studentId, courseId);
+                if (!success)
+                {
+                    return NotFound(new { message = "Không tìm thấy điểm môn học này trong hồ sơ sinh viên." });
+                }
+                return Ok(new { message = "Xóa điểm môn học và đồng bộ kỹ năng thành công." });
             }
             catch (Exception ex)
             {

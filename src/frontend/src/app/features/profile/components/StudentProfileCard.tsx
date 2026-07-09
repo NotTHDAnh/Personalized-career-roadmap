@@ -2,13 +2,19 @@ import { FileCheck, UploadCloud, X, Loader2, FileSpreadsheet, Download } from "l
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { StudentDetailDto } from "@/app/types";
+
 interface RecordFile {
   id: number;
   name: string;
   size: string;
 }
 
-export function StudentProfileCard() {
+interface StudentProfileCardProps {
+  studentDetail?: StudentDetailDto | null;
+}
+
+export function StudentProfileCard({ studentDetail }: StudentProfileCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [records, setRecords] = useState<RecordFile[]>([]);
   const [isImporting, setIsImporting] = useState(false);
@@ -97,14 +103,14 @@ export function StudentProfileCard() {
       {/* Profile Header Area */}
       <div className="p-5 flex flex-col items-center text-center border-b border-[#E2E8F0] transition-colors">
         <div className="w-[64px] h-[64px] bg-[#E0E7FF] text-[#3B28CC] rounded-full mb-3 flex items-center justify-center font-bold text-[24px] shadow-sm border border-[#C7D2FE]">
-          NA
+          {studentDetail?.name ? studentDetail.name.substring(0, 2).toUpperCase() : "NA"}
         </div>
         <h3 className="text-[16px] font-bold text-[#0F172A] tracking-tight mb-0.5">
-          Nguyen Van An
+          {studentDetail?.name || "Loading..."}
         </h3>
         <div className="mt-2 flex gap-2 justify-center">
           <span className="px-3 py-1 text-[10px] font-bold uppercase tracking-wide rounded-full bg-[#E0E7FF] text-[#3B28CC]">
-            STUDENT
+            {studentDetail?.role || "STUDENT"}
           </span>
         </div>
       </div>
@@ -121,7 +127,7 @@ export function StudentProfileCard() {
                 Full Name
               </label>
               <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-2 text-[12px] text-[#334155] font-medium transition-colors">
-                Nguyen Van An
+                {studentDetail?.name || "-"}
               </div>
             </div>
             <div>
@@ -129,7 +135,7 @@ export function StudentProfileCard() {
                 Student ID
               </label>
               <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-2 text-[12px] text-[#334155] font-medium transition-colors">
-                STU-2024-0087
+                {studentDetail?.id || "-"}
               </div>
             </div>
           </div>

@@ -1,11 +1,10 @@
-using System.Threading.Tasks;
 using CareerSystem.API.Services.Interfaces;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CareerSystem.API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/course")]
     [ApiController]
     [Authorize]
     public class CourseController : ControllerBase
@@ -31,5 +30,17 @@ namespace CareerSystem.API.Controllers
             }
             return Ok(courseDetail);
         }
+
+        /// <summary>
+        /// Retrieves a list of all courses for Student Dashboard
+        /// GET: api/Staff/courses
+        /// </summary>
+        [HttpGet("courses")]
+        public async Task<IActionResult> GetCourses()
+        {
+            var courses = await _courseService.GetCoursesAsync();
+            return Ok(courses);
+        }
+
     }
 }

@@ -58,3 +58,8 @@ export type {
   CourseFormData,
   StaffCourse,
 } from "./staff";
+
+export type {
+  StudentDetailDto,
+  StudentCourseDto
+} from "./student";

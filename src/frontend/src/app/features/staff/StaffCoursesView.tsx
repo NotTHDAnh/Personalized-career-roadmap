@@ -46,32 +46,57 @@ export function StaffCoursesView() {
   });
 
   // Filter Options Map
-  const SKILL_CATEGORIES: Record<string, string[]> = {
-    "Programming Languages": ["Java", "Python", "C Programming", "Dart", "Java Programming"],
-    "Web & Mobile Development": ["React.js", "JSP & Servlets", "Spring Boot", "HTML5", "CSS3", "JavaScript", "Responsive Design", "Flutter", "REST APIs", "Full Stack Development", "Mobile Dev", "Web Dev", "Web Scraping", "MVC", "JPA"],
-    "Software Engineering": ["Software Engineering", "UML", "SDLC", "Requirements", "Elicitation", "Validation", "Software Project", "Teamwork", "UI/UX Research", "Wireframing", "Prototyping", "OOP", "Encapsulation", "Polymorphism"],
-    "Database Systems": ["Database Design", "SQL", "Normalization"],
-    "Systems & Networks": ["Networking", "Security", "TCP/IP", "Networking Layers", "Routing", "Linux", "Operating Systems", "Shell Scripting", "Computer Architecture", "Instruction Sets", "Digital Logic", "IoT", "Arduino", "Sensors & Actuators"],
-    "Mathematics & Theory": ["Computer Science", "Algorithms", "Calculus", "Linear Algebra", "Matrices", "Discrete Math", "Inference", "Graphs & Trees", "Logic", "Control Flow", "Pointers"],
-    "Tools & Practices": ["Debugging", "Testing"]
-  };
+  const [skillCategories, setSkillCategories] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    const fetchSkills = async () => {
+      try {
+        const data = await apiClient.get<any[]>("/Skill");
+        const grouped: Record<string, string[]> = {};
+        data.forEach(s => {
+          const cat = s.category || s.Category || "Uncategorized";
+          const name = s.skillName || s.SkillName;
+          if (!grouped[cat]) grouped[cat] = [];
+          if (!grouped[cat].includes(name)) grouped[cat].push(name);
+        });
+        setSkillCategories(grouped);
+      } catch (error) {
+        console.error("Failed to fetch skills for categories", error);
+      }
+    };
+    fetchSkills();
+  }, []);
 
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         setIsLoading(true);
-        const data = await apiClient.get<any[]>("/staff/courses");
+        const data = await apiClient.get<any[]>("/course/courses");
         
-        const formattedCourses: CourseMockData[] = data.map(c => ({
-          courseId: c.courseId || c.CourseId,
-          courseCode: c.courseCode || c.CourseCode,
-          courseName: c.courseName || c.CourseName,
-          credits: c.credits ?? c.Credits ?? 3,
-          totalStudyHours: c.totalStudyHours ?? c.TotalStudyHours ?? 45,
-          skills: c.skills || c.Skills || [],
+        const detailedCourses = await Promise.all(data.map(async (c) => {
+          let prerequisites: string[] = [];
+          try {
+            const detail = await apiClient.get<any>(`/course/${c.courseId || c.CourseId}`);
+            if (detail.prerequisites) {
+              prerequisites = detail.prerequisites.split(';').map((p: string) => p.trim()).filter(Boolean);
+            } else if (detail.Prerequisites) {
+              prerequisites = detail.Prerequisites.split(';').map((p: string) => p.trim()).filter(Boolean);
+            }
+          } catch (e) {
+            console.error(`Failed to fetch details for course ${c.courseId || c.CourseId}`, e);
+          }
+          return {
+            courseId: c.courseId || c.CourseId,
+            courseCode: c.courseCode || c.CourseCode,
+            courseName: c.courseName || c.CourseName,
+            credits: c.credits ?? c.Credits ?? 3,
+            totalStudyHours: c.totalStudyHours ?? c.TotalStudyHours ?? 45,
+            skills: c.skills || c.Skills || [],
+            prerequisites
+          };
         }));
         
-        setCourses(formattedCourses);
+        setCourses(detailedCourses);
       } catch (error) {
         console.error("Failed to fetch courses:", error);
         toast.error("Không thể tải danh sách môn học");
@@ -252,24 +277,75 @@ export function StaffCoursesView() {
     setOpenDropdownId(null);
   };
 
+  const getCoursesToDelete = (initialCourseIds: string[], allCourses: CourseMockData[]): string[] => {
+    const toDelete = new Set<string>(initialCourseIds);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const course of allCourses) {
+        if (!toDelete.has(course.courseId)) {
+          const hasDeletedPrereq = course.prerequisites?.some(pCode => {
+            const prereqCourse = allCourses.find(c => c.courseCode === pCode);
+            return prereqCourse && toDelete.has(prereqCourse.courseId);
+          });
+          
+          if (hasDeletedPrereq) {
+            toDelete.add(course.courseId);
+            changed = true;
+          }
+        }
+      }
+    }
+    return Array.from(toDelete);
+  };
+
   const confirmDelete = async () => {
-    if (deleteType === 'single') {
+    if (deleteType === 'single' && deleteCourseId) {
       try {
-        await apiClient.delete(`/Staff/courses/${deleteCourseId}`);
-        setCourses(prev => prev.filter(c => c.courseId !== deleteCourseId));
-        toast.success("Xóa môn học thành công");
+        setIsLoading(true);
+        const idsToDelete = getCoursesToDelete([deleteCourseId], courses);
+        
+        for (const id of idsToDelete) {
+          try {
+             await apiClient.delete(`/Staff/courses/${id}`);
+          } catch (e) {
+             console.error(`Failed to delete course ${id}`, e);
+          }
+        }
+        
+        setCourses(prev => prev.filter(c => !idsToDelete.includes(c.courseId)));
+        
+        if (idsToDelete.length > 1) {
+          toast.success(`Đã xóa môn học và ${idsToDelete.length - 1} môn học phụ thuộc`);
+        } else {
+          toast.success("Xóa môn học thành công");
+        }
       } catch (error: any) {
         console.error("Failed to delete course:", error);
         toast.error(error?.message || "Lỗi khi xóa môn học");
+      } finally {
+        setIsLoading(false);
       }
     } else if (deleteType === 'bulk') {
       try {
         setIsLoading(true);
-        await Promise.all(selectedCourseIds.map(id => 
-          apiClient.delete(`/Staff/courses/${id}`)
-        ));
-        setCourses(prev => prev.filter(c => !selectedCourseIds.includes(c.courseId)));
-        toast.success(`Đã xóa thành công ${selectedCourseIds.length} môn học`);
+        const idsToDelete = getCoursesToDelete(selectedCourseIds, courses);
+        
+        for (const id of idsToDelete) {
+          try {
+             await apiClient.delete(`/Staff/courses/${id}`);
+          } catch (e) {
+             console.error(`Failed to delete course ${id}`, e);
+          }
+        }
+        
+        setCourses(prev => prev.filter(c => !idsToDelete.includes(c.courseId)));
+        
+        if (idsToDelete.length > selectedCourseIds.length) {
+            toast.success(`Đã xóa thành công ${idsToDelete.length} môn học (bao gồm phụ thuộc)`);
+        } else {
+            toast.success(`Đã xóa thành công ${idsToDelete.length} môn học`);
+        }
         setSelectedCourseIds([]);
       } catch (error: any) {
         console.error("Failed bulk delete:", error);
@@ -292,7 +368,7 @@ export function StaffCoursesView() {
     const matchesCredits = selectedCredits.length === 0 || selectedCredits.includes(course.credits);
     
     const matchesCategories = selectedCategories.length === 0 || course.skills.some(skill => 
-      selectedCategories.some(cat => SKILL_CATEGORIES[cat]?.includes(skill))
+      selectedCategories.some(cat => skillCategories[cat]?.includes(skill))
     );
 
     return matchesSearch && matchesCredits && matchesCategories;
@@ -382,7 +458,7 @@ export function StaffCoursesView() {
                         
                         {expandedFilterGroup === 'categories' && (
                           <div className="p-4 bg-white flex flex-col gap-3">
-                            {Object.keys(SKILL_CATEGORIES).map(category => (
+                            {Object.keys(skillCategories).map(category => (
                               <label key={category} className="flex items-center gap-3 cursor-pointer group">
                                 <input 
                                   type="checkbox" 
@@ -505,6 +581,9 @@ export function StaffCoursesView() {
                     <th className="px-6 py-4 text-left text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
                       Course Name
                     </th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
+                      Prerequisites
+                    </th>
                     <th className="px-6 py-4 text-center text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
                       Credits
                     </th>
@@ -526,6 +605,7 @@ export function StaffCoursesView() {
                         {isGlobalEditMode && <td className="px-6 py-4"></td>}
                         <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
                         <td className="px-6 py-4"><Skeleton className="h-4 w-48" /></td>
+                        <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
                         <td className="px-6 py-4 text-center"><Skeleton className="h-4 w-12 mx-auto" /></td>
                         <td className="px-6 py-4 text-center"><Skeleton className="h-4 w-12 mx-auto" /></td>
                         <td className="px-6 py-4">
@@ -555,6 +635,22 @@ export function StaffCoursesView() {
                         </td>
                         <td className="px-6 py-4 text-[13px] font-bold text-[#0F172A]">
                           {course.courseName}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1.5">
+                            {course.prerequisites && course.prerequisites.length > 0 ? (
+                              course.prerequisites.map((prereq, idx) => (
+                                <span 
+                                  key={idx}
+                                  className="bg-[#F1F5F9] text-[#475569] text-[10px] font-bold px-2 py-0.5 rounded-md border border-[#E2E8F0]"
+                                >
+                                  {prereq}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[12px] text-gray-400 italic">None</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-[13px] text-center font-semibold text-[#334155]">
                           {course.credits} credits
