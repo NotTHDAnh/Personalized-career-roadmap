@@ -50,6 +50,9 @@ namespace CareerSystem.API
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.ICourseService,
                 CareerSystem.API.Services.Implementations.CourseService>();
 
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.ISkillService,
+                CareerSystem.API.Services.Implementations.SkillService>();
+
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStudentImportService,
                 CareerSystem.API.Services.Implementations.StudentImportService>();
 
@@ -130,6 +133,7 @@ namespace CareerSystem.API
                     }
                 });
             });
+            builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
 
             var app = builder.Build();
 
