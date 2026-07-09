@@ -8,7 +8,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Code2
 } from "lucide-react";
 
 type NavItem = {
@@ -32,6 +33,11 @@ const navItems: NavItem[] = [
     to: "/staff/courses",
     label: "Courses",
     icon: <BookOpen size={20} />,
+  },
+  {
+    to: "/staff/skills",
+    label: "Skills",
+    icon: <Code2 size={20} />,
   },
 ];
 

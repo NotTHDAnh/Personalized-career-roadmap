@@ -324,133 +324,128 @@ export default function ProfileTranscripts() {
       setLocalTags(data.tags || []);
 
       try {
-        const roadmapList = await apiClient.get<any[]>(`/Roadmap/user/${user.userId}`);
-        if (roadmapList && roadmapList.length > 0) {
-          const latestRoadmap = roadmapList[roadmapList.length - 1];
-          const latestDetail = await apiClient.get<any>(`/Roadmap/${latestRoadmap.roadmapId}`);
+        const roadmapList = await apiClient.get<any[]>(`/Roadmap/user/${user.userId}`).catch(() => []);
+        const allDetails = roadmapList && roadmapList.length > 0
+          ? await Promise.all(roadmapList.map(r => apiClient.get<any>(`/Roadmap/${r.roadmapId}`).catch(() => null)))
+          : [];
 
-          const allDetails = await Promise.all(
-            roadmapList.map(r => apiClient.get<any>(`/Roadmap/${r.roadmapId}`).catch(() => null))
-          );
+        let aggregatedTotalHours = 0;
+        let aggregatedCompletedHours = 0;
 
-          let aggregatedTotalHours = 0;
-          let aggregatedCompletedHours = 0;
-
-          // 1. Gather all unique course IDs across all roadmaps and student courses
-          const uniqueCourseIds = new Set<string>();
-          for (const detail of allDetails) {
-            if (detail && detail.phases) {
-              const flatNodes = detail.phases.flatMap((p: any) => p.nodes) || [];
-              for (const node of flatNodes) {
-                if (node.courseId) uniqueCourseIds.add(node.courseId);
-              }
+        // 1. Gather all unique course IDs across all roadmaps and student courses
+        const uniqueCourseIds = new Set<string>();
+        for (const detail of allDetails) {
+          if (detail && detail.phases) {
+            const flatNodes = detail.phases.flatMap((p: any) => p.nodes) || [];
+            for (const node of flatNodes) {
+              if (node.courseId) uniqueCourseIds.add(node.courseId);
             }
           }
-          if (data && data.courses) {
-            for (const c of data.courses) {
-              if (c.courseId) uniqueCourseIds.add(c.courseId);
-            }
-          }
-
-          // 2. Fetch course details
-          const courseDetailsMap: Record<string, any> = {};
-          if (uniqueCourseIds.size > 0) {
-            await Promise.all(
-              Array.from(uniqueCourseIds).map(async (cid) => {
-                try {
-                  const details = await apiClient.get<any>(`/Course/${cid}`);
-                  courseDetailsMap[cid] = details;
-                  // Map by courseCode as well for robust check
-                  if (details.courseCode) {
-                    courseDetailsMap[details.courseCode] = details;
-                  }
-                } catch (err) {
-                  // ignore
-                }
-              })
-            );
-          }
-          setCourseDetailsMapGlobal(courseDetailsMap);
-
-          // 3. Compute hours and courses
-          let aggregatedTotalCourses = 0;
-          let aggregatedCompletedCourses = 0;
-
-          for (const detail of allDetails) {
-            if (detail && detail.phases) {
-              const flatNodes = detail.phases.flatMap((p: any) => p.nodes) || [];
-              aggregatedTotalCourses += flatNodes.length;
-              for (const node of flatNodes) {
-                let nodeHours = 0;
-                const cDetails = node.courseId ? courseDetailsMap[node.courseId] : null;
-
-                if (cDetails?.totalStudyHours !== undefined) {
-                  nodeHours = cDetails.totalStudyHours;
-                } else if (node.courseDetails?.totalStudyHours !== undefined) {
-                  nodeHours = node.courseDetails.totalStudyHours;
-                } else {
-                  const weeks = parseInt(node.duration) || 8;
-                  nodeHours = weeks * 5;
-                }
-
-                aggregatedTotalHours += nodeHours;
-                if (node.status === "COMPLETED" || node.status === "done" || node.state === "done") {
-                  aggregatedCompletedHours += nodeHours;
-                  aggregatedCompletedCourses += 1;
-                }
-              }
-            }
-          }
-
-          const progressPercent = aggregatedTotalCourses === 0 ? 0 : Math.round((aggregatedCompletedCourses / aggregatedTotalCourses) * 100);
-
-          setRoadmapProgress({
-            roleName: "Overall Career",
-            percent: progressPercent,
-            completed: aggregatedCompletedCourses,
-            total: aggregatedTotalCourses,
-            totalHours: aggregatedTotalHours,
-            completedHours: aggregatedCompletedHours
-          });
-
-          const idToCode: Record<string, string> = {};
-          for (const detail of allDetails) {
-            if (detail && detail.phases) {
-              for (const phase of detail.phases) {
-                if (phase.nodes) {
-                  for (const node of phase.nodes) {
-                    if (node.courseId && (node.courseCode || node.code)) {
-                      idToCode[node.courseId] = node.courseCode || node.code;
-                    }
-                  }
-                }
-              }
-            }
-          }
-          setCourseIdToCodeMap(idToCode);
-
-          const combinedActiveNodes: any[] = [];
-          const seenCourseIds = new Set<string>();
-
-          for (const detail of allDetails) {
-            if (detail && detail.phases) {
-              const graph = mapDtoToGraph(detail);
-              const activeOrLocked = graph.nodes
-                .filter(n => n.data.state === "active" || n.data.state === "locked")
-                .map(n => n.data);
-
-              for (const node of activeOrLocked) {
-                const identifier = node.courseId || node.courseCode || node.name;
-                if (!seenCourseIds.has(identifier)) {
-                  seenCourseIds.add(identifier);
-                  combinedActiveNodes.push(node);
-                }
-              }
-            }
-          }
-
-          setInProgressRoadmapCourses(combinedActiveNodes);
         }
+        if (data && data.courses) {
+          for (const c of data.courses) {
+            if (c.courseId) uniqueCourseIds.add(c.courseId);
+          }
+        }
+
+        // 2. Fetch course details
+        const courseDetailsMap: Record<string, any> = {};
+        if (uniqueCourseIds.size > 0) {
+          await Promise.all(
+            Array.from(uniqueCourseIds).map(async (cid) => {
+              try {
+                const details = await apiClient.get<any>(`/Course/${cid}`);
+                courseDetailsMap[cid] = details;
+                // Map by courseCode as well for robust check
+                if (details.courseCode) {
+                  courseDetailsMap[details.courseCode] = details;
+                }
+              } catch (err) {
+                // ignore
+              }
+            })
+          );
+        }
+        setCourseDetailsMapGlobal(courseDetailsMap);
+
+        // 3. Compute hours and courses
+        let aggregatedTotalCourses = 0;
+        let aggregatedCompletedCourses = 0;
+
+        for (const detail of allDetails) {
+          if (detail && detail.phases) {
+            const flatNodes = detail.phases.flatMap((p: any) => p.nodes) || [];
+            aggregatedTotalCourses += flatNodes.length;
+            for (const node of flatNodes) {
+              let nodeHours = 0;
+              const cDetails = node.courseId ? courseDetailsMap[node.courseId] : null;
+
+              if (cDetails?.totalStudyHours !== undefined) {
+                nodeHours = cDetails.totalStudyHours;
+              } else if (node.courseDetails?.totalStudyHours !== undefined) {
+                nodeHours = node.courseDetails.totalStudyHours;
+              } else {
+                const weeks = parseInt(node.duration) || 8;
+                nodeHours = weeks * 5;
+              }
+
+              aggregatedTotalHours += nodeHours;
+              if (node.status === "COMPLETED" || node.status === "done" || node.state === "done") {
+                aggregatedCompletedHours += nodeHours;
+                aggregatedCompletedCourses += 1;
+              }
+            }
+          }
+        }
+
+        const progressPercent = aggregatedTotalCourses === 0 ? 0 : Math.round((aggregatedCompletedCourses / aggregatedTotalCourses) * 100);
+
+        setRoadmapProgress({
+          roleName: "Overall Career",
+          percent: progressPercent,
+          completed: aggregatedCompletedCourses,
+          total: aggregatedTotalCourses,
+          totalHours: aggregatedTotalHours,
+          completedHours: aggregatedCompletedHours
+        });
+
+        const idToCode: Record<string, string> = {};
+        for (const detail of allDetails) {
+          if (detail && detail.phases) {
+            for (const phase of detail.phases) {
+              if (phase.nodes) {
+                for (const node of phase.nodes) {
+                  if (node.courseId && (node.courseCode || node.code)) {
+                    idToCode[node.courseId] = node.courseCode || node.code;
+                  }
+                }
+              }
+            }
+          }
+        }
+        setCourseIdToCodeMap(idToCode);
+
+        const combinedActiveNodes: any[] = [];
+        const seenCourseIds = new Set<string>();
+
+        for (const detail of allDetails) {
+          if (detail && detail.phases) {
+            const graph = mapDtoToGraph(detail);
+            const activeOrLocked = graph.nodes
+              .filter(n => n.data.state === "active" || n.data.state === "locked")
+              .map(n => n.data);
+
+            for (const node of activeOrLocked) {
+              const identifier = node.courseId || node.courseCode || node.name;
+              if (!seenCourseIds.has(identifier)) {
+                seenCourseIds.add(identifier);
+                combinedActiveNodes.push(node);
+              }
+            }
+          }
+        }
+
+        setInProgressRoadmapCourses(combinedActiveNodes);
       } catch (err) {
         console.error("Error fetching roadmap progress for dashboard:", err);
       }

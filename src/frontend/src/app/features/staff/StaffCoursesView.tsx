@@ -43,15 +43,26 @@ export function StaffCoursesView() {
   });
 
   // Filter Options Map
-  const SKILL_CATEGORIES: Record<string, string[]> = {
-    "Programming Languages": ["Java", "Python", "C Programming", "Dart", "Java Programming"],
-    "Web & Mobile Development": ["React.js", "JSP & Servlets", "Spring Boot", "HTML5", "CSS3", "JavaScript", "Responsive Design", "Flutter", "REST APIs", "Full Stack Development", "Mobile Dev", "Web Dev", "Web Scraping", "MVC", "JPA"],
-    "Software Engineering": ["Software Engineering", "UML", "SDLC", "Requirements", "Elicitation", "Validation", "Software Project", "Teamwork", "UI/UX Research", "Wireframing", "Prototyping", "OOP", "Encapsulation", "Polymorphism"],
-    "Database Systems": ["Database Design", "SQL", "Normalization"],
-    "Systems & Networks": ["Networking", "Security", "TCP/IP", "Networking Layers", "Routing", "Linux", "Operating Systems", "Shell Scripting", "Computer Architecture", "Instruction Sets", "Digital Logic", "IoT", "Arduino", "Sensors & Actuators"],
-    "Mathematics & Theory": ["Computer Science", "Algorithms", "Calculus", "Linear Algebra", "Matrices", "Discrete Math", "Inference", "Graphs & Trees", "Logic", "Control Flow", "Pointers"],
-    "Tools & Practices": ["Debugging", "Testing"]
-  };
+  const [skillCategories, setSkillCategories] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    const fetchSkills = async () => {
+      try {
+        const data = await apiClient.get<any[]>("/Skill");
+        const grouped: Record<string, string[]> = {};
+        data.forEach(s => {
+          const cat = s.category || s.Category || "Uncategorized";
+          const name = s.skillName || s.SkillName;
+          if (!grouped[cat]) grouped[cat] = [];
+          if (!grouped[cat].includes(name)) grouped[cat].push(name);
+        });
+        setSkillCategories(grouped);
+      } catch (error) {
+        console.error("Failed to fetch skills for categories", error);
+      }
+    };
+    fetchSkills();
+  }, []);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -355,7 +366,7 @@ export function StaffCoursesView() {
     const matchesCredits = selectedCredits.length === 0 || selectedCredits.includes(course.credits);
     
     const matchesCategories = selectedCategories.length === 0 || course.skills.some(skill => 
-      selectedCategories.some(cat => SKILL_CATEGORIES[cat]?.includes(skill))
+      selectedCategories.some(cat => skillCategories[cat]?.includes(skill))
     );
 
     return matchesSearch && matchesCredits && matchesCategories;
@@ -445,7 +456,7 @@ export function StaffCoursesView() {
                         
                         {expandedFilterGroup === 'categories' && (
                           <div className="p-4 bg-white flex flex-col gap-3">
-                            {Object.keys(SKILL_CATEGORIES).map(category => (
+                            {Object.keys(skillCategories).map(category => (
                               <label key={category} className="flex items-center gap-3 cursor-pointer group">
                                 <input 
                                   type="checkbox" 

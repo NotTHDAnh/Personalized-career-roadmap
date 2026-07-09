@@ -5,6 +5,7 @@ import StaffPanel from "./features/staff/StaffPanel";
 import { StaffLayout } from "./layouts/StaffLayout";
 import { StaffStudentsView } from "./features/staff/StaffStudentsView";
 import { StaffCoursesView } from "./features/staff/StaffCoursesView";
+import { StaffSkillsView } from "./features/staff/StaffSkillsView";
 import ProfileTab from "./features/profile/ProfileTab";
 import RoadmapTab from "./features/roadmap/RoadmapTab";
 import { MentorTab } from "./features/mentor/MentorTab";
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
           { path: "dashboard", element: <StaffPanel /> },
           { path: "students", element: <StaffStudentsView /> },
           { path: "courses", element: <StaffCoursesView /> },
+          { path: "skills", element: <StaffSkillsView /> },
         ],
       },
       {

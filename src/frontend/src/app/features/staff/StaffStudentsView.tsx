@@ -68,7 +68,7 @@ export function StaffStudentsView() {
   const [isConfirmDeleteGradeOpen, setIsConfirmDeleteGradeOpen] = useState(false);
   const [deleteGradeInfo, setDeleteGradeInfo] = useState<{ courseId: string, courseName: string } | null>(null);
 
-  const [availableCourses, setAvailableCourses] = useState<{courseId: string, courseName: string}[]>([]);
+  const [availableCourses, setAvailableCourses] = useState<{courseId: string, courseCode: string, courseName: string, prerequisites?: string[]}[]>([]);
 
   // Edit state
   const [isEditing, setIsEditing] = useState(false);
@@ -82,6 +82,33 @@ export function StaffStudentsView() {
     courses: [] as {courseId: string, gpa: number | string | null, examAttempts: number | string | null}[],
     inProgressCourses: [] as {courseId: string, gpa: number | string | null, examAttempts: number | string | null}[]
   });
+
+  const getCascadeDeleteCourses = (courseIdToRemove: string, currentCourses: {courseId: string}[], currentInProgress: {courseId: string}[]) => {
+    let toDelete = [courseIdToRemove];
+    let queue = [courseIdToRemove];
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const currentCourse = availableCourses.find(c => c.courseId === currentId);
+      if (!currentCourse) continue;
+      
+      const dependents = availableCourses.filter(c => 
+        c.prerequisites && (c.prerequisites.includes(currentCourse.courseId) || c.prerequisites.includes(currentCourse.courseCode))
+      );
+      
+      for (const dep of dependents) {
+        if (!toDelete.includes(dep.courseId)) {
+          const isInPassed = currentCourses.some(c => c.courseId === dep.courseId);
+          const isInProgress = currentInProgress.some(c => c.courseId === dep.courseId);
+          if (isInPassed || isInProgress) {
+            toDelete.push(dep.courseId);
+            queue.push(dep.courseId);
+          }
+        }
+      }
+    }
+    return toDelete;
+  };
 
   const fetchStudents = async () => {
     try {
@@ -98,7 +125,21 @@ export function StaffStudentsView() {
   const fetchCourses = async () => {
     try {
       const data = await apiClient.get<any[]>('/course/courses');
-      setAvailableCourses(data.map(c => ({ courseId: c.courseId, courseName: c.courseName })));
+      const detailedCourses = await Promise.all(data.map(async (c) => {
+        let prerequisites: string[] = [];
+        try {
+          const detailData = await apiClient.get<any>(`/course/${c.courseId || c.CourseId}`);
+          if (detailData.prerequisites) {
+            prerequisites = detailData.prerequisites.split(';').map((p: string) => p.trim()).filter(Boolean);
+          } else if (detailData.Prerequisites) {
+            prerequisites = detailData.Prerequisites.split(';').map((p: string) => p.trim()).filter(Boolean);
+          }
+        } catch (e) {
+          console.error(`Failed to fetch details for course ${c.courseId}`, e);
+        }
+        return { courseId: c.courseId || c.CourseId, courseCode: c.courseCode || c.CourseCode, courseName: c.courseName || c.CourseName, prerequisites };
+      }));
+      setAvailableCourses(detailedCourses);
     } catch (error) {
       console.error("Failed to fetch courses");
     }
@@ -540,9 +581,9 @@ export function StaffStudentsView() {
                     <thead className="bg-gray-50 text-gray-700">
                       <tr>
                         <th className="px-4 py-2 font-bold">Course Name</th>
-                        <th className="px-4 py-2 font-bold w-24 text-right">GPA / Score</th>
-                        <th className="px-4 py-2 font-bold w-24 text-right">Exam Attempts</th>
-                        <th className="px-4 py-2 font-bold w-12 text-center">Action</th>
+                        <th className="px-4 py-2 font-bold w-32 text-right">GPA / Score</th>
+                        <th className="px-4 py-2 font-bold w-32 text-right">Exam Attempts</th>
+                        {isEditing && <th className="px-4 py-2 font-bold w-12 text-center">Action</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -565,11 +606,27 @@ export function StaffStudentsView() {
                                     const isSelectedElsewhere = 
                                       editForm.courses.some((course, courseIdx) => courseIdx !== idx && course.courseId === ac.courseId) ||
                                       editForm.inProgressCourses.some(course => course.courseId === ac.courseId);
+                                    let missingPrereqs = false;
+                                    if (ac.prerequisites && ac.prerequisites.length > 0) {
+                                      for (const pre of ac.prerequisites) {
+                                        const preDef = availableCourses.find(av => av.courseCode === pre || av.courseId === pre);
+                                        const found = preDef ? editForm.courses.find(c => c.courseId === preDef.courseId) : editForm.courses.find(c => c.courseId === pre);
+                                        const preGpa = found ? (typeof found.gpa === 'string' ? parseFloat(found.gpa) : found.gpa) : null;
+                                        if (!found || preGpa === null || isNaN(preGpa) || preGpa < 5.0) {
+                                          missingPrereqs = true;
+                                          break;
+                                        }
+                                      }
+                                    }
+                                    const isDisabled = isSelectedElsewhere || missingPrereqs;
+                                    const title = missingPrereqs ? "Chưa hoàn thành môn tiên quyết" : (isSelectedElsewhere ? "Đã chọn môn này" : "");
+
                                     return (
                                       <option 
                                         key={ac.courseId} 
                                         value={ac.courseId} 
-                                        disabled={isSelectedElsewhere}
+                                        disabled={isDisabled}
+                                        title={title}
                                       >
                                         {ac.courseName}
                                       </option>
@@ -618,8 +675,16 @@ export function StaffStudentsView() {
                               </td>
                               <td className="px-4 py-2 text-center">
                                 <button onClick={() => {
-                                  const newCourses = editForm.courses.filter((_, i) => i !== idx);
-                                  setEditForm({...editForm, courses: newCourses});
+                                  const courseIdToRemove = editForm.courses[idx].courseId;
+                                  if (!courseIdToRemove) {
+                                    const newCourses = editForm.courses.filter((_, i) => i !== idx);
+                                    setEditForm({...editForm, courses: newCourses});
+                                    return;
+                                  }
+                                  const toDeleteIds = getCascadeDeleteCourses(courseIdToRemove, editForm.courses, editForm.inProgressCourses);
+                                  const newCourses = editForm.courses.filter(c => !toDeleteIds.includes(c.courseId));
+                                  const newInProgress = editForm.inProgressCourses.filter(c => !toDeleteIds.includes(c.courseId));
+                                  setEditForm({...editForm, courses: newCourses, inProgressCourses: newInProgress});
                                 }} className="text-red-500 hover:text-red-700">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -653,19 +718,11 @@ export function StaffStudentsView() {
                               <td className="px-4 py-2 text-right text-gray-600 font-medium">
                                  {c.examAttempts !== null && c.examAttempts !== undefined ? c.examAttempts : "N/A"}
                               </td>
-                              <td className="px-4 py-2 text-center">
-                                <button 
-                                  onClick={() => handleOpenConfirmDeleteGrade(c.courseId || "", c.courseName)} 
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr className="border-t border-gray-200">
-                            <td colSpan={4} className="px-4 py-6 text-center text-gray-500 italic">
+                            <td colSpan={isEditing ? 4 : 3} className="px-4 py-6 text-center text-gray-500 italic">
                               No enrolled courses yet
                             </td>
                           </tr>
@@ -683,9 +740,9 @@ export function StaffStudentsView() {
                     <thead className="bg-gray-50 text-gray-700">
                       <tr>
                         <th className="px-4 py-2 font-bold">Course Name</th>
-                        <th className="px-4 py-2 font-bold w-24 text-right">GPA / Score</th>
-                        <th className="px-4 py-2 font-bold w-24 text-right">Exam Attempts</th>
-                        <th className="px-4 py-2 font-bold w-12 text-center">Action</th>
+                        <th className="px-4 py-2 font-bold w-32 text-right">GPA / Score</th>
+                        <th className="px-4 py-2 font-bold w-32 text-right">Exam Attempts</th>
+                        {isEditing && <th className="px-4 py-2 font-bold w-12 text-center">Action</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -708,11 +765,27 @@ export function StaffStudentsView() {
                                     const isSelectedElsewhere = 
                                       editForm.courses.some(course => course.courseId === ac.courseId) ||
                                       editForm.inProgressCourses.some((course, courseIdx) => courseIdx !== idx && course.courseId === ac.courseId);
+                                    let missingPrereqs = false;
+                                    if (ac.prerequisites && ac.prerequisites.length > 0) {
+                                      for (const pre of ac.prerequisites) {
+                                        const preDef = availableCourses.find(av => av.courseCode === pre || av.courseId === pre);
+                                        const found = preDef ? editForm.courses.find(c => c.courseId === preDef.courseId) : editForm.courses.find(c => c.courseId === pre);
+                                        const preGpa = found ? (typeof found.gpa === 'string' ? parseFloat(found.gpa) : found.gpa) : null;
+                                        if (!found || preGpa === null || isNaN(preGpa) || preGpa < 5.0) {
+                                          missingPrereqs = true;
+                                          break;
+                                        }
+                                      }
+                                    }
+                                    const isDisabled = isSelectedElsewhere || missingPrereqs;
+                                    const title = missingPrereqs ? "Chưa hoàn thành môn tiên quyết" : (isSelectedElsewhere ? "Đã chọn môn này" : "");
+
                                     return (
                                       <option 
                                         key={ac.courseId} 
                                         value={ac.courseId} 
-                                        disabled={isSelectedElsewhere}
+                                        disabled={isDisabled}
+                                        title={title}
                                       >
                                         {ac.courseName}
                                       </option>
@@ -763,8 +836,16 @@ export function StaffStudentsView() {
                               </td>
                               <td className="px-4 py-2 text-center">
                                 <button onClick={() => {
-                                  const newCourses = editForm.inProgressCourses.filter((_, i) => i !== idx);
-                                  setEditForm({...editForm, inProgressCourses: newCourses});
+                                  const courseIdToRemove = editForm.inProgressCourses[idx].courseId;
+                                  if (!courseIdToRemove) {
+                                    const newCourses = editForm.inProgressCourses.filter((_, i) => i !== idx);
+                                    setEditForm({...editForm, inProgressCourses: newCourses});
+                                    return;
+                                  }
+                                  const toDeleteIds = getCascadeDeleteCourses(courseIdToRemove, editForm.courses, editForm.inProgressCourses);
+                                  const newCourses = editForm.courses.filter(c => !toDeleteIds.includes(c.courseId));
+                                  const newInProgress = editForm.inProgressCourses.filter(c => !toDeleteIds.includes(c.courseId));
+                                  setEditForm({...editForm, courses: newCourses, inProgressCourses: newInProgress});
                                 }} className="text-red-500 hover:text-red-700">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -785,26 +866,18 @@ export function StaffStudentsView() {
                             <tr key={`ip-view-${idx}`} className="border-t border-gray-200">
                               <td className="px-4 py-2 font-medium text-gray-900">{c.courseName}</td>
                               <td className="px-4 py-2 text-right">
-                                <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-500">
+                                <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-500 whitespace-nowrap">
                                   In-Progress
                                 </span>
                               </td>
                               <td className="px-4 py-2 text-right text-gray-600 font-medium">
                                  N/A
                               </td>
-                              <td className="px-4 py-2 text-center">
-                                <button 
-                                  onClick={() => handleOpenConfirmDeleteGrade(c.courseId || "", c.courseName)} 
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr className="border-t border-gray-200">
-                            <td colSpan={4} className="px-4 py-6 text-center text-gray-500 italic">
+                            <td colSpan={isEditing ? 4 : 3} className="px-4 py-6 text-center text-gray-500 italic">
                               No in-progress courses
                             </td>
                           </tr>
