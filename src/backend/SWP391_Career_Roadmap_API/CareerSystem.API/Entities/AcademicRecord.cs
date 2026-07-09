@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace CareerSystem.API.Entities;
@@ -11,7 +11,7 @@ public partial class AcademicRecord
 
     public string CourseId { get; set; } = null!;
 
-    public decimal Gpa { get; set; }
+    public decimal? Gpa { get; set; }
 
     public int? ExamAttempts { get; set; }
 

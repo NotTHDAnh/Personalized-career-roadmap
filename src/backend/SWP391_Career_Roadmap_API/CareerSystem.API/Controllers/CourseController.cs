@@ -30,5 +30,17 @@ namespace CareerSystem.API.Controllers
             }
             return Ok(courseDetail);
         }
+
+        /// <summary>
+        /// Retrieves a list of all courses for Student Dashboard
+        /// GET: api/Staff/courses
+        /// </summary>
+        [HttpGet("courses")]
+        public async Task<IActionResult> GetCourses()
+        {
+            var courses = await _courseService.GetCoursesAsync();
+            return Ok(courses);
+        }
+
     }
 }

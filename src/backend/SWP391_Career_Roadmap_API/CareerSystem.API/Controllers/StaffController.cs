@@ -182,17 +182,6 @@ namespace CareerSystem.API.Controllers
             return Ok(stats);
         }
 
-        /// <summary>
-        /// Retrieves a list of all courses for the Staff Console.
-        /// GET: api/Staff/courses
-        /// </summary>
-        [HttpGet("courses")]
-        public async Task<IActionResult> GetCourses()
-        {
-            var courses = await _courseService.GetCoursesAsync();
-            return Ok(courses);
-        }
-
         /// Cập nhật môn học thủ công (chỉ dành cho Staff).
         /// PUT: api/Staff/courses/{courseId}
         /// </summary>

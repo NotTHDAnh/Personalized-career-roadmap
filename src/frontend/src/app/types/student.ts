@@ -1,7 +1,7 @@
 export interface StudentCourseDto {
   courseId: string;
   courseName: string;
-  gpa: number;
+  gpa: number | null;
   examAttempts: number | null;
 }
 
