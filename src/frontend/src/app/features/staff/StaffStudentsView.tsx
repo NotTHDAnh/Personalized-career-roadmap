@@ -124,7 +124,7 @@ export function StaffStudentsView() {
   // Actions
   const handleOpenDetail = async (id: string) => {
     try {
-      const data = await apiClient.get<StudentDetail>(`/Student/students/${id}`);
+      const data = await apiClient.get<StudentDetail>(`/student/students/${id}`);
       setDetailData(data);
       
       let dateVal = "";
@@ -150,7 +150,7 @@ export function StaffStudentsView() {
     if (!detailData) return;
     try {
       setIsSaving(true);
-      await apiClient.put(`/staff/students/${detailData.id}`, {
+      await apiClient.put(`/student/students/${detailData.id}`, {
         fullName: editForm.name,
         email: editForm.email,
         role: editForm.role,
@@ -208,7 +208,7 @@ export function StaffStudentsView() {
   const handleDeleteGrade = async () => {
     if (!detailData || !deleteGradeInfo) return;
     try {
-      await apiClient.delete(`/staff/students/${detailData.id}/courses/${deleteGradeInfo.courseId}`);
+      await apiClient.delete(`/student/students/${detailData.id}/courses/${deleteGradeInfo.courseId}`);
       toast.success(`Đã xóa điểm môn học ${deleteGradeInfo.courseName}`);
       handleOpenDetail(detailData.id); // refresh modal data
       fetchStudents(); // refresh list
