@@ -185,5 +185,73 @@ namespace CareerSystem.API.Controllers
                 return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
             }
         }
+
+        /// <summary>
+        /// Sinh viên tự cập nhật điểm môn học và hệ thống sẽ tự động đồng bộ kỹ năng và trạng thái Roadmap.
+        /// PUT: api/student/course-grade
+        /// </summary>
+        [HttpPut("course-grade")]
+        [Authorize(Roles = "STUDENT")]
+        public async Task<IActionResult> UpdateCourseGrade([FromBody] CareerSystem.API.DTOs.UpdateCourseGradeDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var studentId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(studentId))
+            {
+                return Unauthorized(new { message = "Không xác định được danh tính sinh viên. Vui lòng đăng nhập lại." });
+            }
+
+            try
+            {
+                var success = await _studentService.UpdateCourseGradeAsync(studentId, dto);
+                return Ok(new { message = "Cập nhật điểm môn học và đồng bộ kỹ năng thành công." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Sinh viên tự xóa điểm môn học (tương đương chưa hoàn thành) và hệ thống sẽ tự động đồng bộ kỹ năng và trạng thái Roadmap.
+        /// DELETE: api/student/course-grade
+        /// </summary>
+        [HttpDelete("course-grade")]
+        [Authorize(Roles = "STUDENT")]
+        public async Task<IActionResult> DeleteCourseGrade([FromQuery] string courseId)
+        {
+            if (string.IsNullOrWhiteSpace(courseId))
+            {
+                return BadRequest(new { message = "Mã môn học (courseId) là bắt buộc." });
+            }
+
+            var studentId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(studentId))
+            {
+                return Unauthorized(new { message = "Không xác định được danh tính sinh viên. Vui lòng đăng nhập lại." });
+            }
+
+            try
+            {
+                var success = await _studentService.DeleteCourseGradeAsync(studentId, courseId);
+                if (!success)
+                {
+                    return NotFound(new { message = "Không tìm thấy điểm môn học này trong hồ sơ sinh viên." });
+                }
+                return Ok(new { message = "Xóa điểm môn học và đồng bộ kỹ năng thành công." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Đã xảy ra lỗi hệ thống: {ex.Message}" });
+            }
+        }
     }
 }

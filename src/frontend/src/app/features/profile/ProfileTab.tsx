@@ -74,7 +74,7 @@ export default function ProfileTranscripts() {
         const fetchPromises = data.map(async (c) => {
           if (!detailsMap[c.courseId]) {
             try {
-              const detail = await apiClient.get<any>(`/Course/${c.courseId}`);
+              const detail = await apiClient.get<any>(`/course/${c.courseId}`);
               detailsMap[c.courseId] = detail;
               if (detail.courseCode) detailsMap[detail.courseCode] = detail;
             } catch (e) {}
@@ -122,35 +122,26 @@ export default function ProfileTranscripts() {
     }
 
     try {
-      let dateVal: string | null = null;
-      if (studentDetail.createdAt && studentDetail.createdAt !== "N/A") {
-        const parsedDate = Date.parse(studentDetail.createdAt.replace(" ", "T"));
-        if (!isNaN(parsedDate)) {
-          dateVal = new Date(parsedDate).toISOString();
-        }
-      }
+      const addPromises = selectedNewCourses
+        .filter(cid => !studentDetail.courses.some(c => c.courseId === cid))
+        .map(cid => apiClient.put("/student/course-grade", {
+          courseId: cid,
+          gpa: null,
+          examAttempts: 1
+        }));
 
-      const isStatusActive = typeof studentDetail.status === 'boolean'
-        ? studentDetail.status
-        : (typeof studentDetail.status === 'string' && (studentDetail.status.toLowerCase() === 'active' || studentDetail.status.toLowerCase() === 'true'));
-
-      await apiClient.put(`/student/students/${user.userId}`, {
-        fullName: studentDetail.name,
-        email: studentDetail.email,
-        role: studentDetail.role,
-        status: isStatusActive,
-        createdAt: dateVal,
-        courses: updatedCourses
-      });
+      await Promise.all(addPromises);
 
       toast.success(`Đã thêm ${addedCount} khóa học thành công!`);
+      window.dispatchEvent(new Event('roadmap_updated'));
+      window.dispatchEvent(new Event('gpa_updated'));
       setIsAddCourseOpen(false);
       setSelectedNewCourses([]);
       setCourseSearch("");
       fetchDetail();
     } catch (error: any) {
-      console.error("Add Course Error:", error.response?.data || error);
-      toast.error(error.response?.data?.message || error.message || "Lỗi khi thêm khóa học.");
+      console.error("Add Course Error:", error);
+      toast.error("Lỗi khi thêm khóa học.");
     }
   };
 
@@ -206,42 +197,10 @@ export default function ProfileTranscripts() {
     }
 
     try {
-      // Construct the payload for PUT api/student/students/{id}
-      const updatedCourses = studentDetail.courses.map(c => {
-        if (c.courseId === courseId) {
-          return { courseId, gpa: gpaNum, examAttempts: attemptsNum };
-        }
-        return {
-          courseId: c.courseId,
-          gpa: c.gpa,
-          examAttempts: c.examAttempts
-        };
-      });
-
-      // If this course is not yet in studentDetail.courses (it was in-progress), add it!
-      if (!studentDetail.courses.some(c => c.courseId === courseId)) {
-        updatedCourses.push({ courseId, gpa: gpaNum, examAttempts: attemptsNum });
-      }
-
-      let dateVal: string | null = null;
-      if (studentDetail.createdAt && studentDetail.createdAt !== "N/A") {
-        const parsedDate = Date.parse(studentDetail.createdAt.replace(" ", "T"));
-        if (!isNaN(parsedDate)) {
-          dateVal = new Date(parsedDate).toISOString();
-        }
-      }
-
-      const isStatusActive = typeof studentDetail.status === 'boolean'
-        ? studentDetail.status
-        : (typeof studentDetail.status === 'string' && (studentDetail.status.toLowerCase() === 'active' || studentDetail.status.toLowerCase() === 'true'));
-
-      await apiClient.put(`/student/students/${user.userId}`, {
-        fullName: studentDetail.name,
-        email: studentDetail.email,
-        role: studentDetail.role,
-        status: isStatusActive,
-        createdAt: dateVal,
-        courses: updatedCourses
+      await apiClient.put("/student/course-grade", {
+        courseId,
+        gpa: gpaNum,
+        examAttempts: attemptsNum
       });
 
       setRowEdits(prev => {
@@ -251,6 +210,8 @@ export default function ProfileTranscripts() {
       });
 
       toast.success("Course record updated successfully!");
+      window.dispatchEvent(new Event('roadmap_updated'));
+      window.dispatchEvent(new Event('gpa_updated'));
       fetchDetail(); // Refresh data
     } catch (error) {
       toast.error("Failed to update course record.");
@@ -268,30 +229,10 @@ export default function ProfileTranscripts() {
   const handleRemoveCourse = async (courseId: string) => {
     if (!studentDetail || !user?.userId) return;
     try {
-      const updatedCourses = studentDetail.courses.filter(c => c.courseId !== courseId);
-      
-      let dateVal: string | null = null;
-      if (studentDetail.createdAt && studentDetail.createdAt !== "N/A") {
-        const parsedDate = Date.parse(studentDetail.createdAt.replace(" ", "T"));
-        if (!isNaN(parsedDate)) {
-          dateVal = new Date(parsedDate).toISOString();
-        }
-      }
-
-      const isStatusActive = typeof studentDetail.status === 'boolean'
-        ? studentDetail.status
-        : (typeof studentDetail.status === 'string' && (studentDetail.status.toLowerCase() === 'active' || studentDetail.status.toLowerCase() === 'true'));
-
-      await apiClient.put(`/student/students/${user.userId}`, {
-        fullName: studentDetail.name,
-        email: studentDetail.email,
-        role: studentDetail.role,
-        status: isStatusActive,
-        createdAt: dateVal,
-        courses: updatedCourses
-      });
-
+      await apiClient.delete(`/student/course-grade?courseId=${courseId}`);
       toast.success("Course removed successfully!");
+      window.dispatchEvent(new Event('roadmap_updated'));
+      window.dispatchEvent(new Event('gpa_updated'));
       fetchDetail();
     } catch (error) {
       toast.error("Failed to remove course.");
@@ -354,7 +295,7 @@ export default function ProfileTranscripts() {
           await Promise.all(
             Array.from(uniqueCourseIds).map(async (cid) => {
               try {
-                const details = await apiClient.get<any>(`/Course/${cid}`);
+                const details = await apiClient.get<any>(`/course/${cid}`);
                 courseDetailsMap[cid] = details;
                 // Map by courseCode as well for robust check
                 if (details.courseCode) {
@@ -553,7 +494,7 @@ export default function ProfileTranscripts() {
       if (allSkills.length === 0) {
         setIsFetchingSkills(true);
         try {
-          const data = await apiClient.get<any[]>('/Skill');
+          const data = await apiClient.get<any[]>('/skill');
           setAllSkills(data);
         } catch (err) {
           toast.error("Failed to fetch skills");

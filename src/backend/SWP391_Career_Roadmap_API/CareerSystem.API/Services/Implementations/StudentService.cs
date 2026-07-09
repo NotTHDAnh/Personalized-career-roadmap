@@ -220,5 +220,187 @@ namespace CareerSystem.API.Services.Implementations
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task<bool> UpdateCourseGradeAsync(string studentId, UpdateCourseGradeDto dto)
+        {
+            var studentExists = await _context.Users.AnyAsync(u => u.UserId == studentId && u.Role == "STUDENT");
+            if (!studentExists)
+            {
+                throw new ArgumentException("Không tìm thấy sinh viên hợp lệ.");
+            }
+
+            var course = await _context.Courses.AsNoTracking().FirstOrDefaultAsync(c => c.CourseId == dto.CourseId && c.IsActive);
+            if (course == null)
+            {
+                throw new ArgumentException("Môn học không tồn tại hoặc đã bị xóa mềm.");
+            }
+
+            var record = await _context.AcademicRecords
+                .FirstOrDefaultAsync(ar => ar.UserId == studentId && ar.CourseId == dto.CourseId);
+
+            if (record == null)
+            {
+                int maxRecordNumber = 0;
+                var recordIdsInDb = await _context.AcademicRecords.Select(r => r.RecordId).ToListAsync();
+                foreach (var id in recordIdsInDb)
+                {
+                    if (id != null && id.StartsWith("REC_") && int.TryParse(id.Substring(4), out int num))
+                    {
+                        if (num > maxRecordNumber) maxRecordNumber = num;
+                    }
+                }
+                string newRecordId = $"REC_{maxRecordNumber + 1:D4}";
+
+                record = new AcademicRecord
+                {
+                    RecordId = newRecordId,
+                    UserId = studentId,
+                    CourseId = dto.CourseId,
+                    Gpa = dto.Gpa,
+                    ExamAttempts = dto.ExamAttempts
+                };
+                _context.AcademicRecords.Add(record);
+            }
+            else
+            {
+                record.Gpa = dto.Gpa;
+                record.ExamAttempts = dto.ExamAttempts;
+            }
+
+            // Lưu thay đổi của AcademicRecords trước để SyncStudentSkillsAsync truy vấn được GPA mới
+            await _context.SaveChangesAsync();
+
+            // Sync roadmap nodes
+            await SyncRoadmapNodesAsync(studentId, dto.CourseId, dto.Gpa);
+
+            // Sync student skills
+            await SyncStudentSkillsAsync(studentId);
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> DeleteCourseGradeAsync(string studentId, string courseId)
+        {
+            var record = await _context.AcademicRecords
+                .FirstOrDefaultAsync(ar => ar.UserId == studentId && ar.CourseId == courseId);
+
+            if (record == null)
+            {
+                return false;
+            }
+
+            _context.AcademicRecords.Remove(record);
+            // Lưu thay đổi xóa AcademicRecord trước để SyncStudentSkillsAsync không lấy môn học bị xóa này
+            await _context.SaveChangesAsync();
+
+            // Sync roadmap nodes (GPA as null, sets node to PENDING and locks descendants)
+            await SyncRoadmapNodesAsync(studentId, courseId, null);
+
+            // Sync student skills
+            await SyncStudentSkillsAsync(studentId);
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        private async Task SyncStudentSkillsAsync(string studentId)
+        {
+            var passedCourseIds = await _context.AcademicRecords
+                .AsNoTracking()
+                .Where(ar => ar.UserId == studentId && ar.Gpa >= 5.0m && ar.Course.IsActive)
+                .Select(ar => ar.CourseId)
+                .ToListAsync();
+
+            var courseSkillIds = await _context.CourseLearningOutcomes
+                .AsNoTracking()
+                .Where(clo => passedCourseIds.Contains(clo.CourseId))
+                .Select(clo => clo.SkillId)
+                .Distinct()
+                .ToListAsync();
+
+            var studentSkills = await _context.StudentSkills
+                .Where(ss => ss.UserId == studentId)
+                .ToListAsync();
+
+            // Remove COURSE source skills that are no longer passed
+            var skillsToRemove = studentSkills
+                .Where(ss => ss.Source == "COURSE" && !courseSkillIds.Contains(ss.SkillId))
+                .ToList();
+            if (skillsToRemove.Any())
+            {
+                _context.StudentSkills.RemoveRange(skillsToRemove);
+            }
+
+            // Add COURSE source skills that are passed but not in profile
+            var existingSkillIds = studentSkills.Select(ss => ss.SkillId).ToHashSet();
+            var skillsToAdd = courseSkillIds.Where(sid => !existingSkillIds.Contains(sid)).ToList();
+
+            if (skillsToAdd.Any())
+            {
+                int maxNum = 0;
+                var allIds = await _context.StudentSkills.Select(ss => ss.StudentSkillId).ToListAsync();
+                foreach (var id in allIds)
+                {
+                    if (id != null && id.StartsWith("SSK_") && int.TryParse(id.Substring(4), out int num))
+                    {
+                        if (num > maxNum) maxNum = num;
+                    }
+                }
+
+                foreach (var skillId in skillsToAdd)
+                {
+                    string newStudentSkillId = $"SSK_{++maxNum:D4}";
+                    _context.StudentSkills.Add(new StudentSkill
+                    {
+                        StudentSkillId = newStudentSkillId,
+                        UserId = studentId,
+                        SkillId = skillId,
+                        Source = "COURSE"
+                    });
+                }
+            }
+        }
+
+        private async Task SyncRoadmapNodesAsync(string studentId, string courseId, decimal? gpa)
+        {
+            var roadmaps = await _context.Roadmaps
+                .Include(r => r.SkillNodes)
+                .Where(r => r.UserId == studentId)
+                .ToListAsync();
+
+            if (!roadmaps.Any()) return;
+
+            bool isPassed = gpa.HasValue && gpa.Value >= 5.0m;
+
+            foreach (var roadmap in roadmaps)
+            {
+                var targetNodes = roadmap.SkillNodes.Where(n => n.CourseId == courseId).ToList();
+                if (!targetNodes.Any()) continue;
+
+                foreach (var node in targetNodes)
+                {
+                    if (isPassed)
+                    {
+                        node.Status = "COMPLETED";
+                    }
+                    else
+                    {
+                        node.Status = "PENDING";
+                        LockDescendants(roadmap.SkillNodes.ToList(), node.NodeId);
+                    }
+                }
+            }
+        }
+
+        private void LockDescendants(List<SkillNode> allNodes, string parentId)
+        {
+            var children = allNodes.Where(n => n.ParentNodeId == parentId).ToList();
+            foreach (var child in children)
+            {
+                child.Status = "PENDING";
+                LockDescendants(allNodes, child.NodeId);
+            }
+        }
     }
 }

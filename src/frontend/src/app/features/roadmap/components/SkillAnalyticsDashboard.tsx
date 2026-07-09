@@ -12,6 +12,7 @@ interface RoadmapInfo {
 interface SkillAnalyticsDashboardProps {
   roadmaps: RoadmapInfo[];
   activeRoadmapData?: any;
+  studentSkills?: string[];
 }
 
 const COLORS = ["#38BDF8", "#818CF8", "#34D399", "#FBBF24", "#F472B6", "#A78BFA", "#60A5FA"];
@@ -101,7 +102,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAnalyticsDashboardProps) {
+export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData, studentSkills }: SkillAnalyticsDashboardProps) {
   const [activeTab, setActiveTab] = useState<"overall" | "roadmap">("overall");
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
   const [selectedRoadmapId, setSelectedRoadmapId] = useState<string>("");
@@ -159,8 +160,8 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
                      const storageKey = `gpa_roadmap_${data.roadmapId}`;
                      const storedGpasStr = localStorage.getItem(storageKey);
                      const storedGpas = storedGpasStr ? JSON.parse(storedGpasStr) : {};
-                     if (n.status === "COMPLETED" && storedGpas[n.nodeId] !== undefined) {
-                        n.gpa = storedGpas[n.nodeId];
+                     if (n.status === "COMPLETED") {
+                        n.gpa = n.gpa !== undefined && n.gpa !== null ? n.gpa : storedGpas[n.nodeId];
                      }
                   });
                 }
@@ -263,6 +264,20 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
       });
     });
 
+    if (activeTab === "overall" && studentSkills) {
+      studentSkills.forEach((s: string) => {
+        if (!map[s]) {
+          map[s] = {
+            skillName: s,
+            count: 0,
+            totalGpa: 0,
+            coursesWithGpa: 0,
+            contributingCourses: []
+          };
+        }
+      });
+    }
+
     const maxCount = Math.max(...Object.values(map).map(item => item.count), 1);
 
     const rawArray = Object.values(map).map(item => {
@@ -306,7 +321,7 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
         totalCompleted: totalCompletedCourses
       }
     };
-  }, [allRoadmapDetails, activeTab, selectedRoadmapId, activeRoadmapData]);
+  }, [allRoadmapDetails, activeTab, selectedRoadmapId, activeRoadmapData, studentSkills]);
 
   if (loading) {
     return (

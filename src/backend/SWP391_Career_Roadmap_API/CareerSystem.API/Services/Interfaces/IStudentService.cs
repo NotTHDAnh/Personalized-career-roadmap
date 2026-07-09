@@ -13,5 +13,9 @@ namespace CareerSystem.API.Services.Interfaces
         Task<bool> AddStudentSkillAsync(string studentId, string skillId);
 
         Task<bool> RemoveStudentSkillAsync(string studentId, string skillId);
+
+        Task<bool> UpdateCourseGradeAsync(string studentId, UpdateCourseGradeDto dto);
+
+        Task<bool> DeleteCourseGradeAsync(string studentId, string courseId);
     }
 }
