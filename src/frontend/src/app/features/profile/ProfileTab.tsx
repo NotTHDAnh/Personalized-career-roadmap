@@ -3,7 +3,7 @@ import { Card } from "@/app/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Progress } from "@/app/components/ui/progress";
 import { Skeleton } from "@/app/components/ui/skeleton";
-import { TrendingUp, Code2, Plus, Key, Github, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { TrendingUp, Code2, Plus, Key, Github, Search, ChevronDown, ChevronUp, Check, X } from "lucide-react";
 import { SkillTag } from "./components/SkillTag";
 import { StudentProfileCard } from "./components/StudentProfileCard";
 import { GpaInput } from "./components/GpaInput";
@@ -43,6 +43,8 @@ export default function ProfileTranscripts() {
   const [selectedNewSkills, setSelectedNewSkills] = useState<string[]>([]);
   const [isExpandedSkills, setIsExpandedSkills] = useState(false);
   const [isGeminiGuideOpen, setIsGeminiGuideOpen] = useState(false);
+  const [rowEdits, setRowEdits] = useState<Record<string, { gpa: string, examAttempts: number }>>({});
+  const [courseIdToCodeMap, setCourseIdToCodeMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (window.location.hash === "#api-key-guide" || window.location.search.includes("openGuide")) {
@@ -66,6 +68,90 @@ export default function ProfileTranscripts() {
     "GCP", "Git", "Machine Learning", "Data Science", "UI/UX Design",
     "Agile", "Scrum", "Communication", "Problem Solving", "HTML & CSS"
   ];
+
+  const handleUpdateCourseRecord = async (courseId: string, gpaVal: string | number | null, attemptsVal: number) => {
+    if (!studentDetail || !user?.userId) return;
+
+    // If gpa is empty/null/whitespace, reject it!
+    if (gpaVal === null || gpaVal === "" || gpaVal === undefined) {
+      toast.error("GPA cannot be empty");
+      fetchDetail(); // Reset input back to database values
+      return;
+    }
+
+    // Validate GPA
+    const gpaNum = parseFloat(gpaVal.toString());
+    if (isNaN(gpaNum) || gpaNum < 5.0 || gpaNum > 10.0) {
+      toast.error("GPA must be between 5.0 and 10.0");
+      return;
+    }
+
+    // Validate attempts
+    const attemptsNum = parseInt(attemptsVal.toString()) || 1;
+    if (attemptsNum < 1) {
+      toast.error("Attempts must be at least 1");
+      return;
+    }
+
+    try {
+      // Construct the payload for PUT api/student/students/{id}
+      const updatedCourses = studentDetail.courses.map(c => {
+        if (c.courseId === courseId) {
+          return { courseId, gpa: gpaNum, examAttempts: attemptsNum };
+        }
+        return { 
+          courseId: c.courseId, 
+          gpa: c.gpa, 
+          examAttempts: c.examAttempts ?? 1 
+        };
+      });
+
+      // If this course is not yet in studentDetail.courses (it was in-progress), add it!
+      if (!studentDetail.courses.some(c => c.courseId === courseId)) {
+        updatedCourses.push({ courseId, gpa: gpaNum, examAttempts: attemptsNum });
+      }
+
+      let dateVal: string | null = null;
+      if (studentDetail.createdAt && studentDetail.createdAt !== "N/A") {
+        const parsedDate = Date.parse(studentDetail.createdAt.replace(" ", "T"));
+        if (!isNaN(parsedDate)) {
+          dateVal = new Date(parsedDate).toISOString();
+        }
+      }
+
+      const isStatusActive = typeof studentDetail.status === 'boolean' 
+        ? studentDetail.status 
+        : (typeof studentDetail.status === 'string' && (studentDetail.status.toLowerCase() === 'active' || studentDetail.status.toLowerCase() === 'true'));
+
+      await apiClient.put(`/student/students/${user.userId}`, {
+        fullName: studentDetail.name,
+        email: studentDetail.email,
+        role: studentDetail.role,
+        status: isStatusActive,
+        createdAt: dateVal,
+        courses: updatedCourses
+      });
+
+      setRowEdits(prev => {
+        const copy = { ...prev };
+        delete copy[courseId];
+        return copy;
+      });
+
+      toast.success("Course record updated successfully!");
+      fetchDetail(); // Refresh data
+    } catch (error) {
+      toast.error("Failed to update course record.");
+    }
+  };
+
+  const handleCancelRowEdit = (courseId: string) => {
+    setRowEdits(prev => {
+      const copy = { ...prev };
+      delete copy[courseId];
+      return copy;
+    });
+  };
 
   const handleSyncToGithub = () => {
     if (isSyncing) return;
@@ -116,6 +202,22 @@ export default function ProfileTranscripts() {
             roadmapList.map(r => apiClient.get<any>(`/Roadmap/${r.roadmapId}`).catch(() => null))
           );
           
+          const idToCode: Record<string, string> = {};
+          for (const detail of allDetails) {
+            if (detail && detail.phases) {
+              for (const phase of detail.phases) {
+                if (phase.nodes) {
+                  for (const node of phase.nodes) {
+                    if (node.courseId && (node.courseCode || node.code)) {
+                      idToCode[node.courseId] = node.courseCode || node.code;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          setCourseIdToCodeMap(idToCode);
+          
           const combinedActiveNodes: any[] = [];
           const seenCourseIds = new Set<string>();
 
@@ -165,7 +267,14 @@ export default function ProfileTranscripts() {
   }
 
   const inProgressCourses = studentDetail?.courses.filter(c => c.gpa === null) || [];
-  const displayInProgress = inProgressRoadmapCourses !== null ? inProgressRoadmapCourses : inProgressCourses;
+  const displayInProgressRaw = inProgressRoadmapCourses !== null ? inProgressRoadmapCourses : inProgressCourses;
+  const displayInProgress = [...displayInProgressRaw].sort((a, b) => {
+    const aLocked = a.state === "locked" || (a.state === undefined && (a.status === "PENDING" || a.status === "pending"));
+    const bLocked = b.state === "locked" || (b.state === undefined && (b.status === "PENDING" || b.status === "pending"));
+    if (aLocked && !bLocked) return 1;
+    if (!aLocked && bLocked) return -1;
+    return 0;
+  });
   const completedCourses = studentDetail?.courses.filter(c => c.gpa !== null) || [];
   const tags = localTags;
 
@@ -441,35 +550,134 @@ export default function ProfileTranscripts() {
                   </TableCell>
                 </TableRow>
               ) : (
-                displayInProgress.map((course: any, i: number) => (
-                  <TableRow key={course.nodeId || course.courseId || i} className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
-                    <TableCell className="px-5 py-3 align-middle">
-                      <div className="flex flex-col items-start gap-1">
-                        <span className="text-[13px] text-[#0F172A] font-bold">{course.name || course.courseName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-middle text-center">
-                      {course.code || course.courseCode || course.courseId || "N/A"}
-                    </TableCell>
-                    <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-middle text-center">
-                      {course.examAttempts ?? 0}
-                    </TableCell>
-                    <TableCell className="px-5 py-3 align-middle text-center">
-                      <div className="flex justify-center"><GpaInput value={course.gpa?.toString() || ""} readOnly /></div>
-                    </TableCell>
-                    <TableCell className="px-5 py-3 align-middle text-right">
-                      {course.state === "locked" || (course.state === undefined && (course.status === "PENDING" || course.status === "pending")) ? (
-                        <span className="bg-[#F1F5F9] text-[#64748B] px-2.5 py-1 rounded-full text-[11px] font-bold border border-[#E2E8F0]">
-                          Locked
-                        </span>
-                      ) : (
-                        <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
-                          In Progress
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+                displayInProgress.map((course: any, i: number) => {
+                  const isLocked = course.state === "locked" || (course.state === undefined && (course.status === "PENDING" || course.status === "pending"));
+                  return (
+                    <TableRow key={course.nodeId || course.courseId || i} className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/50 transition-colors">
+                      <TableCell className="px-5 py-3 align-middle">
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="text-[13px] text-[#0F172A] font-bold">{course.name || course.courseName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-middle text-center">
+                        {course.code || course.courseCode || course.courseId || "N/A"}
+                      </TableCell>
+                      <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-middle text-center">
+                        <div className="flex justify-center">
+                          <Input 
+                            type="number"
+                            min="1"
+                            value={(() => {
+                              const cid = course.courseId || course.courseCode || course.code;
+                              return rowEdits[cid]?.examAttempts ?? "";
+                            })()}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 1;
+                              const cid = course.courseId || course.courseCode || course.code;
+                              if (cid) {
+                                setRowEdits(prev => ({
+                                  ...prev,
+                                  [cid]: {
+                                    gpa: prev[cid]?.gpa ?? "",
+                                    examAttempts: val
+                                  }
+                                }));
+                              }
+                            }}
+                            placeholder="1"
+                            disabled={isLocked}
+                            className="h-8 w-16 text-center border-gray-300 focus:ring-blue-500 rounded-md disabled:bg-slate-50 disabled:text-slate-400"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const cid = course.courseId || course.courseCode || course.code;
+                                const edit = rowEdits[cid];
+                                if (edit && edit.gpa) {
+                                  handleUpdateCourseRecord(cid, edit.gpa, edit.examAttempts);
+                                }
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5 py-3 align-middle text-center">
+                        <div className="flex justify-center">
+                          <GpaInput 
+                            placeholder="—"
+                            value={(() => {
+                              const cid = course.courseId || course.courseCode || course.code;
+                              return rowEdits[cid]?.gpa ?? "";
+                            })()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const cid = course.courseId || course.courseCode || course.code;
+                              if (cid) {
+                                setRowEdits(prev => ({
+                                  ...prev,
+                                  [cid]: {
+                                    gpa: val,
+                                    examAttempts: prev[cid]?.examAttempts ?? 1
+                                  }
+                                }));
+                              }
+                            }}
+                            disabled={isLocked}
+                            className="w-20 text-center bg-white disabled:bg-slate-50 disabled:text-slate-400"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const cid = course.courseId || course.courseCode || course.code;
+                                const edit = rowEdits[cid];
+                                if (edit && edit.gpa) {
+                                  handleUpdateCourseRecord(cid, edit.gpa, edit.examAttempts);
+                                }
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5 py-3 align-middle text-right flex items-center justify-end gap-2">
+                        {(() => {
+                          const cid = course.courseId || course.courseCode || course.code;
+                          const edit = rowEdits[cid];
+                          if (edit) {
+                            return (
+                              <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-200">
+                                {edit.gpa && (
+                                  <button 
+                                    onClick={() => handleUpdateCourseRecord(cid, edit.gpa, edit.examAttempts)} 
+                                    className="bg-[#DCFCE7] hover:bg-[#bbf7d0] text-[#16A34A] p-1.5 rounded-lg border border-[#BBF7D0] transition-colors"
+                                    title="Lưu điểm môn học"
+                                  >
+                                    <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={() => handleCancelRowEdit(cid)} 
+                                  className="bg-[#FFE4E6] hover:bg-[#fecdd3] text-[#E11D48] p-1.5 rounded-lg border border-[#FECDD3] transition-colors"
+                                  title="Hủy thay đổi"
+                                >
+                                  <X className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                </button>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
+                        {course.state === "locked" || (course.state === undefined && (course.status === "PENDING" || course.status === "pending")) ? (
+                          <span className="bg-[#F1F5F9] text-[#64748B] px-2.5 py-1 rounded-full text-[11px] font-bold border border-[#E2E8F0]">
+                            Locked
+                          </span>
+                        ) : (
+                          <span className="bg-[#E0E7FF] text-[#3B28CC] px-2.5 py-1 rounded-full text-[11px] font-bold">
+                            In Progress
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
             </Table>
@@ -550,18 +758,92 @@ export default function ProfileTranscripts() {
                       </div>
                     </TableCell>
                     <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-middle text-center">
-                      {course.courseId}
+                      {courseIdToCodeMap[course.courseId] || course.courseId}
                     </TableCell>
                     <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-middle text-center">
-                      {course.examAttempts ?? 1}
+                      <div className="flex justify-center">
+                        <Input 
+                          type="number"
+                          min="1"
+                          value={rowEdits[course.courseId]?.examAttempts ?? course.examAttempts ?? 1}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 1;
+                            setRowEdits(prev => ({
+                              ...prev,
+                              [course.courseId]: {
+                                gpa: (prev[course.courseId]?.gpa ?? course.gpa?.toString()) || "",
+                                examAttempts: val
+                              }
+                            }));
+                          }}
+                          className="h-8 w-16 text-center border-gray-300 focus:ring-blue-500 rounded-md"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const edit = rowEdits[course.courseId];
+                              if (edit) {
+                                handleUpdateCourseRecord(course.courseId, edit.gpa, edit.examAttempts);
+                              }
+                              (e.target as HTMLInputElement).blur();
+                            }
+                          }}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="px-5 py-3 align-middle text-center">
-                      <div className="flex justify-center"><GpaInput value={course.gpa?.toString() || "0"} readOnly /></div>
+                      <div className="flex justify-center">
+                        <GpaInput 
+                          value={(rowEdits[course.courseId]?.gpa ?? course.gpa?.toString()) || ""} 
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRowEdits(prev => ({
+                              ...prev,
+                              [course.courseId]: {
+                                gpa: val,
+                                examAttempts: (prev[course.courseId]?.examAttempts ?? course.examAttempts) ?? 1
+                              }
+                            }));
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const edit = rowEdits[course.courseId];
+                              if (edit) {
+                                handleUpdateCourseRecord(course.courseId, edit.gpa, edit.examAttempts);
+                              }
+                              (e.target as HTMLInputElement).blur();
+                            }
+                          }}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="px-5 py-3 align-middle text-right">
-                      <span className="bg-[#DCFCE7] text-[#16A34A] px-2.5 py-1 rounded-full text-[11px] font-bold">
-                        Done
-                      </span>
+                      <div className="flex items-center justify-end gap-2">
+                        {rowEdits[course.courseId] && (
+                          <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-200">
+                            <button 
+                              onClick={() => {
+                                const edit = rowEdits[course.courseId];
+                                if (edit) {
+                                  handleUpdateCourseRecord(course.courseId, edit.gpa, edit.examAttempts);
+                                }
+                              }}
+                              className="bg-[#DCFCE7] hover:bg-[#bbf7d0] text-[#16A34A] p-1.5 rounded-lg border border-[#BBF7D0] transition-colors"
+                              title="Lưu thay đổi"
+                            >
+                              <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+                            </button>
+                            <button 
+                              onClick={() => handleCancelRowEdit(course.courseId)} 
+                              className="bg-[#FFE4E6] hover:bg-[#fecdd3] text-[#E11D48] p-1.5 rounded-lg border border-[#FECDD3] transition-colors"
+                              title="Hủy thay đổi"
+                            >
+                              <X className="w-3.5 h-3.5" strokeWidth={2.5} />
+                            </button>
+                          </div>
+                        )}
+                        <span className="bg-[#DCFCE7] text-[#16A34A] px-2.5 py-1 rounded-full text-[11px] font-bold">
+                          Done
+                        </span>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
