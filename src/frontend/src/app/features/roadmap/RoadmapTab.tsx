@@ -335,17 +335,17 @@ export default function MyRoadmaps() {
   }, [roadmapData]);
 
   //chúc mừng mỗi khi load roadmap
-  useEffect(() => {
-    if (stats.progress === 100) {
-      confetti({
-        particleCount: 200,
-        spread: 100,
-        origin: { y: 0.6 },
-        zIndex: 9999
-      });
-      setShowCongratModal(true);
-    }
-  }, [stats.progress, selectedRoadmapId]);
+  // useEffect(() => {
+  //   if (stats.progress === 100) {
+  //     confetti({
+  //       particleCount: 200,
+  //       spread: 100,
+  //       origin: { y: 0.6 },
+  //       zIndex: 9999
+  //     });
+  //     setShowCongratModal(true);
+  //   }
+  // }, [stats.progress, selectedRoadmapId]);
 
   // 1. Chạy Layout Engine để chuyển DTO thành Graph có tọa độ
   const computedGraph = useMemo(() => {
