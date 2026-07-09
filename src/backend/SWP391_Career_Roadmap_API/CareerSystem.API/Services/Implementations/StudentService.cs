@@ -135,7 +135,7 @@ namespace CareerSystem.API.Services.Implementations
                             UserId = student.UserId,
                             CourseId = incoming.CourseId,
                             Gpa = incoming.Gpa,
-                            ExamAttempts = incoming.ExamAttempts ?? 1
+                            ExamAttempts = incoming.ExamAttempts
                         };
                         _context.AcademicRecords.Add(newRecord);
 

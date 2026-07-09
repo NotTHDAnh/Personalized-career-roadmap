@@ -89,7 +89,7 @@ export default function ProfileTranscripts() {
           courseId: cid,
           courseName: foundCourse?.courseName || foundCourse?.name || cid,
           gpa: null,
-          examAttempts: 1
+          examAttempts: null
         });
         addedCount++;
       }
@@ -203,7 +203,7 @@ export default function ProfileTranscripts() {
         return {
           courseId: c.courseId,
           gpa: c.gpa,
-          examAttempts: c.examAttempts ?? 1
+          examAttempts: c.examAttempts
         };
       });
 

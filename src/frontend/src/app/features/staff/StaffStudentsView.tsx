@@ -45,7 +45,7 @@ interface Student {
 interface StudentDetail extends Student {
   email: string;
   createdAt: string;
-  courses: { courseId?: string, courseName: string, gpa: number, examAttempts?: number }[];
+  courses: { courseId?: string, courseName: string, gpa: number | null, examAttempts?: number }[];
 }
 
 export function StaffStudentsView() {
@@ -96,7 +96,7 @@ export function StaffStudentsView() {
 
   const fetchCourses = async () => {
     try {
-      const data = await apiClient.get<any[]>('/staff/courses');
+      const data = await apiClient.get<any[]>('/course/courses');
       setAvailableCourses(data.map(c => ({ courseId: c.courseId, courseName: c.courseName })));
     } catch (error) {
       console.error("Failed to fetch courses");
@@ -158,8 +158,8 @@ export function StaffStudentsView() {
         createdAt: editForm.createdAt ? new Date(editForm.createdAt).toISOString() : null,
         courses: editForm.courses.map(c => ({
           courseId: c.courseId,
-          gpa: typeof c.gpa === 'string' ? (parseFloat(c.gpa) || 0) : c.gpa,
-          examAttempts: typeof c.examAttempts === 'string' ? (parseInt(c.examAttempts) || 1) : c.examAttempts
+          gpa: typeof c.gpa === 'string' ? (c.gpa === "" ? null : parseFloat(c.gpa)) : c.gpa,
+          examAttempts: typeof c.examAttempts === 'string' ? (c.examAttempts === "" ? null : parseInt(c.examAttempts)) : c.examAttempts
         }))
       });
       toast.success("Updated successfully");
@@ -570,7 +570,7 @@ export function StaffStudentsView() {
                                     min="5.0" 
                                     max="10.0" 
                                     step="0.1"
-                                    value={c.gpa} 
+                                    value={c.gpa ?? ""} 
                                     onChange={e => {
                                       const newCourses = [...editForm.courses];
                                       newCourses[idx].gpa = e.target.value;
@@ -589,7 +589,7 @@ export function StaffStudentsView() {
                                     type="number" 
                                     min="1" 
                                     step="1"
-                                    value={c.examAttempts} 
+                                    value={c.examAttempts ?? ""} 
                                     onChange={e => {
                                       const newCourses = [...editForm.courses];
                                       newCourses[idx].examAttempts = e.target.value;
@@ -626,12 +626,18 @@ export function StaffStudentsView() {
                             <tr key={idx} className="border-t border-gray-200">
                               <td className="px-4 py-2 font-medium text-gray-900">{c.courseName}</td>
                               <td className="px-4 py-2 text-right">
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${c.gpa >= 5.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                  {c.gpa.toFixed(1)}
-                                </span>
+                                {c.gpa !== null && c.gpa !== undefined ? (
+                                  <span className={`px-2 py-1 rounded text-xs font-bold ${c.gpa >= 5.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    {Number(c.gpa).toFixed(1)}
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-500">
+                                    N/A
+                                  </span>
+                                )}
                               </td>
                               <td className="px-4 py-2 text-right text-gray-600 font-medium">
-                                {c.examAttempts || 1}
+                                 {c.examAttempts !== null && c.examAttempts !== undefined ? c.examAttempts : "N/A"}
                               </td>
                               <td className="px-4 py-2 text-center">
                                 <button 

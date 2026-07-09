@@ -57,7 +57,7 @@ export function StaffCoursesView() {
     const fetchCourses = async () => {
       try {
         setIsLoading(true);
-        const data = await apiClient.get<any[]>("/Staff/courses");
+        const data = await apiClient.get<any[]>("/course/courses");
         
         const formattedCourses: CourseMockData[] = data.map(c => ({
           courseId: c.courseId || c.CourseId,
@@ -129,7 +129,7 @@ export function StaffCoursesView() {
     try {
       setIsLoading(true);
       // Gọi API lấy thông tin chi tiết môn học để lấy prerequisites
-      const detail = await apiClient.get<any>(`/Course/${course.courseId}`);
+      const detail = await apiClient.get<any>(`/course/${course.courseId}`);
       
       setEditMode('single');
       setEditingCourseId(course.courseId);
