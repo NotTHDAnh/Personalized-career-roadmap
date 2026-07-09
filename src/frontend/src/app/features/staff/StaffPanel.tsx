@@ -44,7 +44,7 @@ export default function StaffPanel() {
   const [loadingStats, setLoadingStats] = useState(true);
   
   // Course Form State
-  const [form, setForm] = useState({ courseName: "", courseCode: "", credits: "", totalStudyHours: "", hashtags: "", outcomes: "" });
+  const [form, setForm] = useState({ courseName: "", courseCode: "", credits: "", totalStudyHours: "", hashtags: "", outcomes: "", isFoundationalCourse: false });
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   
   // Table state
@@ -103,12 +103,8 @@ export default function StaffPanel() {
   const fetchStats = async () => {
     try {
       setLoadingStats(true);
-      const [students, courses, skills] = await Promise.all([
-        apiClient.get<number>("/students/count").catch(() => 0),
-        apiClient.get<number>("/courses/count").catch(() => 0),
-        apiClient.get<number>("/skills/count").catch(() => 0),
-      ]);
-      setStats({ students, courses, skills });
+      const statsData = await apiClient.get<StatCount>("/Staff/dashboard/stats");
+      setStats(statsData);
     } catch (error) {
       console.error("Failed to fetch stats", error);
       setStats({ students: 0, courses: 0, skills: 0 }); // Fallback on error
@@ -148,10 +144,14 @@ export default function StaffPanel() {
         Credits: parseInt(form.credits) || 3,
         TotalStudyHours: parseInt(form.totalStudyHours) || 0,
         Skills: form.hashtags.trim(),
-        Outcomes: form.outcomes.trim()
+        Outcomes: form.outcomes.trim(),
+        IsFoundationalCourse: form.isFoundationalCourse
       });
+
+      // -----------------------------
+
       toast.success(`Successfully added course: ${form.courseName} (${form.courseCode})`);
-      setForm({ courseName: "", courseCode: "", credits: "", totalStudyHours: "", hashtags: "", outcomes: "" });
+      setForm({ courseName: "", courseCode: "", credits: "", totalStudyHours: "", hashtags: "", outcomes: "", isFoundationalCourse: false });
       setIsCourseModalOpen(false);
       fetchStats(); // Refresh stats after adding
       fetchTableCourses(); // Refresh table after adding
@@ -499,4 +499,4 @@ function StatCard({ title, icon: Icon, value, loading, color }: { title: string,
       </div>
     </Card>
   );
-}
+}

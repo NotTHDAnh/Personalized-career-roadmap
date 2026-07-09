@@ -59,6 +59,9 @@ namespace CareerSystem.API
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IAcademicRecordImportService,
                 CareerSystem.API.Services.Implementations.AcademicRecordImportService>();
 
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStaffStudentService,
+                CareerSystem.API.Services.Implementations.StaffStudentService>();
+
             // EPPlus License (NonCommercial cho mục đích học tập)
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 

@@ -160,6 +160,13 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.IsFoundationalCourse)
                 .HasDefaultValue(false)
                 .HasColumnName("is_foundational_course");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+            entity.Property(e => e.Prerequisites)
+                .HasMaxLength(500)
+                .IsUnicode(false)
+                .HasColumnName("prerequisites");
         });
 
         modelBuilder.Entity<CourseLearningOutcome>(entity =>
@@ -560,6 +567,12 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(255)
                 .IsUnicode(false)
                 .HasColumnName("gemini_api_key");
+            entity.Property(e => e.Status)
+                .HasDefaultValue(true)
+                .HasColumnName("status");
+            entity.Property(e => e.DeleteHistory)
+                .HasDefaultValue(false)
+                .HasColumnName("delete_history");
         });
 
         modelBuilder.Entity<UserRefreshToken>(entity =>

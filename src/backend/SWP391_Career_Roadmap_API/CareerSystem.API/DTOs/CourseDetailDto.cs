@@ -10,6 +10,7 @@ namespace CareerSystem.API.DTOs
         public int? Credits { get; set; }
         public int? TotalStudyHours { get; set; }
         public bool IsFoundationalCourse { get; set; }
+        public string? Prerequisites { get; set; }
         public List<LearningResourceDto> SuggestedResources { get; set; } = new();
         public List<CourseLearningOutcomeDto> LearningOutcomes { get; set; } = new();
     }

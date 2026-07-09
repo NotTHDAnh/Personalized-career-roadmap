@@ -40,6 +40,7 @@ namespace CareerSystem.API.Services.Implementations
                 return _cachedMentorCatalog;
 
             var courses = await _context.Courses
+                .Where(c => c.IsActive)
                 .Select(c => new
                 {
                     courseCode = c.CourseCode,
@@ -70,6 +71,7 @@ namespace CareerSystem.API.Services.Implementations
                 return _cachedRoadmapCatalogJson;
 
             var courseCatalog = await _context.Courses
+                .Where(c => c.IsActive)
                 .Select(c => new
                 {
                     courseId = c.CourseId,
@@ -78,6 +80,7 @@ namespace CareerSystem.API.Services.Implementations
                     credits = c.Credits,
                     totalStudyHours = c.TotalStudyHours,
                     isFoundationalCourse = c.IsFoundationalCourse,
+                    prerequisites = c.Prerequisites,
 
                     learningOutcomes = _context.CourseLearningOutcomes
                         .Where(clo => clo.CourseId == c.CourseId)
@@ -123,10 +126,10 @@ namespace CareerSystem.API.Services.Implementations
                     description = r.Description
                 }).ToListAsync();
 
-            // Get passed course
+            // Get passed course (only active courses)
             var passedCourse = await _context.AcademicRecords
-                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m)
                 .Include(a => a.Course)
+                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m && a.Course.IsActive)
                 .Select(a => new
                 {
                     courseCode = a.Course.CourseCode,
@@ -199,8 +202,8 @@ namespace CareerSystem.API.Services.Implementations
                 ?? throw new Exception("Không tìm thấy nghề nghiệp mục tiêu.");
 
             var passedCourses = await _context.AcademicRecords
-                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m)
                 .Include(a => a.Course)
+                .Where(a => a.UserId == request.UserId && a.Gpa >= 5.0m && a.Course.IsActive)
                 .Select(a => new
                 {
                     a.Course.CourseCode,

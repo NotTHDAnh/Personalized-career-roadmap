@@ -24,11 +24,11 @@ namespace CareerSystem.API.Services.Implementations
         private readonly IConfiguration _configuration;
         private readonly IGeminiService _geminiService;
 
-        // Header tiêu chuẩn của file Excel import môn học (8 cột)
+        // Header tiêu chuẩn của file Excel import môn học (9 cột)
         private static readonly string[] ExpectedHeaders =
-            { "STT", "Mã môn học", "Tên môn học", "Số tín chỉ", "Tổng số giờ học", "Kỹ năng đầu ra", "Chuẩn đầu ra", "Môn học nền tảng" };
+            { "STT", "Mã môn học", "Tên môn học", "Số tín chỉ", "Tổng số giờ học", "Kỹ năng đầu ra", "Chuẩn đầu ra", "Môn học nền tảng", "Môn học tiên quyết" };
 
-        private const int ColCount = 8;
+        private const int ColCount = 9;
 
         public CourseImportService(AppDbContext context, IAiRecommendationService aiRecommendationService, IConfiguration configuration, IGeminiService geminiService)
         {
@@ -97,7 +97,7 @@ namespace CareerSystem.API.Services.Implementations
                 var skillsText = worksheet.Cells[row, 6].Text?.Trim();
                 if (!string.IsNullOrWhiteSpace(skillsText))
                 {
-                    var tokens = skillsText.Split(new[] { ',', ';', '、' }, StringSplitOptions.RemoveEmptyEntries);
+                    var tokens = SmartSplit(skillsText);
                     foreach (var t in tokens)
                     {
                         var trimmed = t.Trim();
@@ -203,6 +203,16 @@ namespace CareerSystem.API.Services.Implementations
             var existingCourseCodeSet = new HashSet<string>(existingCourseCodes, StringComparer.OrdinalIgnoreCase);
             var courseCodesInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+            var allCourseCodesInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int r = 2; r <= totalRows; r++)
+            {
+                var code = worksheet.Cells[r, 2].Text?.Trim();
+                if (!string.IsNullOrWhiteSpace(code))
+                {
+                    allCourseCodesInFile.Add(code);
+                }
+            }
+
             var coursesToAdd = new List<Course>();
             var outcomesToAdd = new List<CourseLearningOutcome>();
 
@@ -216,6 +226,7 @@ namespace CareerSystem.API.Services.Implementations
                 var skillsText = worksheet.Cells[row, 6].Text?.Trim();
                 var outcomesText = worksheet.Cells[row, 7].Text?.Trim();
                 var isFoundationalStr = worksheet.Cells[row, 8].Text?.Trim();
+                var prerequisitesText = worksheet.Cells[row, 9].Text?.Trim();
 
                 // Bỏ qua dòng hoàn toàn trống
                 if (string.IsNullOrWhiteSpace(courseCode) &&
@@ -224,7 +235,8 @@ namespace CareerSystem.API.Services.Implementations
                     string.IsNullOrWhiteSpace(totalHoursStr) &&
                     string.IsNullOrWhiteSpace(skillsText) &&
                     string.IsNullOrWhiteSpace(outcomesText) &&
-                    string.IsNullOrWhiteSpace(isFoundationalStr))
+                    string.IsNullOrWhiteSpace(isFoundationalStr) &&
+                    string.IsNullOrWhiteSpace(prerequisitesText))
                 {
                     continue;
                 }
@@ -308,6 +320,38 @@ namespace CareerSystem.API.Services.Implementations
                     }
                 }
 
+                // Validate Môn học tiên quyết
+                if (!string.IsNullOrEmpty(prerequisitesText))
+                {
+                    var normalizedPrereq = NormalizePrerequisites(prerequisitesText);
+                    if (!string.IsNullOrEmpty(normalizedPrereq))
+                    {
+                        var prereqCodes = normalizedPrereq.Split(';');
+                        var missingCodes = new List<string>();
+                        foreach (var code in prereqCodes)
+                        {
+                            if (code.Equals(courseCode, StringComparison.OrdinalIgnoreCase))
+                            {
+                                errors.Add("Môn học không thể làm môn học tiên quyết của chính nó.");
+                                continue;
+                            }
+
+                            var existsInDb = existingCourseCodeSet.Contains(code);
+                            var existsInFile = allCourseCodesInFile.Contains(code);
+
+                            if (!existsInDb && !existsInFile)
+                            {
+                                missingCodes.Add(code);
+                            }
+                        }
+
+                        if (missingCodes.Count > 0)
+                        {
+                            errors.Add($"Các môn học tiên quyết sau không tồn tại trong hệ thống hoặc tệp import: {string.Join(", ", missingCodes)}");
+                        }
+                    }
+                }
+
                 if (errors.Count > 0)
                 {
                     result.FailedCount++;
@@ -330,22 +374,15 @@ namespace CareerSystem.API.Services.Implementations
                     CourseName = courseName!,
                     Credits = credits,
                     TotalStudyHours = totalHours,
-                    IsFoundationalCourse = isFoundational
+                    IsFoundationalCourse = isFoundational,
+                    Prerequisites = NormalizePrerequisites(prerequisitesText)
                 };
                 coursesToAdd.Add(course);
 
                 // Tạo các CourseLearningOutcome tương ứng
-                var tokens = skillsText!.Split(new[] { ',', ';', '、' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => s.Trim().Replace("\n", " ").Replace("\r", " "))
-                    .Where(s => !string.IsNullOrEmpty(s))
-                    .ToList();
+                var tokens = SmartSplit(skillsText);
 
-                var descriptions = string.IsNullOrWhiteSpace(outcomesText)
-                    ? new List<string>()
-                    : outcomesText.Split(new[] { ';', '、', ',' }, StringSplitOptions.RemoveEmptyEntries)
-                        .Select(d => d.Trim().Replace("\n", " ").Replace("\r", " "))
-                        .Where(d => !string.IsNullOrEmpty(d))
-                        .ToList();
+                var descriptions = SmartSplit(outcomesText);
 
                 var processedSkillsInRow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -455,9 +492,9 @@ namespace CareerSystem.API.Services.Implementations
             // Dữ liệu mẫu (3 môn học)
             var sampleData = new object[,]
             {
-                { 1, "PRN211", "Basic Cross-Platform Application Programming", 3, 90, "C#; .NET; Entity Framework; LINQ", "Hiểu ngôn ngữ C# cơ bản; Lập trình hướng đối tượng với .NET; Truy vấn DB bằng Entity Framework Core; Sử dụng LINQ nâng cao", "False" },
-                { 2, "PRN221", "Advanced Cross-Platform Application Programming", 3, 90, "C#; .NET; WPF; SignalR", "Lập trình desktop với WPF; Xây dựng ứng dụng thời gian thực bằng SignalR", "False" },
-                { 3, "PRN231", "Web Application Development", 3, 90, "ASP.NET Core; RESTful API; Web API", "Xây dựng web app với ASP.NET Core; Thiết kế RESTful Web API chuẩn chỉnh", "False" }
+                { 1, "PRN211", "Basic Cross-Platform Application Programming", 3, 90, "C#; .NET; Entity Framework; LINQ", "Hiểu ngôn ngữ C# cơ bản; Lập trình hướng đối tượng với .NET; Truy vấn DB bằng Entity Framework Core; Sử dụng LINQ nâng cao", "False", "MAD101;DBI202" },
+                { 2, "PRN221", "Advanced Cross-Platform Application Programming", 3, 90, "C#; .NET; WPF; SignalR", "Lập trình desktop với WPF; Xây dựng ứng dụng thời gian thực bằng SignalR", "False", "PRN211" },
+                { 3, "PRN231", "Web Application Development", 3, 90, "ASP.NET Core; RESTful API; Web API", "Xây dựng web app với ASP.NET Core; Thiết kế RESTful Web API chuẩn chỉnh", "False", "PRN221" }
             };
 
             for (int row = 0; row < 3; row++)
@@ -477,6 +514,7 @@ namespace CareerSystem.API.Services.Implementations
             worksheet.Column(6).Width = 45;  // Kỹ năng đầu ra
             worksheet.Column(7).Width = 60;  // Chuẩn đầu ra
             worksheet.Column(8).Width = 25;  // Môn học nền tảng
+            worksheet.Column(9).Width = 30;  // Môn học tiên quyết
 
             // Border cho toàn bộ bảng
             using (var range = worksheet.Cells[1, 1, 4, ColCount])
@@ -493,10 +531,27 @@ namespace CareerSystem.API.Services.Implementations
             worksheet.Column(4).Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
             worksheet.Column(5).Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
             worksheet.Column(8).Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            worksheet.Column(9).Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
 
             worksheet.Row(1).Height = 25;
 
             return package.GetAsByteArray();
+        }
+
+        private static string? NormalizePrerequisites(string? input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return null;
+
+            var tokens = input.Split(new[] { ',', ';', '，', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim())
+                .Where(t => !string.IsNullOrEmpty(t))
+                .ToList();
+
+            if (tokens.Count == 0)
+                return null;
+
+            return string.Join(";", tokens);
         }
 
         private static bool ValidateHeaders(ExcelWorksheet worksheet)
@@ -512,6 +567,31 @@ namespace CareerSystem.API.Services.Implementations
             }
 
             return true;
+        }
+
+        private static List<string> SmartSplit(string? input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return new List<string>();
+
+            string[] separators;
+            if (input.Contains(';') || input.Contains('；'))
+            {
+                separators = new[] { ";", "；" };
+            }
+            else if (input.Contains('、'))
+            {
+                separators = new[] { "、" };
+            }
+            else
+            {
+                separators = new[] { ",", "，" };
+            }
+
+            return input.Split(separators, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().Replace("\n", " ").Replace("\r", " "))
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList();
         }
     }
 

@@ -50,8 +50,9 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
   const isCurrent = isActive;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
         <div
           className="absolute flex flex-col items-center cursor-pointer transition-transform duration-300 hover:scale-105"
           style={{
@@ -288,6 +289,7 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
+                      e.preventDefault();
                       handleValidateAndConfirm();
                     }
                   }}
@@ -303,30 +305,6 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
                   Enter GPA & Finished
                 </Button>
               </div>
-
-              <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Completion</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to save GPA: <strong className="text-blue-600">{gpa}</strong> and mark this course as finished? This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setShowConfirm(false)}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
-                      style={{ background: style.core, color: "white" }}
-                      onClick={() => {
-                        updateNodeState(node.id.toString(), "done", parseFloat(gpa));
-                        setShowConfirm(false);
-                        setOpen(false);
-                      }}
-                    >
-                      Confirm
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </div>
           ) : isDone ? (
             <div className="w-full text-center py-2 text-xs font-medium text-green-600 border border-dashed border-green-200 rounded-md bg-green-50 flex flex-col gap-1">
@@ -341,5 +319,33 @@ export function RoadmapNode({ node, canvasWidth }: { node: CourseNode, canvasWid
         </div>
       </PopoverContent>
     </Popover>
+
+    <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm Completion</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to save GPA: <strong className="text-blue-600">{gpa}</strong> and mark this course as finished? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setShowConfirm(false)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            style={{ background: style.core, color: "white" }}
+            onClick={() => {
+              const targetId = ((node as any).nodeId || node.id)?.toString();
+              if (targetId) {
+                updateNodeState(targetId, "done", parseFloat(gpa));
+              }
+              setShowConfirm(false);
+              setOpen(false);
+            }}
+          >
+            Confirm
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
   );
 }

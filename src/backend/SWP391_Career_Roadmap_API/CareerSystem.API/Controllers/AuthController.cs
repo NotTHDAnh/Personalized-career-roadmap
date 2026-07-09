@@ -22,12 +22,19 @@ namespace CareerSystem.API.Controllers
             {
                 return BadRequest("Email and password are required.");
             }
-            var res = await _authService.LoginAsync(request);
-            if(res == null)
+            try
             {
-                return Unauthorized("Invalid email or password.");
+                var res = await _authService.LoginAsync(request);
+                if (res == null)
+                {
+                    return Unauthorized("Invalid email or password.");
+                }
+                return Ok(res);
             }
-            return Ok(res);
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(ex.Message);
+            }
         }
 
         [HttpPost("google-login")]
@@ -37,12 +44,19 @@ namespace CareerSystem.API.Controllers
             {
                 return BadRequest("IdToken is required.");
             }
-            var res = await _authService.LoginWithGoogleAsync(request);
-            if (res == null)
+            try
             {
-                return Unauthorized("Tài khoản Google không tồn tại hoặc không được cấp quyền truy cập hệ thống.");
+                var res = await _authService.LoginWithGoogleAsync(request);
+                if (res == null)
+                {
+                    return Unauthorized("Google account does not exist or is not authorized to access the system.");
+                }
+                return Ok(res);
             }
-            return Ok(res);
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(ex.Message);
+            }
         }
 
         [HttpPost("refresh")]

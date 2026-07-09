@@ -42,7 +42,7 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
             const details = dtoNode.courseDetails;
             const dynamicSkills = details?.learningOutcomes && details.learningOutcomes.length > 0
                 ? Array.from(new Set(details.learningOutcomes.map((lo: any) => lo.skillName) as string[]))
-                : ["#Coding", "#System"];
+                : [];
 
             nodes.push({
                 id: dtoNode.nodeId,
@@ -53,9 +53,9 @@ export function mapDtoToGraph(dto: RoadmapDetailDto): RoadmapGraph {
                     name: dtoNode.courseName,
                     shortLabel: dtoNode.courseCode || "N/A",
                     state: state,
-                    source: "university",
-                    duration: details?.totalStudyHours ? `${details.totalStudyHours} Hours` : "8 Weeks",
-                    prerequisite: dtoNode.parentNodeId ? "Có điều kiện tiên quyết" : "Không có",
+                    source: "university", // Assuming source is university for now unless backend provides it
+                    duration: details?.totalStudyHours ? `${details.totalStudyHours} Hours` : "",
+                    prerequisite: dtoNode.parentNodeId ? "Required" : "",
                     deadline: dtoNode.deadline,
                     academicLevel: dtoNode.academicLevel,
                     skills: dynamicSkills,

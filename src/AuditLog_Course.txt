@@ -1,0 +1,5 @@
+[2026-07-06 02:58:32] [CREATE] Staff: USR_S001 | Student: USR_0002 | Course: CRS_018 | Old GPA: N/A | New GPA: 7.8
+[2026-07-08 12:13:52] [CREATE] Staff: USR_S001 | Student: USR_0007 | Course: CRS_001 | Old GPA: N/A | New GPA: 5
+[2026-07-08 12:14:45] [UPDATE] Staff: USR_S001 | Student: USR_0007 | Course: CRS_001 | Old GPA: 5.00 | New GPA: 5.1 | Old Attempts: 1 | New Attempts: 1
+[2026-07-08 12:15:11] [DELETE_DIRECT] Staff: USR_S001 | Student: USR_0007 | Course: CRS_001 | Old GPA: 5.10 | New GPA: N/A
+[2026-07-08 13:07:56] [CREATE] Staff: USR_S001 | Student: USR_0001 | Course: CRS_047 | Old GPA: N/A | New GPA: 5

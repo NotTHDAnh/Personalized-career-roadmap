@@ -117,6 +117,21 @@ export default function MyRoadmaps() {
       updateDescendants(nodeId);
     }
 
+    // Lấy localStorage hiện tại
+    const storageKey = `gpa_roadmap_${roadmapData.roadmapId}`;
+    const storedGpasStr = localStorage.getItem(storageKey);
+    const storedGpas = storedGpasStr ? JSON.parse(storedGpasStr) : {};
+
+    // Cập nhật gpa vào localStorage
+    Object.entries(statusUpdates).forEach(([id, data]) => {
+      if (data.status === "COMPLETED" && data.gpa !== undefined) {
+        storedGpas[id] = data.gpa;
+      } else if (data.status === "PENDING") {
+        delete storedGpas[id];
+      }
+    });
+    localStorage.setItem(storageKey, JSON.stringify(storedGpas));
+
     // 3. Áp dụng toàn bộ thay đổi trạng thái mới vào state roadmapData
     const updatedPhases = roadmapData.phases.map((phase: any) => ({
       ...phase,
@@ -237,6 +252,11 @@ export default function MyRoadmaps() {
             })
           );
 
+          // Load GPA từ localStorage bù vào
+          const storageKey = `gpa_roadmap_${selectedRoadmapId}`;
+          const storedGpasStr = localStorage.getItem(storageKey);
+          const storedGpas = storedGpasStr ? JSON.parse(storedGpasStr) : {};
+
           // Update roadmap data with course details
           const enrichedPhases = data.phases.map((p: any) => ({
             ...p,
@@ -245,6 +265,7 @@ export default function MyRoadmaps() {
               return {
                 ...n,
                 courseDetails: details,
+                gpa: storedGpas[n.nodeId] !== undefined ? storedGpas[n.nodeId] : n.gpa,
               };
             }) || [],
           }));
@@ -314,17 +335,17 @@ export default function MyRoadmaps() {
   }, [roadmapData]);
 
   //chúc mừng mỗi khi load roadmap
-  // useEffect(() => {
-  //   if (stats.progress === 100) {
-  //     confetti({
-  //       particleCount: 200,
-  //       spread: 100,
-  //       origin: { y: 0.6 },
-  //       zIndex: 9999
-  //     });
-  //     setShowCongratModal(true);
-  //   }
-  // }, [stats.progress, selectedRoadmapId]);
+  useEffect(() => {
+    if (stats.progress === 100) {
+      confetti({
+        particleCount: 200,
+        spread: 100,
+        origin: { y: 0.6 },
+        zIndex: 9999
+      });
+      setShowCongratModal(true);
+    }
+  }, [stats.progress, selectedRoadmapId]);
 
   // 1. Chạy Layout Engine để chuyển DTO thành Graph có tọa độ
   const computedGraph = useMemo(() => {
@@ -525,43 +546,64 @@ export default function MyRoadmaps() {
       </div>
 
       {showPhaseBoard && (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-colors duration-300">
-        <div className="w-full">
-              {/* Timeline column headers */}
-              <div className="grid border-b border-gray-100 w-full" style={{ gridTemplateColumns: `repeat(${zones.length}, minmax(0, 1fr))` }}>
-                {zones.map(({ label, sub, textColor, bg }: { label: string, sub: string, textColor: string, bg: string }, i: number) => (
-                  <div
-                    key={i}
-                    className="px-4 py-3"
-                    style={{ background: bg, borderRight: i < zones.length - 1 ? "1px dashed rgba(200,200,200,0.5)" : "none" }}
-                  >
-                    <p className="text-xs uppercase tracking-wider text-center" style={{ color: textColor, fontWeight: 800 }}>
-                      {label}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5 font-medium text-center">{sub}</p>
+        <>
+          <style>{`
+            ${PHASE_COLORS.map((c, i) => `
+              .phase-scroll-${i}::-webkit-scrollbar {
+                width: 6px;
+              }
+              .phase-scroll-${i}::-webkit-scrollbar-track {
+                background: transparent;
+              }
+              .phase-scroll-${i}::-webkit-scrollbar-thumb {
+                background-color: ${c.textColor}25;
+                border-radius: 10px;
+              }
+              .phase-scroll-${i}:hover::-webkit-scrollbar-thumb {
+                background-color: ${c.textColor}80;
+              }
+              .phase-scroll-${i}::-webkit-scrollbar-thumb:hover {
+                background-color: ${c.textColor};
+              }
+            `).join('')}
+          `}</style>
+          <div className="flex gap-5 overflow-x-auto pb-4 pt-2 w-full items-start custom-scrollbar" style={{ scrollSnapType: "x mandatory" }}>
+            {zones.map((zone: any, z: number) => (
+              <div 
+                key={z} 
+                className="flex-shrink-0 min-w-[280px] max-w-[420px] flex-1 rounded-[24px] flex flex-col border border-black/5 overflow-hidden"
+                style={{ background: zone.bg, scrollSnapAlign: "start", maxHeight: "65vh" }}
+              >
+                {/* Header */}
+                <div className="px-5 py-4 pb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-bold text-[16px]" style={{ color: zone.textColor }}>{zone.label}</h3>
+                    <div className="px-2 py-0.5 rounded-full text-[11px] font-bold" style={{ backgroundColor: `${zone.textColor}15`, color: zone.textColor }}>
+                      {computedGraph?.nodes.filter((n) => n.zone === z).length || 0}
+                    </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Course card stacks */}
-              <div className="grid divide-x divide-gray-100 w-full" style={{ gridTemplateColumns: `repeat(${zones.length}, minmax(0, 1fr))` }}>
-                {zones.map((_: any, z: number) => (
-                  <div key={z} className="p-3">
-              {loading ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-28 w-full rounded-xl" />
-                  <Skeleton className="h-28 w-full rounded-xl" />
+                  <p className="text-[12px] text-gray-500 font-medium leading-snug">{zone.sub}</p>
                 </div>
-              ) : (
-                <>
-                  {computedGraph && computedGraph.nodes.filter((n) => n.zone === z).map((n) => <CourseCard key={n.id} node={n.data as any} />)}
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-        </div>
-      </div>
+
+                {/* Scrollable Content */}
+                <div className={`overflow-y-auto px-3 pb-4 phase-scroll-${z % PHASE_COLORS.length}`}>
+                  <div className="space-y-2.5">
+                    {loading ? (
+                      <>
+                        <Skeleton className="h-32 w-full rounded-xl bg-white/60" />
+                        <Skeleton className="h-32 w-full rounded-xl bg-white/60" />
+                      </>
+                    ) : (
+                      computedGraph && computedGraph.nodes.filter((n) => n.zone === z).map((n) => (
+                        <CourseCard key={n.id} node={n.data as any} />
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {roadmaps.length > 0 && (
