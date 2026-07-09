@@ -204,6 +204,7 @@ export default function LoginScreen() {
               <div id="google-signin-btn" className="w-full min-h-[44px] flex justify-center" />
               {/* {import.meta.env.DEV && (
                 <button
+                  id="dev-mock-login-btn"
                   type="button"
                   onClick={handleDevMockLogin}
                   className="mt-2 text-xs text-slate-500 hover:text-slate-700 underline font-medium cursor-pointer"

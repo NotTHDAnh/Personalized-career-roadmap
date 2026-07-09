@@ -11,8 +11,11 @@ import { toast } from "sonner";
 import { CourseMockData } from "../../data/mockData";
 
 export function StaffCoursesView() {
-  const [courses, setCourses] = useState<CourseMockData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [courses, setCourses] = useState<CourseMockData[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
   
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [editMode, setEditMode] = useState<'none' | 'single' | 'bulk'>('none');
@@ -57,7 +60,7 @@ export function StaffCoursesView() {
     const fetchCourses = async () => {
       try {
         setIsLoading(true);
-        const data = await apiClient.get<any[]>("/Staff/courses");
+        const data = await apiClient.get<any[]>("/staff/courses");
         
         const formattedCourses: CourseMockData[] = data.map(c => ({
           courseId: c.courseId || c.CourseId,
@@ -129,7 +132,7 @@ export function StaffCoursesView() {
     try {
       setIsLoading(true);
       // Gọi API lấy thông tin chi tiết môn học để lấy prerequisites
-      const detail = await apiClient.get<any>(`/Course/${course.courseId}`);
+      const detail = await apiClient.get<any>(`/course/${course.courseId}`);
       
       setEditMode('single');
       setEditingCourseId(course.courseId);
@@ -181,7 +184,7 @@ export function StaffCoursesView() {
           prerequisites: formData.prerequisites.join(';')
         };
         
-        const updatedDetail = await apiClient.put<any>(`/Staff/courses/${editingCourseId}`, payload);
+        const updatedDetail = await apiClient.put<any>(`/staff/courses/${editingCourseId}`, payload);
         
         setCourses(prev => prev.map(course => {
           if (course.courseId === editingCourseId) {
@@ -278,10 +281,7 @@ export function StaffCoursesView() {
     setDeleteModalOpen(false);
   };
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [courses, setCourses] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+
   const itemsPerPage = 8;
 
   const filteredCourses = courses.filter(course => {

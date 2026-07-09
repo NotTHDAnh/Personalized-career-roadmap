@@ -285,7 +285,7 @@ export default function StaffPanel() {
                   <h3 className="text-[14px] text-[#0F172A] font-bold flex items-center gap-2">
                     Master Verification Table
                   </h3>
-                  <p className="text-[12px] text-[#64748B] mt-0.5 font-medium">Active school master data for alignment checking</p>
+                  <p className="text-[12px] text-[#64748B] mt-0.5 font-medium">Recently Added Courses</p>
                 </div>
                 <div className="flex items-center gap-3">
                   {loadingTable ? (
