@@ -5,6 +5,7 @@ using CareerSystem.API.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 
 using CareerSystem.API.Services.Interfaces;
 
@@ -15,25 +16,89 @@ namespace CareerSystem.API.Services.Implementations
         private readonly HttpClient _httpClient;
         private readonly AppDbContext _context;
         private readonly IGeminiService _geminiService;
+        private readonly IConfiguration _configuration;
 
         // BỘ NHỚ ĐỆM LƯU THỜI GIAN ĐỒNG BỘ GITHUB GẦN NHẤT CỦA MỖI USER
         // Tránh việc spam gọi GitHub API liên tục trên mỗi tin nhắn chat khi tài khoản chưa có repo nào trong DB.
         private static readonly ConcurrentDictionary<string, DateTime> _lastSyncTimes = new();
 
-        public GithubService(HttpClient httpClient, AppDbContext context, IGeminiService geminiService)
+        public GithubService(HttpClient httpClient, AppDbContext context, IGeminiService geminiService, IConfiguration configuration)
         {
             _httpClient = httpClient;
             _context = context;
             _geminiService = geminiService;
+            _configuration = configuration;
         }
 
-        // Lấy danh sách repo public từ GitHub API bằng github username.
-        public async Task<List<GithubRepoDto>> GetUserReposFromGithubAsync(string username)
+        // Đổi code lấy Access Token từ GitHub OAuth
+        public async Task<string?> ExchangeCodeForAccessTokenAsync(string code)
         {
-            var request = new HttpRequestMessage(
-                HttpMethod.Get,
-                $"https://api.github.com/users/{username}/repos?per_page=100&sort=updated"
-            );
+            var clientId = _configuration["GitHub:ClientId"];
+            var clientSecret = _configuration["GitHub:ClientSecret"];
+            var redirectUri = _configuration["GitHub:RedirectUri"];
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://github.com/login/oauth/access_token");
+            request.Headers.UserAgent.Add(new ProductInfoHeaderValue("CareerRoadmapApp", "1.0"));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            
+            var parameters = new Dictionary<string, string>
+            {
+                { "client_id", clientId ?? "" },
+                { "client_secret", clientSecret ?? "" },
+                { "code", code },
+                { "redirect_uri", redirectUri ?? "" }
+            };
+            request.Content = new FormUrlEncodedContent(parameters);
+
+            var response = await _httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("access_token", out var tokenProp))
+            {
+                return tokenProp.GetString();
+            }
+
+            return null;
+        }
+
+        // Lấy thông tin user profile từ GitHub bằng access token
+        public async Task<GithubUserProfileDto?> GetGithubUserProfileAsync(string accessToken)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
+            request.Headers.UserAgent.Add(new ProductInfoHeaderValue("CareerRoadmapApp", "1.0"));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+
+            var response = await _httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            
+            return new GithubUserProfileDto
+            {
+                Login = doc.RootElement.TryGetProperty("login", out var loginProp) ? loginProp.GetString() ?? "" : "",
+                AvatarUrl = doc.RootElement.TryGetProperty("avatar_url", out var avatarProp) ? avatarProp.GetString() : null,
+                HtmlUrl = doc.RootElement.TryGetProperty("html_url", out var htmlProp) ? htmlProp.GetString() : null
+            };
+        }
+
+        // Lấy danh sách repo từ GitHub API bằng github username hoặc access token (bao gồm private repo).
+        public async Task<List<GithubRepoDto>> GetUserReposFromGithubAsync(string username, string? accessToken = null)
+        {
+            string url = string.IsNullOrEmpty(accessToken)
+                ? $"https://api.github.com/users/{username}/repos?per_page=100&sort=updated"
+                : "https://api.github.com/user/repos?affiliation=owner&per_page=100&sort=updated";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
 
             // GitHub API bắt buộc có User-Agent.
             request.Headers.UserAgent.Add(
@@ -43,6 +108,11 @@ namespace CareerSystem.API.Services.Implementations
             request.Headers.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/vnd.github+json")
             );
+
+            if (!string.IsNullOrEmpty(accessToken))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            }
 
             var response = await _httpClient.SendAsync(request);
 
@@ -65,9 +135,9 @@ namespace CareerSystem.API.Services.Implementations
 
         // Lọc repo tốt nhất để phân tích.
         // Không lấy fork, không lấy archive, dung lượng >= 10KB, ưu tiên repo mới cập nhật.
-        public async Task<List<GithubRepoDto>> GetTopReposFromGithubAsync(string username)
+        public async Task<List<GithubRepoDto>> GetTopReposFromGithubAsync(string username, string? accessToken = null)
         {
-            var repos = await GetUserReposFromGithubAsync(username);
+            var repos = await GetUserReposFromGithubAsync(username, accessToken);
 
             return repos
                 .Where(r => !r.Fork && !r.Archived && r.Size >= 10)
@@ -78,7 +148,7 @@ namespace CareerSystem.API.Services.Implementations
         }
 
         // Tải file README.md của repo từ GitHub API và giải mã Base64.
-        public async Task<string?> GetRepoReadmeAsync(string owner, string repoName)
+        public async Task<string?> GetRepoReadmeAsync(string owner, string repoName, string? accessToken = null)
         {
             try
             {
@@ -94,6 +164,11 @@ namespace CareerSystem.API.Services.Implementations
                 request.Headers.Accept.Add(
                     new MediaTypeWithQualityHeaderValue("application/vnd.github+json")
                 );
+
+                if (!string.IsNullOrEmpty(accessToken))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                }
 
                 var response = await _httpClient.SendAsync(request);
 
@@ -204,7 +279,7 @@ namespace CareerSystem.API.Services.Implementations
                 return;
             }
 
-            var repos = await GetTopReposFromGithubAsync(githubProfile.GithubUsername);
+            var repos = await GetTopReposFromGithubAsync(githubProfile.GithubUsername, githubProfile.GithubAccessToken);
 
             foreach (var repo in repos)
             {
@@ -223,7 +298,7 @@ namespace CareerSystem.API.Services.Implementations
                 string aiSummary = "";
                 string techStack = "";
 
-                var readme = await GetRepoReadmeAsync(githubProfile.GithubUsername, repo.Name);
+                var readme = await GetRepoReadmeAsync(githubProfile.GithubUsername, repo.Name, githubProfile.GithubAccessToken);
                 if (!string.IsNullOrWhiteSpace(readme))
                 {
                     var (summary, tech) = await AnalyzeReadmeWithAiAsync(repo.Name, readme, repo.Language ?? "Unknown", repo.Description, user.GeminiApiKey);
