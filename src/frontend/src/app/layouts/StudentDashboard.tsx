@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router";
 import { useAuth } from "../../shared/contexts/AuthContext";
-import { NotificationBell } from "../components/NotificationCenter/NotificationBell";
 import {
   BookOpen,
   Map,
@@ -149,7 +148,6 @@ export function StudentDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <NotificationBell />
             <div className="w-9 h-9 rounded-full bg-white text-[#3B28CC] flex items-center justify-center font-bold text-[13px] shadow-sm border border-[#C7D2FE]">
               {initial}
             </div>

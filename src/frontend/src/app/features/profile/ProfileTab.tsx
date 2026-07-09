@@ -3,7 +3,7 @@ import { Card } from "@/app/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Progress } from "@/app/components/ui/progress";
 import { Skeleton } from "@/app/components/ui/skeleton";
-import { TrendingUp, Code2, Plus, Key, Github, Search, ChevronDown, ChevronUp, Check, X, Trash2 } from "lucide-react";
+import { TrendingUp, Code2, Plus, Edit2, Key, Github, Search, ChevronDown, ChevronUp, Check, X, Trash2 } from "lucide-react";
 import { SkillTag } from "./components/SkillTag";
 import { StudentProfileCard } from "./components/StudentProfileCard";
 import { GpaInput } from "./components/GpaInput";
@@ -13,6 +13,7 @@ import { useAuth } from "@/shared/contexts/AuthContext";
 import { StudentDetailDto } from "@/app/types";
 import { apiClient } from "@/shared/api/apiClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/app/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import { toast } from "sonner";
@@ -55,6 +56,11 @@ export default function ProfileTranscripts() {
   const [courseSearch, setCourseSearch] = useState("");
   const [selectedNewCourses, setSelectedNewCourses] = useState<string[]>([]);
   const [isFetchingCourses, setIsFetchingCourses] = useState(false);
+  const [allSkills, setAllSkills] = useState<any[]>([]);
+  const [isFetchingSkills, setIsFetchingSkills] = useState(false);
+  const [isEditSkillsMode, setIsEditSkillsMode] = useState(false);
+  const [skillsToDelete, setSkillsToDelete] = useState<string[]>([]);
+  const [isDeletingSkills, setIsDeletingSkills] = useState(false);
 
   // New Handlers
   const handleOpenAddCourse = async () => {
@@ -63,6 +69,20 @@ export default function ProfileTranscripts() {
       setIsFetchingCourses(true);
       try {
         const data = await apiClient.get<any[]>('/course/courses');
+        
+        const detailsMap = { ...courseDetailsMapGlobal };
+        const fetchPromises = data.map(async (c) => {
+          if (!detailsMap[c.courseId]) {
+            try {
+              const detail = await apiClient.get<any>(`/Course/${c.courseId}`);
+              detailsMap[c.courseId] = detail;
+              if (detail.courseCode) detailsMap[detail.courseCode] = detail;
+            } catch (e) {}
+          }
+        });
+        await Promise.all(fetchPromises);
+        setCourseDetailsMapGlobal(detailsMap);
+        
         setAllCourses(data);
       } catch (err) {
         toast.error("Failed to fetch courses");
@@ -160,15 +180,6 @@ export default function ProfileTranscripts() {
       }, 300);
     }
   }, []);
-
-  const mockAvailableSkills = [
-    "Java", "Python", "C#", "C++", "JavaScript", "TypeScript",
-    "React", "Angular", "Vue", "Node.js", "Express", "Spring Boot",
-    "Django", "Flask", ".NET", "SQL", "MySQL", "PostgreSQL",
-    "MongoDB", "Redis", "Docker", "Kubernetes", "AWS", "Azure",
-    "GCP", "Git", "Machine Learning", "Data Science", "UI/UX Design",
-    "Agile", "Scrum", "Communication", "Problem Solving", "HTML & CSS"
-  ];
 
   const handleUpdateCourseRecord = async (courseId: string, gpaVal: string | number | null, attemptsVal: number) => {
     if (!studentDetail || !user?.userId) return;
@@ -541,17 +552,88 @@ export default function ProfileTranscripts() {
     }
   };
 
-  const handleSaveSelectedSkills = () => {
+  const handleToggleEditSkillsMode = async () => {
+    if (!isEditSkillsMode) {
+      setIsEditSkillsMode(true);
+      if (allSkills.length === 0) {
+        setIsFetchingSkills(true);
+        try {
+          const data = await apiClient.get<any[]>('/Skill');
+          setAllSkills(data);
+        } catch (err) {
+          toast.error("Failed to fetch skills");
+        } finally {
+          setIsFetchingSkills(false);
+        }
+      }
+    } else {
+      setIsEditSkillsMode(false);
+      setSkillsToDelete([]);
+    }
+  };
+
+  const handleToggleSkillToDelete = (skillName: string) => {
+    if (skillsToDelete.includes(skillName)) {
+      setSkillsToDelete(skillsToDelete.filter(s => s !== skillName));
+    } else {
+      setSkillsToDelete([...skillsToDelete, skillName]);
+    }
+  };
+
+  const handleDeleteSelectedSkills = async () => {
+    if (skillsToDelete.length === 0) return;
+    setIsDeletingSkills(true);
+    let successCount = 0;
+    
+    const toRemoveIds = skillsToDelete.map(name => {
+      const found = allSkills.find(s => s.skillName === name);
+      return found ? found.skillId : null;
+    }).filter(id => id !== null);
+
+    for (const skillId of toRemoveIds) {
+      try {
+        await apiClient.delete(`/student/skills/${skillId}`);
+        successCount++;
+      } catch (error) {
+        console.error("Remove Skill Error:", error);
+      }
+    }
+    
+    if (successCount > 0) {
+      toast.success(`Đã xóa ${successCount} skill thành công!`);
+      fetchDetail(); // Refresh data from backend
+    } else {
+      toast.error(`Lỗi khi xóa skill.`);
+    }
+    setSkillsToDelete([]);
+    setIsDeletingSkills(false);
+  };
+
+  const handleOpenAddSkill = () => {
+    setIsAddSkillOpen(true);
+    setSelectedNewSkills([]);
+  };
+
+  const handleSaveSelectedSkills = async () => {
     if (selectedNewSkills.length === 0) {
       toast.info("Vui lòng chọn ít nhất 1 skill.");
       return;
     }
-    const newTags = selectedNewSkills.filter(s => !tags.includes(s));
-    if (newTags.length > 0) {
-      setLocalTags([...tags, ...newTags]);
-      toast.success(`Đã thêm ${newTags.length} skill thành công! (Dữ liệu tạm)`);
+    let successCount = 0;
+    for (const skillId of selectedNewSkills) {
+      try {
+        await apiClient.post('/student/skills', { skillId });
+        successCount++;
+      } catch (error) {
+        console.error("Add Skill Error:", error);
+      }
+    }
+    
+    if (successCount > 0) {
+      toast.success(`Đã thêm ${successCount} skill thành công!`);
+      fetchDetail(); // Refresh data from backend
     } else {
-      toast.info(`Các skill bạn chọn đều đã có trong hồ sơ.`);
+      toast.error(`Lỗi khi thêm skill.`);
     }
     setIsAddSkillOpen(false);
     setSelectedNewSkills([]);
@@ -566,7 +648,7 @@ export default function ProfileTranscripts() {
     }
   };
 
-  const filteredMockSkills = mockAvailableSkills.filter(s => s.toLowerCase().includes(skillSearch.toLowerCase()));
+  const filteredSkills = allSkills.filter(s => (s.skillName || "").toLowerCase().includes(skillSearch.toLowerCase()));
 
   const gpaCourses = studentDetail?.courses.filter(c => c.gpa != null && c.gpa > 0) || [];
   const avgGpa = gpaCourses.length > 0 ? (gpaCourses.reduce((sum, c) => sum + (c.gpa || 0), 0) / gpaCourses.length).toFixed(2) : "0.00";
@@ -694,21 +776,51 @@ export default function ProfileTranscripts() {
           </Card>
 
           {/* Acquired Skills Card */}
-          <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-6 flex flex-col transition-colors duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Code2 className="w-5 h-5 text-[#3B28CC]" strokeWidth={2.5} />
-                <h4 className="text-[16px] font-bold text-[#0F172A]">Acquired Skills</h4>
+          <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-6 flex flex-col gap-5 transition-colors duration-300">
+            <div className="flex items-start justify-between">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <Code2 className="w-5 h-5 text-[#3B28CC]" strokeWidth={2.5} />
+                  <h4 className="text-[18px] font-bold text-[#0F172A]">Acquired Skills</h4>
+                </div>
+                {isEditSkillsMode && skillsToDelete.length > 0 && (
+                  <span className="text-[12px] font-medium text-[#E11D48] ml-7">
+                    {skillsToDelete.length} skill(s) selected
+                  </span>
+                )}
               </div>
-              <button
-                onClick={() => setIsAddSkillOpen(true)}
-                className="flex items-center justify-center bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#E0E7FF] hover:border-[#C7D2FE] text-[#3B28CC] text-[13px] font-bold h-8 px-3 rounded-lg transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add
-              </button>
+              <div className="flex flex-col gap-2 items-end">
+                <button
+                  onClick={handleToggleEditSkillsMode}
+                  disabled={isDeletingSkills}
+                  className={`flex items-center justify-center border text-[13px] font-bold h-8 px-3 rounded-lg transition-colors ${
+                    isEditSkillsMode
+                      ? 'bg-[#E2E8F0] border-[#CBD5E1] text-[#334155] hover:bg-[#CBD5E1]'
+                      : 'bg-[#F8FAFC] border-[#E2E8F0] hover:bg-[#E0E7FF] hover:border-[#C7D2FE] text-[#3B28CC]'
+                  } ${isDeletingSkills ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <Edit2 className="w-3.5 h-3.5 mr-1.5" />
+                  {isEditSkillsMode ? 'Done' : 'Edit'}
+                </button>
+                {isEditSkillsMode && (
+                  <div className="h-7">
+                    {skillsToDelete.length > 0 && (
+                      <button
+                        onClick={handleDeleteSelectedSkills}
+                        disabled={isDeletingSkills}
+                        className={`flex items-center justify-center bg-[#FFE4E6] border border-[#FECDD3] text-[#E11D48] text-[12px] font-bold h-7 px-3 rounded-lg transition-colors animate-in fade-in zoom-in-95 ${
+                          isDeletingSkills ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#FECDD3]'
+                        }`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                        {isDeletingSkills ? 'Deleting...' : 'Delete'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="border-t border-[#E2E8F0] mb-5 w-full" />
+            <div className="border-t border-[#E2E8F0] w-full" />
 
             {loading ? (
               <div className="flex flex-wrap gap-2.5">
@@ -719,11 +831,39 @@ export default function ProfileTranscripts() {
             ) : (
               <div className="flex flex-wrap gap-3 items-center">
                 {tags.length > 0 ? (
-                  (isExpandedSkills ? tags : tags.slice(0, 5)).map((s) => (
-                    <SkillTag key={s} label={s} />
-                  ))
+                  (isExpandedSkills ? tags : tags.slice(0, 5)).map((s) => {
+                    if (isEditSkillsMode) {
+                      const isSelected = skillsToDelete.includes(s);
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => handleToggleSkillToDelete(s)}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                            isSelected
+                              ? 'bg-[#FFE4E6] border-[#FECDD3] text-[#E11D48] ring-2 ring-[#FECDD3]'
+                              : 'bg-[#F8FAFC] border-[#E2E8F0] text-[#334155] hover:bg-[#F1F5F9] hover:border-[#CBD5E1]'
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      );
+                    }
+                    return <SkillTag key={s} label={s} />;
+                  })
                 ) : (
                   <span className="text-sm text-slate-500 font-medium">No skills acquired yet.</span>
+                )}
+                {isEditSkillsMode && (
+                  <button
+                    onClick={handleOpenAddSkill}
+                    disabled={isDeletingSkills || skillsToDelete.length > 0}
+                    className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full border border-dashed border-[#C7D2FE] bg-[#EEF2FF] text-[#3B28CC] transition-all ${
+                      (isDeletingSkills || skillsToDelete.length > 0) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#E0E7FF]'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Skill
+                  </button>
                 )}
                 {tags.length > 5 && !isExpandedSkills && (
                   <button
@@ -790,7 +930,7 @@ export default function ProfileTranscripts() {
                   <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Code</TableHead>
                   <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Attempts</TableHead>
                   <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">GPA</TableHead>
-                  <TableHead className="px-5 py-3 text-right text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Status</TableHead>
+                  <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Status</TableHead>
                 </TableRow>
               </TableHeader>
             </Table>
@@ -844,7 +984,7 @@ export default function ProfileTranscripts() {
                           </div>
                         </TableCell>
                         <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-middle text-center">
-                          {course.code || course.courseCode || course.courseId || "N/A"}
+                          {course.code || course.courseCode || courseDetailsMapGlobal[course.courseId || course.code]?.courseCode || course.courseId || "N/A"}
                         </TableCell>
                         <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-middle text-center">
                           <div className="flex justify-center">
@@ -920,7 +1060,7 @@ export default function ProfileTranscripts() {
                             />
                           </div>
                         </TableCell>
-                        <TableCell className="px-5 py-3 align-middle text-right flex items-center justify-end gap-2">
+                        <TableCell className="px-5 py-3 align-middle text-center flex items-center justify-center gap-2">
                           {(() => {
                             const cid = course.courseId || course.courseCode || course.code;
                             const edit = rowEdits[cid];
@@ -1002,7 +1142,7 @@ export default function ProfileTranscripts() {
                   <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Course Code</TableHead>
                   <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Attempts</TableHead>
                   <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">GPA</TableHead>
-                  <TableHead className="px-5 py-3 text-right text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Status</TableHead>
+                  <TableHead className="px-5 py-3 text-center text-[10px] uppercase tracking-wider font-bold text-[#64748B] h-auto whitespace-nowrap">Status</TableHead>
                 </TableRow>
               </TableHeader>
             </Table>
@@ -1054,7 +1194,7 @@ export default function ProfileTranscripts() {
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-3 text-[12px] font-mono text-[#64748B] font-medium align-middle text-center">
-                        {courseIdToCodeMap[course.courseId] || course.courseId}
+                        {courseDetailsMapGlobal[course.courseId]?.courseCode || courseIdToCodeMap[course.courseId] || course.courseId}
                       </TableCell>
                       <TableCell className="px-5 py-3 text-[12px] text-[#334155] font-medium align-middle text-center">
                         <div className="flex justify-center">
@@ -1111,8 +1251,8 @@ export default function ProfileTranscripts() {
                           />
                         </div>
                       </TableCell>
-                      <TableCell className="px-5 py-3 align-middle text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <TableCell className="px-5 py-3 align-middle text-center">
+                        <div className="flex items-center justify-center gap-2">
                           {rowEdits[course.courseId] && (
                             <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-200">
                               <button
@@ -1193,7 +1333,7 @@ export default function ProfileTranscripts() {
         )}
       </Card>
 
-      {/* Add Skill Modal (Mock) */}
+      {/* Add Skill Modal */}
       <Dialog open={isAddSkillOpen} onOpenChange={handleCloseAddModal}>
         <DialogContent className="max-h-[85vh] flex flex-col sm:max-w-[450px]">
           <DialogHeader>
@@ -1210,14 +1350,16 @@ export default function ProfileTranscripts() {
               />
             </div>
             <div className="overflow-y-auto max-h-[300px] border border-[#E2E8F0] rounded-lg p-2 space-y-1">
-              {filteredMockSkills.length > 0 ? (
-                filteredMockSkills.map(skill => {
-                  const isSelected = selectedNewSkills.includes(skill);
-                  const isAlreadyAcquired = tags.includes(skill);
+              {isFetchingSkills ? (
+                <div className="flex justify-center p-4"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#3B28CC]"></div></div>
+              ) : filteredSkills.length > 0 ? (
+                filteredSkills.map(skill => {
+                  const isSelected = selectedNewSkills.includes(skill.skillId);
+                  const isAlreadyAcquired = tags.includes(skill.skillName);
                   return (
                     <button
-                      key={skill}
-                      onClick={() => !isAlreadyAcquired && handleToggleNewSkill(skill)}
+                      key={skill.skillId}
+                      onClick={() => !isAlreadyAcquired && handleToggleNewSkill(skill.skillId)}
                       disabled={isAlreadyAcquired}
                       className={`w-full text-left px-3 py-2 text-[13px] font-medium rounded transition-colors flex items-center justify-between group
                         ${isAlreadyAcquired ? 'opacity-50 cursor-not-allowed bg-[#F8FAFC]' :
@@ -1228,7 +1370,7 @@ export default function ProfileTranscripts() {
                           ${isSelected ? 'bg-[#3B28CC] border-[#3B28CC]' : 'border-[#CBD5E1]'}`}>
                           {isSelected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                         </div>
-                        {skill} {isAlreadyAcquired && "(Already acquired)"}
+                        {skill.skillName} {isAlreadyAcquired && "(Already acquired)"}
                       </div>
                     </button>
                   );
@@ -1270,14 +1412,20 @@ export default function ProfileTranscripts() {
               {isFetchingCourses ? (
                 <div className="flex justify-center p-4"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#3B28CC]"></div></div>
               ) : filteredCourses.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <TooltipProvider delayDuration={200}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {filteredCourses.map(course => {
                     const isSelected = selectedNewCourses.includes(course.courseId);
                     const isAlreadyAcquired = studentDetail?.courses.some(c => c.courseId === course.courseId);
+                    const isLocked = !isAlreadyAcquired && checkCourseLocked(course.courseId, course.courseCode);
+                    const prereqs = courseDetailsMapGlobal[course.courseId]?.prerequisites || courseDetailsMapGlobal[course.courseCode || ""]?.prerequisites;
+                    const hasPrerequisite = prereqs && prereqs.trim() !== "" && prereqs !== "Không có" && prereqs !== "None";
+                    const isDisabled = isAlreadyAcquired || isLocked;
+
                     return (
                       <label
                         key={course.courseId}
-                        className={`relative flex items-start p-3 border rounded-xl cursor-pointer transition-all shadow-sm ${isAlreadyAcquired
+                        className={`relative flex items-start p-3 border rounded-xl cursor-pointer transition-all shadow-sm ${isDisabled
                           ? 'bg-slate-100 border-slate-200 opacity-60'
                           : isSelected
                             ? 'bg-white border-[#3B28CC] ring-1 ring-[#3B28CC]'
@@ -1289,7 +1437,7 @@ export default function ProfileTranscripts() {
                             type="checkbox"
                             className="w-4 h-4 rounded border-[#CBD5E1] text-[#3B28CC] focus:ring-[#3B28CC] cursor-pointer"
                             checked={isSelected || isAlreadyAcquired}
-                            disabled={isAlreadyAcquired}
+                            disabled={isDisabled}
                             onChange={() => {
                               if (isSelected) setSelectedNewCourses(selectedNewCourses.filter(id => id !== course.courseId));
                               else setSelectedNewCourses([...selectedNewCourses, course.courseId]);
@@ -1297,20 +1445,36 @@ export default function ProfileTranscripts() {
                           />
                         </div>
                         <div className="ml-3 flex flex-col min-w-0">
-                          <span className={`text-[13px] font-bold truncate leading-tight ${isAlreadyAcquired ? 'text-slate-500' : 'text-slate-900'}`} title={course.courseName}>
-                            {course.courseName}
-                          </span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={`text-[13px] font-bold truncate leading-tight ${isDisabled ? 'text-slate-500' : 'text-slate-900'}`}>
+                                {course.courseName}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="z-[9999] bg-[#0F172A] text-white">
+                              <p className="max-w-[250px] text-xs text-balance text-center">{course.courseName}</p>
+                            </TooltipContent>
+                          </Tooltip>
                           <span className="text-[11px] text-slate-500 font-mono mt-1">
                             {course.courseCode}
                           </span>
+                          {hasPrerequisite && !isAlreadyAcquired && !isLocked && (
+                            <span className="bg-[#FEF9C3] text-[#D97706] text-[9px] font-bold px-1.5 py-0.5 rounded-sm w-fit mt-1.5 flex items-center">
+                              * Prerequisite
+                            </span>
+                          )}
                           {isAlreadyAcquired && (
                             <span className="mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Added</span>
+                          )}
+                          {isLocked && (
+                            <span className="mt-1 text-[10px] font-bold text-[#E11D48] tracking-wider truncate" title={`Requires: ${prereqs}`}>Locked (Requires: {prereqs})</span>
                           )}
                         </div>
                       </label>
                     );
                   })}
-                </div>
+                  </div>
+                </TooltipProvider>
               ) : (
                 <div className="p-6 text-center text-sm text-[#64748B]">No courses found.</div>
               )}

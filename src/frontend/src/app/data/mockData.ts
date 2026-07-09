@@ -5,6 +5,7 @@ export interface CourseMockData {
   credits: number;
   totalStudyHours: number;
   skills: string[];
+  prerequisites?: string[];
 }
 
 export const MOCK_COURSES: CourseMockData[] = [
