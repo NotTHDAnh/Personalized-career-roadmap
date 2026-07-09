@@ -280,6 +280,8 @@ export function StaffCoursesView() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const itemsPerPage = 8;
 
   const filteredCourses = courses.filter(course => {
