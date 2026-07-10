@@ -1,0 +1,35 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost,1433;Database=SE_Career_Roadmap;User Id=sa;Password=YOUR_PASSWORD;TrustServerCertificate=True;Encrypt=True;"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "AiSettings": {
+    "Provider": "GEMINI",
+    "ApiKey": ""
+  },
+  "JwtSettings": {
+    "Secret": "YOUR_JWT_SECRET_KEY_HERE_MIN_32_CHARS",
+    "Issuer": "CareerSystemAPI",
+    "Audience": "CareerSystemClient",
+    "ExpiryInMinutes": 15,
+    "RefreshExpiryInDays": 7
+  },
+  "EmailSettings": {
+    "FromEmail": "YOUR_MAIL_HERE",
+    "AppPassword": "YOUR_APP_PASSWORD_HERE",
+    "SmtpServer": "smtp.gmail.com",
+    "Port": 587,
+    "EnableSsl": true
+  },
+  "GitHub": {
+    "ClientId": "YOUR_GITHUB_CLIENT_ID",
+    "ClientSecret": "YOUR_GITHUB_CLIENT_SECRET",
+    "RedirectUri": "http://localhost:5173/github-callback"
+  }
+}
