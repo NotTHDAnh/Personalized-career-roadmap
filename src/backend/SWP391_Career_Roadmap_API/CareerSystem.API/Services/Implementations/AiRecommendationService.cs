@@ -75,6 +75,12 @@ namespace CareerSystem.API.Services.Implementations
             }
             catch (Exception ex)
             {
+                // Nếu là lỗi liên quan đến API Key, ta rethrow để ApiExceptionMiddleware xử lý và trả về lỗi 400 cho client biết
+                if (ex.Message.Contains("API Key", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw;
+                }
+
                 // Ghi nhận chi tiết lỗi kèm theo StackTrace để phục vụ việc debug ở backend
                 _logger.LogError(ex, "Lỗi xảy ra trong quá trình xử lý AI ({ContextName})", contextName);
                 return fallbackFactory(ex);

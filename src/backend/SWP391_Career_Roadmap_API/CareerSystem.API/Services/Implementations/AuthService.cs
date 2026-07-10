@@ -403,9 +403,9 @@ namespace CareerSystem.API.Services.Implementations
             var password = new char[length];
 
             password[0] = upper[RandomNumberGenerator.GetInt32(upper.Length)];
-            password[1] = lower[RandomNumberGenerator.GetInt32(upper.Length)];
-            password[2] = digits[RandomNumberGenerator.GetInt32(upper.Length)];
-            password[3] = specials[RandomNumberGenerator.GetInt32(upper.Length)];
+            password[1] = lower[RandomNumberGenerator.GetInt32(lower.Length)];
+            password[2] = digits[RandomNumberGenerator.GetInt32(digits.Length)];
+            password[3] = specials[RandomNumberGenerator.GetInt32(specials.Length)];
             for (int i = 4; i < length; ++i)
             {
                 password[i] = allChars[RandomNumberGenerator.GetInt32(allChars.Length)];
