@@ -74,34 +74,24 @@ namespace CareerSystem.API.Services.Implementations
                 .Where(c => c.IsActive)
                 .Select(c => new
                 {
-                    courseId = c.CourseId,
                     courseCode = c.CourseCode,
                     courseName = c.CourseName,
-                    credits = c.Credits,
-                    totalStudyHours = c.TotalStudyHours,
                     isFoundationalCourse = c.IsFoundationalCourse,
-                    prerequisites = c.Prerequisites,
-
-                    learningOutcomes = _context.CourseLearningOutcomes
+                    skills = _context.CourseLearningOutcomes
                         .Where(clo => clo.CourseId == c.CourseId)
                         .Select(clo => new
                         {
-                            outcomeId = clo.Id,
                             skillId = clo.SkillId,
-                            skillName = clo.Skill.SkillName,
-                            skillCategory = clo.Skill.Category,
-                            outcomeDescription = clo.OutcomeDescription
+                            skillName = clo.Skill.SkillName
                         })
+                        .Distinct()
                         .ToList()
                 })
                 .ToListAsync();
 
             var json = JsonSerializer.Serialize(
                 courseCatalog,
-                new JsonSerializerOptions
-                {
-                    WriteIndented = false
-                }
+                new JsonSerializerOptions { WriteIndented = false }
             );
 
             lock (_cacheLock)

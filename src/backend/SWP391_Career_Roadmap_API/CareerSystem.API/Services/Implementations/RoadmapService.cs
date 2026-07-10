@@ -25,6 +25,99 @@ namespace CareerSystem.API.Services.Implementations
             _promptContextService = promptContextService;
         }
 
+        /// <summary>
+        /// Đệ quy mở rộng danh sách môn học bằng cách bổ sung tất cả các môn tiên quyết còn thiếu từ DB.
+        /// </summary>
+        private async Task ExpandPrerequisitesAsync(
+            List<AiCourseRecommendationDto> list,
+            HashSet<string> passedCodes,
+            Dictionary<string, Course> courseCache)
+        {
+            var queue = new Queue<string>(list.Select(r => r.CourseCode).Distinct(StringComparer.OrdinalIgnoreCase));
+            var visited = new HashSet<string>(list.Select(r => r.CourseCode), StringComparer.OrdinalIgnoreCase);
+
+            while (queue.Count > 0)
+            {
+                var code = queue.Dequeue();
+
+                if (!courseCache.TryGetValue(code, out var course))
+                {
+                    course = await _context.Courses.FirstOrDefaultAsync(c => c.IsActive && c.CourseCode == code);
+                    if (course == null) continue;
+                    courseCache[code] = course;
+                }
+
+                if (string.IsNullOrWhiteSpace(course.Prerequisites)) continue;
+
+                // Tách danh sách tiên quyết (phân cách bằng ; hoặc ,)
+                var prereqCodes = course.Prerequisites
+                    .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => s.Trim())
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToList();
+
+                foreach (var prereqCode in prereqCodes)
+                {
+                    if (visited.Contains(prereqCode)) continue;
+                    if (passedCodes.Contains(prereqCode)) continue; // Sinh viên đã hoàn thành → không cần thêm
+
+                    var prereqCourse = await _context.Courses.FirstOrDefaultAsync(c => c.IsActive && c.CourseCode == prereqCode);
+                    if (prereqCourse == null) continue;
+
+                    courseCache[prereqCode] = prereqCourse;
+                    visited.Add(prereqCode);
+
+                    // Thêm vào danh sách với level mặc định Beginner, LC 1.0 (sẽ được sort lại sau)
+                    list.Add(new AiCourseRecommendationDto
+                    {
+                        CourseCode = prereqCode,
+                        SkillName = null,
+                        Level = prereqCourse.IsFoundationalCourse ? "Beginner" : "Intermediate",
+                        LearningCoefficient = 1.0m
+                    });
+
+                    queue.Enqueue(prereqCode);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sắp xếp Topo (DFS) danh sách môn học theo thứ tự tiên quyết: môn tiên quyết luôn xuất hiện trước.
+        /// </summary>
+        private static List<AiCourseRecommendationDto> TopologicalSort(
+            List<AiCourseRecommendationDto> courses,
+            Dictionary<string, Course> courseCache)
+        {
+            var lookup = courses.ToDictionary(c => c.CourseCode, StringComparer.OrdinalIgnoreCase);
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var result = new List<AiCourseRecommendationDto>();
+
+            void Dfs(string code)
+            {
+                if (!visited.Add(code)) return;
+                if (!lookup.TryGetValue(code, out var rec)) return;
+
+                // Duyệt các tiên quyết trước
+                if (courseCache.TryGetValue(code, out var course) && !string.IsNullOrWhiteSpace(course.Prerequisites))
+                {
+                    foreach (var prereq in course.Prerequisites
+                        .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(s => s.Trim())
+                        .Where(s => !string.IsNullOrEmpty(s)))
+                    {
+                        Dfs(prereq);
+                    }
+                }
+
+                result.Add(rec);
+            }
+
+            foreach (var course in courses)
+                Dfs(course.CourseCode);
+
+            return result;
+        }
+
         public async Task<string> GeneratePersonalizedRoadmapAsync(PersonalizedRoadmapRequest request)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == request.UserId);
@@ -32,11 +125,6 @@ namespace CareerSystem.API.Services.Implementations
             {
                 throw new Exception("Không tìm thấy người dùng.");
             }
-
-            //if (string.IsNullOrWhiteSpace(user.GeminiApiKey))
-            //{
-            //    throw new Exception("Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để sử dụng tính năng này.");
-            //}
 
             var (targetRole, passedCoursesText, courseCatalogJson) = await _promptContextService.BuildRoadmapContextAsync(request);
 
@@ -54,42 +142,72 @@ namespace CareerSystem.API.Services.Implementations
             };
             _context.Roadmaps.Add(newRoadmap);
 
-            // Lấy danh sách mã/id môn học đã học từ học bạ của sinh viên (chỉ lấy môn đã đạt điểm qua môn và môn học đang hoạt động)
+            // Lấy danh sách mã/id môn học đã học từ học bạ của sinh viên
             var passedCourseIds = await _context.AcademicRecords
                 .Include(ar => ar.Course)
                 .Where(ar => ar.UserId == request.UserId && ar.Gpa >= 5.0m && ar.Course.IsActive)
                 .Select(ar => ar.CourseId)
                 .ToListAsync();
 
-            // 6. Bóc tách kết quả JSON, đối chiếu với Database thật, tính toán Deadline, rồi khởi tạo các Node học tập tương ứng
+            var passedCourseCodes = await _context.AcademicRecords
+                .Include(ar => ar.Course)
+                .Where(ar => ar.UserId == request.UserId && ar.Gpa >= 5.0m && ar.Course.IsActive)
+                .Select(ar => ar.Course.CourseCode)
+                .ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
 
             if (recommendedCourses != null && recommendedCourses.Any())
             {
+                // Bước 1: Loại bỏ trùng lặp từ kết quả AI
+                var deduped = recommendedCourses
+                    .Where(r => !string.IsNullOrWhiteSpace(r.CourseCode))
+                    .GroupBy(r => r.CourseCode.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.First())
+                    .ToList();
+
+                // Bước 2: Bổ sung đệ quy các môn tiên quyết còn thiếu từ DB
+                var courseCache = new Dictionary<string, Course>(StringComparer.OrdinalIgnoreCase);
+                await ExpandPrerequisitesAsync(deduped, passedCourseCodes, courseCache);
+
+                // Bước 3: Pre-load course cache cho những môn chưa load
+                foreach (var rec in deduped.Where(r => !courseCache.ContainsKey(r.CourseCode)))
+                {
+                    var c = await _context.Courses.FirstOrDefaultAsync(x => x.IsActive && x.CourseCode == rec.CourseCode);
+                    if (c != null) courseCache[rec.CourseCode] = c;
+                }
+
+                // Bước 4: Topological Sort – đảm bảo tiên quyết luôn đứng trước
+                var sorted = TopologicalSort(deduped, courseCache);
+
+                // Log thứ tự sau khi Topo Sort kèm tiên quyết
+                var sortedCodes = sorted.Select(s => s.CourseCode).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                Console.WriteLine("[RoadmapService][Personalized] Topological Sort result:");
+                for (int i = 0; i < sorted.Count; i++)
+                {
+                    var code = sorted[i].CourseCode;
+                    courseCache.TryGetValue(code, out var dbCourse);
+                    var prereqs = string.IsNullOrWhiteSpace(dbCourse?.Prerequisites)
+                        ? "(none)"
+                        : string.Join(", ", dbCourse.Prerequisites
+                            .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                            .Select(p => p.Trim())
+                            .Select(p => $"{p}:{sortedCodes.Contains(p)}"));
+                    Console.WriteLine($"  [{i + 1:D2}] {code,-12} -> prereqs: [{prereqs}]");
+                }
+
                 DateOnly currentDeadline = DateOnly.FromDateTime(DateTime.Now);
                 string? previousNodeId = null;
-
-                // Tập hợp các môn học đã được xử lý để tránh trùng lặp
-                var seenCourseCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                //Tránh lỗi chia cho 0 nếu sinh viên nhập DailyStudyHours = 0
                 decimal dailyHours = request.DailyStudyHours > 0 ? (decimal)request.DailyStudyHours : DefaultDailyStudyHours;
 
-                foreach (var rec in recommendedCourses)
+                foreach (var rec in sorted)
                 {
-                    // 6.1. Đối chiếu mã môn AI chọn với Database thật
-                    if (string.IsNullOrWhiteSpace(rec.CourseCode)) continue;
-
                     string normalizedCode = rec.CourseCode.Trim();
-                    if (seenCourseCodes.Contains(normalizedCode))
-                    {
-                        continue; // Bỏ qua nếu môn học này đã xuất hiện trước đó trong lộ trình
-                    }
-                    seenCourseCodes.Add(normalizedCode);
 
-                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.IsActive && c.CourseCode == normalizedCode);
-                    if (courseDb == null) continue; // Bỏ qua nếu AI bịa mã môn sai
+                    if (!courseCache.TryGetValue(normalizedCode, out var courseDb)) continue;
 
-                    // 6.2. Truy xuất kỹ năng cốt lõi của môn học (Để map vào SkillId)
+                    // Bỏ qua môn đã hoàn thành
+                    if (passedCourseIds.Contains(courseDb.CourseId)) continue;
+
+                    // Tìm Skill DB
                     var skillDb = await (
                         from clo in _context.CourseLearningOutcomes
                         join skill in _context.Skills on clo.SkillId equals skill.SkillId
@@ -103,14 +221,9 @@ namespace CareerSystem.API.Services.Implementations
                             s.SkillName.Contains(rec.SkillName) || rec.SkillName.Contains(s.SkillName));
                     }
 
-                    // Nếu tìm mọi cách vẫn không có skill nào khớp thì bỏ qua
-                    if (skillDb == null)
-                    {
-                        continue;
-                    }
+                    if (skillDb == null) continue;
 
-
-                    // 6.3. Thuật toán tính toán thời gian hoàn thành (Deadline)
+                    // Tính deadline
                     decimal alpha = rec.Level switch
                     {
                         "Beginner" => APLPHA_PHASE_1,
@@ -123,39 +236,27 @@ namespace CareerSystem.API.Services.Implementations
                     int daysRequired = (int)Math.Ceiling((totalHours * alpha) / (dailyHours * lc));
                     currentDeadline = currentDeadline.AddDays(daysRequired);
 
-
-                    // Kiểm tra xem môn học đã được hoàn thành chưa, nếu rồi thì không thêm vào lộ trình nữa
-                    bool isCompleted = passedCourseIds.Contains(courseDb.CourseId);
-                    if (isCompleted)
-                    {
-                        continue; // Bỏ qua môn học đã hoàn thành
-                    }
-
-                    // 6.4. Khởi tạo Node học tập
                     var node = new SkillNode
                     {
                         NodeId = Guid.NewGuid().ToString(),
-                        RoadmapId = newRoadmap.RoadmapId,      // Nối với vỏ lộ trình vừa tạo
-                        SkillId = skillDb.SkillId,             // Nối với kỹ năng chuẩn
-                        CourseId = courseDb.CourseId,          // Nối với môn học chuẩn
-                        ParentNodeId = previousNodeId,         // Nối tiếp với môn học trước đó (A -> B -> C)
+                        RoadmapId = newRoadmap.RoadmapId,
+                        SkillId = skillDb.SkillId,
+                        CourseId = courseDb.CourseId,
+                        ParentNodeId = previousNodeId,
                         Status = "PENDING",
                         Deadline = currentDeadline,
                         AcademicLevel = rec.Level ?? "Beginner"
                     };
 
                     _context.SkillNodes.Add(node);
-
-                    // Cập nhật lại previousNodeId để môn tiếp theo có thể nối vào đuôi môn này
                     previousNodeId = node.NodeId;
                 }
             }
 
-            // 7. Lưu Roadmap và các SkillNode xuống Database
             await _context.SaveChangesAsync();
-
             return newRoadmap.RoadmapId;
         }
+
 
 
 
@@ -277,6 +378,12 @@ namespace CareerSystem.API.Services.Implementations
                 .Select(ar => ar.CourseId)
                 .ToListAsync();
 
+            var passedCourseCodes = await _context.AcademicRecords
+                .Include(ar => ar.Course)
+                .Where(ar => ar.UserId == request.UserId && ar.Gpa >= 5.0m && ar.Course.IsActive)
+                .Select(ar => ar.Course.CourseCode)
+                .ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
+
             var targetRoleName = await _context.CareerRoles
                 .Where(r => r.RoleId == request.TargetRoleId)
                 .Select(r => r.RoleName)
@@ -286,23 +393,53 @@ namespace CareerSystem.API.Services.Implementations
 
             if (recommendedCourses != null && recommendedCourses.Any())
             {
+                // Bước 1: Loại bỏ trùng lặp
+                var deduped = recommendedCourses
+                    .Where(r => !string.IsNullOrWhiteSpace(r.CourseCode))
+                    .GroupBy(r => r.CourseCode.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.First())
+                    .ToList();
+
+                // Bước 2: Bổ sung đệ quy các môn tiên quyết còn thiếu
+                var courseCache = new Dictionary<string, Course>(StringComparer.OrdinalIgnoreCase);
+                await ExpandPrerequisitesAsync(deduped, passedCourseCodes, courseCache);
+
+                // Bước 3: Pre-load course cache cho các môn chưa được load
+                foreach (var rec in deduped.Where(r => !courseCache.ContainsKey(r.CourseCode)))
+                {
+                    var c = await _context.Courses.FirstOrDefaultAsync(x => x.IsActive && x.CourseCode == rec.CourseCode);
+                    if (c != null) courseCache[rec.CourseCode] = c;
+                }
+
+                // Bước 4: Topological Sort
+                var sorted = TopologicalSort(deduped, courseCache);
+
+                // Log thứ tự sau khi Topo Sort kèm tiên quyết
+                var sortedCodes = sorted.Select(s => s.CourseCode).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                Console.WriteLine("[RoadmapService][Preview] Topological Sort result:");
+                for (int i = 0; i < sorted.Count; i++)
+                {
+                    var code = sorted[i].CourseCode;
+                    courseCache.TryGetValue(code, out var dbCourse);
+                    var prereqs = string.IsNullOrWhiteSpace(dbCourse?.Prerequisites)
+                        ? "(none)"
+                        : string.Join(", ", dbCourse.Prerequisites
+                            .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                            .Select(p => p.Trim())
+                            .Select(p => $"{p}:{sortedCodes.Contains(p)}"));
+                    Console.WriteLine($"  [{i + 1:D2}] {code,-12} -> prereqs: [{prereqs}]");
+                }
+
                 DateOnly currentDeadline = DateOnly.FromDateTime(DateTime.Now);
                 string? previousNodeId = null;
-                var seenCourseCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 decimal dailyHours = request.DailyStudyHours > 0 ? (decimal)request.DailyStudyHours : DefaultDailyStudyHours;
 
-                foreach (var rec in recommendedCourses)
+                foreach (var rec in sorted)
                 {
-                    if (string.IsNullOrWhiteSpace(rec.CourseCode)) continue;
                     string normalizedCode = rec.CourseCode.Trim();
-                    if (seenCourseCodes.Contains(normalizedCode)) continue;
-                    seenCourseCodes.Add(normalizedCode);
+                    if (!courseCache.TryGetValue(normalizedCode, out var courseDb)) continue;
 
-                    var courseDb = await _context.Courses.FirstOrDefaultAsync(c => c.IsActive && c.CourseCode == normalizedCode);
-                    if (courseDb == null) continue;
-
-                    bool isCompleted = passedCourseIds.Contains(courseDb.CourseId);
-                    if (isCompleted) continue; // Bỏ qua môn học đã hoàn thành
+                    if (passedCourseIds.Contains(courseDb.CourseId)) continue;
 
                     decimal alpha = rec.Level switch
                     {
@@ -316,9 +453,10 @@ namespace CareerSystem.API.Services.Implementations
                     int daysRequired = (int)Math.Ceiling((totalHours * alpha) / (dailyHours * lc));
                     currentDeadline = currentDeadline.AddDays(daysRequired);
 
+                    var tempNodeId = Guid.NewGuid().ToString();
                     orderedNodes.Add(new SkillNodeDetailDto
                     {
-                        NodeId = Guid.NewGuid().ToString(), // Temp Node ID
+                        NodeId = tempNodeId,
                         CourseId = courseDb.CourseId,
                         CourseCode = courseDb.CourseCode,
                         CourseName = courseDb.CourseName,
@@ -328,7 +466,7 @@ namespace CareerSystem.API.Services.Implementations
                         AcademicLevel = rec.Level ?? "Beginner"
                     });
 
-                    previousNodeId = orderedNodes.Last().NodeId;
+                    previousNodeId = tempNodeId;
                 }
             }
 
@@ -340,30 +478,18 @@ namespace CareerSystem.API.Services.Implementations
             {
                 var group = groupedByLevel.FirstOrDefault(g => g.Key.Equals(phaseName, StringComparison.OrdinalIgnoreCase));
                 if (group != null)
-                {
-                    phases.Add(new RoadmapPhaseDto
-                    {
-                        PhaseName = phaseName,
-                        Nodes = group.ToList()
-                    });
-                }
+                    phases.Add(new RoadmapPhaseDto { PhaseName = phaseName, Nodes = group.ToList() });
             }
 
             foreach (var group in groupedByLevel)
             {
                 if (!phaseOrder.Contains(group.Key, StringComparer.OrdinalIgnoreCase))
-                {
-                    phases.Add(new RoadmapPhaseDto
-                    {
-                        PhaseName = group.Key,
-                        Nodes = group.ToList()
-                    });
-                }
+                    phases.Add(new RoadmapPhaseDto { PhaseName = group.Key, Nodes = group.ToList() });
             }
 
             return new RoadmapDetailDto
             {
-                RoadmapId = "preview-" + Guid.NewGuid().ToString(), // Mark as preview
+                RoadmapId = "preview-" + Guid.NewGuid().ToString(),
                 TargetRoleName = targetRoleName,
                 DailyStudyHours = (decimal)request.DailyStudyHours,
                 ProgressPercent = 0,

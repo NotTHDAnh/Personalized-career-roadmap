@@ -73,6 +73,14 @@ namespace CareerSystem.API.Services.Implementations
 
             _context.AcademicRecords.Remove(record);
             await _context.SaveChangesAsync();
+
+            // Đồng bộ roadmap nodes (GPA set về null để đưa node về PENDING và khóa các node phụ thuộc)
+            await SyncRoadmapNodesAsync(studentId, courseId, null);
+
+            // Đồng bộ lại kỹ năng của sinh viên (thu hồi kỹ năng của môn vừa xóa)
+            await SyncStudentSkillsAsync(studentId);
+
+            await _context.SaveChangesAsync();
             return true;
         }
 
@@ -120,6 +128,9 @@ namespace CareerSystem.API.Services.Implementations
 
                             existing.Gpa = incoming.Gpa;
                             existing.ExamAttempts = incoming.ExamAttempts;
+
+                            // Sync node roadmap
+                            await SyncRoadmapNodesAsync(student.UserId, incoming.CourseId, incoming.Gpa);
                         }
                     }
                     else
@@ -140,6 +151,9 @@ namespace CareerSystem.API.Services.Implementations
                         };
                         _context.AcademicRecords.Add(newRecord);
 
+                        // Sync node roadmap
+                        await SyncRoadmapNodesAsync(student.UserId, incoming.CourseId, incoming.Gpa);
+
                         //var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] [CREATE] Staff: {staffId} | Student: {student.UserId} | Course: {incoming.CourseId} | Old GPA: N/A | New GPA: {incoming.Gpa}\n";
                         //await System.IO.File.AppendAllTextAsync(logPath, logMessage);
                     }
@@ -153,9 +167,19 @@ namespace CareerSystem.API.Services.Implementations
                     //await System.IO.File.AppendAllTextAsync(logPath, logMessage);
 
                     _context.AcademicRecords.Remove(del);
+
+                    // Sync node roadmap thành PENDING
+                    await SyncRoadmapNodesAsync(student.UserId, del.CourseId, null);
                 }
             }
 
+            // Lưu thay đổi của AcademicRecords trước
+            await _context.SaveChangesAsync();
+
+            // Sync lại toàn bộ skill của sinh viên dựa trên học bạ mới nhất
+            await SyncStudentSkillsAsync(student.UserId);
+
+            // Lưu thay đổi của StudentSkills
             await _context.SaveChangesAsync();
             return true;
         }

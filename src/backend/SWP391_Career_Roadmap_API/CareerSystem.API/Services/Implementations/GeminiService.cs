@@ -26,7 +26,7 @@ namespace CareerSystem.API.Services.Implementations
         /// <summary>
         /// Gửi Prompt đến Gemini API và nhận phản hồi văn bản từ AI với cơ chế thử lại tự động khi gặp lỗi tạm thời.
         /// </summary>
-        public async Task<string> CallGeminiApiAsync(string prompt, string apiKey)
+        public async Task<string> CallGeminiApiAsync(string prompt, string apiKey, int thinkingBudget = 0)
         {
             if (string.IsNullOrWhiteSpace(apiKey))
             {
@@ -40,8 +40,7 @@ namespace CareerSystem.API.Services.Implementations
             var requestUri = new Uri(geminiUrl);
 
             // 3. Đóng gói request body theo đúng đặc tả định dạng của Gemini API.
-            // Cấu hình thêm generationConfig để tắt tính năng suy nghĩ (thinkingBudget = 0) của Gemini 2.5 Flash
-            // nhằm tối ưu hóa tốc độ phản hồi từ 20s xuống còn dưới 3s.
+            // Cấu hình thêm generationConfig để tắt/bật tính năng suy nghĩ (thinkingBudget) của Gemini 2.5 Flash
             var requestBody = new
             {
                 contents = new[]
@@ -59,7 +58,7 @@ namespace CareerSystem.API.Services.Implementations
                     responseMimeType = "application/json",
                     thinkingConfig = new
                     {
-                        thinkingBudget = 0
+                        thinkingBudget = thinkingBudget
                     }
                 }
             };

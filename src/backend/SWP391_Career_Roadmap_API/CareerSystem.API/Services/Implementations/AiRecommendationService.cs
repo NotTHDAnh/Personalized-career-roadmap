@@ -1,13 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Text.Json;
-using System.Threading.Tasks;
 using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace CareerSystem.API.Services.Implementations
 {
@@ -168,76 +164,52 @@ namespace CareerSystem.API.Services.Implementations
         {
             return await ExecuteAiActionWithFallbackAsync(async () =>
             {
+                //Console.WriteLine(courseCatalogJson);
                 // Định nghĩa Prompt chỉ dẫn đề xuất lộ trình học tập phù hợp dựa trên cơ sở dữ liệu thực tế
                 string prompt = $@"
                     Bạn là Mentor IT cho sinh viên Software Engineering.
 
-                    Mục tiêu nghề nghiệp của sinh viên:
-                    {targetRole.RoleName}
+                    Mục tiêu nghề nghiệp: {targetRole.RoleName}
 
-                    Các môn sinh viên đã hoàn thành:
+                    Môn đã hoàn thành:
                     {passedCoursesText}
 
-                    Đây là COURSE_CATALOG_JSON lấy trực tiếp từ database.
-                    Bạn CHỈ được chọn courseCode và skillId tồn tại trong JSON này.
-
-                    COURSE_CATALOG_JSON:
+                    COURSE_CATALOG_JSON (chỉ dùng courseCode và skillId từ đây):
                     {courseCatalogJson}
 
-                    Trong COURSE_CATALOG_JSON, mỗi môn học có một trường boolean `isFoundationalCourse`.
-                    Nếu `isFoundationalCourse` là true, môn học đó là môn học nền tảng/chung bắt buộc cho tất cả sinh viên ngành Software Engineering (SE).
+                    Lưu ý: `isFoundationalCourse=true` là môn nền tảng bắt buộc của ngành SE.
+                    Lưu ý: Backend sẽ tự động bổ sung đệ quy các môn tiên quyết còn thiếu và sắp xếp thứ tự bằng thuật toán Topological Sort. Bạn KHÔNG cần tìm và sắp xếp môn tiên quyết. Chỉ cần đề xuất các môn phù hợp nhất.
 
-                    Yêu cầu đề xuất lộ trình:
-                    1. Bắt buộc đề xuất tất cả các môn học nền tảng (môn có `isFoundationalCourse` là true trong COURSE_CATALOG_JSON) mà sinh viên CHƯA hoàn thành (chưa có trong danh sách các môn đã hoàn thành). Sinh viên chỉ được phép bỏ qua môn nền tảng nếu môn học đó đã được hoàn thành.
-                    2. Lộ trình học tập đề xuất phải bao gồm cả hai nhóm môn học sau:
-                       - Toàn bộ các môn học nền tảng chưa hoàn thành nêu trên.
-                       - Các môn học chuyên ngành phù hợp trực tiếp để đạt được mục tiêu nghề nghiệp '{targetRole.RoleName}' (đối chiếu các kỹ năng cần thiết của role này).
-                    3. Không chọn môn sinh viên đã hoàn thành (đã có trong danh sách các môn đã hoàn thành).
-                    4. Sắp xếp thứ tự các môn học theo một trình tự thời gian logic:
-                       - Các môn đại cương/nền tảng (các môn có `isFoundationalCourse` là true hoặc các môn cơ bản Beginner) phải học trước.
-                       - Các môn học có môn tiên quyết (trường `prerequisites` chứa các mã môn phân tách bởi dấu `;` trong COURSE_CATALOG_JSON) BẮT BUỘC phải được sắp xếp học SAU tất cả các môn học tiên quyết của nó.
-                       - Các môn cơ sở ngành/chuyên ngành và nâng cao hơn học tiếp theo.
-                       - Môn dự án thực hành lớn (SWP391 hoặc có mã SWP391) phải nằm ở cuối lộ trình.
-                    5. Không bịa courseCode hay skillId. Mỗi item phải sử dụng đúng courseCode và skillId tồn tại trong COURSE_CATALOG_JSON.
-                    6. Nếu một môn có nhiều learning outcomes, chọn skillId phù hợp nhất.
-                    7. Phân loại trình độ (level) cho từng môn học được chọn dựa trên các quy tắc sau:
-                       - ""Beginner"": Các môn nền tảng/cơ bản đại cương (ví dụ: các môn có `isFoundationalCourse` là true, hoặc các môn nhập môn như CSI106, PRF192, PRO192, MAD101, DBI202, CSD201, SSL101c, SSG104, ITE302c).
-                       - ""Intermediate"": Các môn học core/cơ sở ngành, lập trình chuyên sâu, cơ sở mạng/hệ điều hành hoặc thiết kế web/di động (ví dụ: PRJ301, FER202, HSF302, PRM393, SDN302).
-                       - ""Advanced"": Các môn chuyên ngành nâng cao, khai phá dữ liệu, AI/Machine Learning nâng cao hoặc dự án thực hành lớn (ví dụ: AIL303m, DSC302, SWP391).
-                    8. Tuyệt đối không được đề xuất trùng lặp bất kỳ môn học nào (mỗi courseCode chỉ xuất hiện tối đa một lần trong toàn bộ lộ trình). Một môn học chỉ được gán cho duy nhất 1 trình độ (level) phù hợp nhất.
-                    9. Tính toán chỉ số học tập cá nhân hóa ""learningCoefficient"" (LC) cho từng môn học được đề xuất (giá trị số thập phân từ 0.5 đến 1.5, mặc định là 1.0):
-                       - Đối chiếu môn đề xuất với các môn học liên quan đã hoàn thành (ví dụ: PRF192/PRO192 liên quan đến PRJ301/PRM393/SWP391; MAD101/CSD201 liên quan đến cấu trúc dữ liệu và thuật toán).
-                       - Đánh giá GPA và Exam Attempts (số lần thi) của các môn liên quan đó để chấm điểm LC:
-                         * Đối với các môn Dễ/Nền tảng (Level Beginner):
-                           + Nếu GPA trung bình các môn liên quan >= 7.5 và không thi lại: LC từ 1.1 đến 1.3 (tiếp thu nhanh).
-                           + Nếu GPA trung bình < 6.0 hoặc thi lại nhiều: LC từ 0.8 đến 0.9 (cần nhiều thời gian hơn).
-                         * Đối với các môn Trung bình (Level Intermediate):
-                           + Nếu GPA các môn liên quan >= 7.5 và không thi lại: LC từ 1.1 đến 1.2.
-                           + Nếu GPA các môn liên quan < 6.5 hoặc từng thi lại: LC từ 0.7 đến 0.8 (cần học kỹ hơn).
-                         * Đối với các môn Khó/Nâng cao (Level Advanced hoặc môn chuyên ngành phức tạp như CSD201, PRJ301, SWP391):
-                           + Đây là các môn rất thách thức. Nếu GPA các môn liên quan trước đó < 7.0 hoặc từng thi lại: BẮT BUỘC đặt LC từ 0.6 đến 0.8 để kéo dài thời gian hoàn thành (giúp sinh viên có đủ thời gian học tập).
-                           + Chỉ khi sinh viên cực kỳ xuất sắc ở các môn liên quan (GPA >= 8.0 và Exam Attempts = 1): đặt LC từ 1.1 đến 1.3.
-                           + Nếu học lực ở mức khá (GPA từ 7.0 đến 7.9): đặt LC từ 0.9 đến 1.0.
+                    Yêu cầu:
+                    1. Đề xuất toàn bộ môn nền tảng (`isFoundationalCourse=true`) sinh viên chưa hoàn thành.
+                    2. Đề xuất thêm các môn chuyên ngành phù hợp với mục tiêu '{targetRole.RoleName}'.
+                    3. Không đề xuất môn đã hoàn thành. Không bịa courseCode hay skillId.
+                    4. Không trùng lặp môn học. Mỗi courseCode tối đa 1 lần.
+                    5. Phân loại level: ""Beginner"" (nền tảng/cơ bản), ""Intermediate"" (core/cơ sở ngành), ""Advanced"" (chuyên sâu/dự án).
+                    6. Tính learningCoefficient (0.5–1.5, mặc định 1.0) dựa trên GPA và số lần thi các môn liên quan đã hoàn thành:
+                       - Beginner: GPA>=7.5 & lần thi=1 → 1.1–1.3; GPA<6.0 hoặc thi lại → 0.8–0.9.
+                       - Intermediate: GPA>=7.5 → 1.1–1.2; GPA<6.5 hoặc thi lại → 0.7–0.8.
+                       - Advanced: GPA<7.0 hoặc thi lại → 0.6–0.8; GPA>=8.0 & lần thi=1 → 1.1–1.3; GPA 7.0–7.9 → 0.9–1.0.
 
-                   Định dạng bắt buộc, chỉ trả JSON:
+                    Định dạng bắt buộc, chỉ trả JSON:
                     [
-                      {{ 
-                        ""courseCode"": ""MÃ_MÔN"", 
-                        ""skillName"": ""Tên Kỹ năng (Ngắn gọn)"",
+                      {{
+                        ""courseCode"": ""MÃ_MÔN"",
+                        ""skillName"": ""Tên Kỹ năng"",
                         ""level"": ""Beginner"" hoặc ""Intermediate"" hoặc ""Advanced"",
                         ""learningCoefficient"": 1.0
                       }}
                     ]";
 
-                // Gọi Gemini API thông qua GeminiService
-                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
+                // thinkingBudget=0 vì backend đã xử lý logic tiên quyết, AI chỉ cần chọn môn phù hợp
+                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey, thinkingBudget: 0);
 
                 // Trích xuất phần nội dung JSON nằm trong cặp dấu ngoặc vuông [ ]
                 aiJsonResponse = _geminiService.CleanJsonString(aiJsonResponse);
 
                 // Deserialize chuỗi JSON sang danh sách DTO đề xuất khóa học
-                var options = new JsonSerializerOptions 
-                { 
+                var options = new JsonSerializerOptions
+                {
                     PropertyNameCaseInsensitive = true,
                     NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
                 };
