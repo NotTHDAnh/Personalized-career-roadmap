@@ -13,6 +13,7 @@ import type { NodeState, CourseNode } from "@/app/types";
 import { CourseContext } from "@/app/data/CourseContext";
 import { useAuth } from "@/shared/contexts/AuthContext";
 import { apiClient } from "@/shared/api/apiClient";
+import { useNotification } from "@/shared/contexts/NotificationContext";
 
 import { useMemo } from "react";
 import { RoadmapCanvas } from "./components/RoadmapCanvas";
@@ -58,6 +59,8 @@ export default function MyRoadmaps() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const userId = user?.userId || "student-001";
+  const { openNotification } = useNotification();
+  const [checkedOverdueRoadmapId, setCheckedOverdueRoadmapId] = useState<string>("");
 
   const [roadmaps, setRoadmaps] = useState<{ roadmapId: string; targetRoleName: string }[]>([]);
   const [selectedRoadmapId, setSelectedRoadmapId] = useState<string>("");
@@ -322,6 +325,47 @@ export default function MyRoadmaps() {
     }
     void fetchRoadmapDetail();
   }, [selectedRoadmapId]);
+
+  // Check for overdue course deadlines when roadmap data is loaded
+  useEffect(() => {
+    if (!roadmapData || !roadmapData.phases || roadmapData.roadmapId === checkedOverdueRoadmapId) return;
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    const overdueCourses: { name: string; deadline: string }[] = [];
+
+    roadmapData.phases.forEach((phase: any) => {
+      if (phase.nodes) {
+        phase.nodes.forEach((node: any) => {
+          const isCompleted = node.status === "COMPLETED" || node.status === "done";
+          if (!isCompleted && node.deadline) {
+            const nodeDeadlineStr = node.deadline.split("T")[0];
+            if (nodeDeadlineStr < todayStr) {
+              overdueCourses.push({
+                name: node.courseName || node.courseCode || "Unknown Course",
+                deadline: nodeDeadlineStr,
+              });
+            }
+          }
+        });
+      }
+    });
+
+    if (overdueCourses.length > 0) {
+      overdueCourses.forEach((course) => {
+        openNotification(
+          "warning",
+          `Course "${course.name}" is overdue! Deadline: ${course.deadline}`
+        );
+      });
+    }
+
+    setCheckedOverdueRoadmapId(roadmapData.roadmapId);
+  }, [roadmapData, checkedOverdueRoadmapId, openNotification]);
 
   // Map phases dynamically from the API
   const zones = roadmapData?.phases?.map((p: any, i: number) => {
