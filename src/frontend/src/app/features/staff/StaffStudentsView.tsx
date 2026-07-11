@@ -114,7 +114,12 @@ export function StaffStudentsView() {
     try {
       setIsLoading(true);
       const data = await apiClient.get<Student[]>(`/staff/students?deleted=${isRecycleBin}`);
-      setStudentsData(data);
+      const translatedData = data.map(s => ({
+        ...s,
+        role: s.role === "Chưa xác định" ? "Unassigned" : s.role,
+        name: s.name === "Chưa cập nhật" ? "Not updated" : s.name
+      }));
+      setStudentsData(translatedData);
     } catch (error) {
       toast.error("Failed to fetch students data");
     } finally {
@@ -166,27 +171,30 @@ export function StaffStudentsView() {
   // Actions
   const handleOpenDetail = async (id: string) => {
     try {
-      const data = await apiClient.get<StudentDetail>(`/student/students/${id}`);
-      setDetailData(data);
+      const detailData = await apiClient.get<StudentDetail>(`/staff/student/${id}`);
       
-      let dateVal = "";
-      if (data.createdAt && data.createdAt !== "N/A") {
-        try { dateVal = new Date(data.createdAt).toISOString().split('T')[0]; } catch(e){}
-      }
+      const translatedDetail = {
+        ...detailData,
+        role: detailData.role === "Chưa xác định" ? "Unassigned" : detailData.role,
+        name: detailData.name === "Chưa cập nhật" ? "Not updated" : detailData.name
+      };
+
+      setDetailData(translatedDetail);
       setEditForm({
-        name: data.name,
-        email: data.email,
-        role: data.role,
-        status: data.status,
-        createdAt: dateVal,
-        courses: data.courses
-          .filter(c => c.gpa !== null && c.gpa !== undefined)
+        name: translatedDetail.name,
+        email: translatedDetail.email,
+        role: translatedDetail.role,
+        tags: translatedDetail.tags.join(", "),
+        status: translatedDetail.status,
+        deleteHistory: translatedDetail.deleteHistory,
+        createdAt: translatedDetail.createdAt,
+        courses: (translatedDetail.courses || [])
+          .filter(c => c.gpa !== null)
           .map(c => ({ courseId: c.courseId || "", gpa: c.gpa, examAttempts: c.examAttempts ?? 1 })),
-        inProgressCourses: data.courses
-          .filter(c => c.gpa === null || c.gpa === undefined)
+        inProgressCourses: (translatedDetail.courses || [])
+          .filter(c => c.gpa === null)
           .map(c => ({ courseId: c.courseId || "", gpa: "", examAttempts: "" }))
       });
-      setIsEditing(false);
       setIsDetailOpen(true);
     } catch (error) {
       toast.error("Failed to fetch student details");
@@ -231,10 +239,10 @@ export function StaffStudentsView() {
     if (!selectedStudentId) return;
     try {
       await apiClient.patch(`/staff/students/${selectedStudentId}/toggle-status`, {});
-      toast.success("Cập nhật trạng thái thành công");
+      toast.success("Status updated successfully");
       fetchStudents();
     } catch (error) {
-      toast.error("Có lỗi xảy ra");
+      toast.error("An error occurred");
     } finally {
       setIsConfirmDeactiveOpen(false);
     }
@@ -244,10 +252,10 @@ export function StaffStudentsView() {
     if (!selectedStudentId) return;
     try {
       await apiClient.patch(`/staff/students/${selectedStudentId}/toggle-delete`, {});
-      toast.success("Cập nhật thành công");
+      toast.success("Updated successfully");
       fetchStudents();
     } catch (error) {
-      toast.error("Có lỗi xảy ra");
+      toast.error("An error occurred");
     } finally {
       setIsConfirmDeleteOpen(false);
       setIsConfirmRestoreOpen(false);
@@ -263,11 +271,11 @@ export function StaffStudentsView() {
     if (!detailData || !deleteGradeInfo) return;
     try {
       await apiClient.delete(`/student/students/${detailData.id}/courses/${deleteGradeInfo.courseId}`);
-      toast.success(`Đã xóa điểm môn học ${deleteGradeInfo.courseName}`);
+      toast.success(`Successfully deleted grade for ${deleteGradeInfo.courseName}`);
       handleOpenDetail(detailData.id); // refresh modal data
       fetchStudents(); // refresh list
     } catch (error) {
-      toast.error("Xóa điểm môn học thất bại");
+      toast.error("Failed to delete grade");
     } finally {
       setIsConfirmDeleteGradeOpen(false);
       setDeleteGradeInfo(null);
@@ -395,7 +403,14 @@ export function StaffStudentsView() {
               </div>
 
               <div className="flex items-center gap-3 mb-4 mt-2">
-                <img src={student.avatar} alt={student.name} className="w-12 h-12 rounded-full object-cover border border-[#E2E8F0]" />
+                <img 
+                  src={student.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(student.name)}&backgroundColor=0F172A&textColor=ffffff`} 
+                  alt={student.name} 
+                  className="w-12 h-12 rounded-full object-cover border border-[#E2E8F0]" 
+                  onError={(e) => {
+                    e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(student.name)}&backgroundColor=0F172A&textColor=ffffff`;
+                  }}
+                />
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h3 className="text-[14px] font-bold text-[#0F172A] leading-snug">{student.name}</h3>
@@ -601,7 +616,7 @@ export function StaffStudentsView() {
                                   }}
                                   className="w-full h-8 rounded-md border border-gray-300 text-sm px-2"
                                 >
-                                  <option value="" disabled>-- Chọn môn học --</option>
+                                  <option value="" disabled>-- Select Course --</option>
                                   {availableCourses.map(ac => {
                                     const isSelectedElsewhere = 
                                       editForm.courses.some((course, courseIdx) => courseIdx !== idx && course.courseId === ac.courseId) ||
@@ -619,7 +634,7 @@ export function StaffStudentsView() {
                                       }
                                     }
                                     const isDisabled = isSelectedElsewhere || missingPrereqs;
-                                    const title = missingPrereqs ? "Chưa hoàn thành môn tiên quyết" : (isSelectedElsewhere ? "Đã chọn môn này" : "");
+                                    const title = missingPrereqs ? "Missing prerequisite course" : (isSelectedElsewhere ? "Course already selected" : "");
 
                                     return (
                                       <option 
@@ -695,7 +710,7 @@ export function StaffStudentsView() {
                             <td colSpan={4} className="px-4 py-2 text-center">
                               <Button variant="outline" size="sm" onClick={() => {
                                 setEditForm({...editForm, courses: [...editForm.courses, { courseId: "", gpa: 5.0, examAttempts: 1 }]});
-                              }} className="text-blue-600 border-blue-600 hover:bg-blue-50">+ Thêm môn học</Button>
+                              }} className="text-blue-600 border-blue-600 hover:bg-blue-50">+ Add Course</Button>
                             </td>
                           </tr>
                         </>
@@ -760,7 +775,7 @@ export function StaffStudentsView() {
                                   }}
                                   className="w-full h-8 rounded-md border border-gray-300 text-sm px-2"
                                 >
-                                  <option value="" disabled>-- Chọn môn học --</option>
+                                  <option value="" disabled>-- Select Course --</option>
                                   {availableCourses.map(ac => {
                                     const isSelectedElsewhere = 
                                       editForm.courses.some(course => course.courseId === ac.courseId) ||
@@ -778,7 +793,7 @@ export function StaffStudentsView() {
                                       }
                                     }
                                     const isDisabled = isSelectedElsewhere || missingPrereqs;
-                                    const title = missingPrereqs ? "Chưa hoàn thành môn tiên quyết" : (isSelectedElsewhere ? "Đã chọn môn này" : "");
+                                    const title = missingPrereqs ? "Missing prerequisite course" : (isSelectedElsewhere ? "Course already selected" : "");
 
                                     return (
                                       <option 
@@ -856,7 +871,7 @@ export function StaffStudentsView() {
                             <td colSpan={4} className="px-4 py-2 text-center">
                               <Button variant="outline" size="sm" onClick={() => {
                                 setEditForm({...editForm, inProgressCourses: [...editForm.inProgressCourses, { courseId: "", gpa: "", examAttempts: "" }]});
-                              }} className="text-blue-600 border-blue-600 hover:bg-blue-50">+ Thêm môn đang học</Button>
+                              }} className="text-blue-600 border-blue-600 hover:bg-blue-50">+ Add In-progress Course</Button>
                             </td>
                           </tr>
                         </>
@@ -969,12 +984,12 @@ export function StaffStudentsView() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Grade Deletion</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa điểm môn học <strong>{deleteGradeInfo?.courseName}</strong> của sinh viên này? Hành động này không thể hoàn tác.
+              Are you sure you want to delete the grade for <strong>{deleteGradeInfo?.courseName}</strong> for this student? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleDeleteGrade}>Xóa</AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleDeleteGrade}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

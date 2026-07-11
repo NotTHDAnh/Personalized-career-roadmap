@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { connectGithub } from "../../services/githubApi";
+import { connectGithub, getGithubProfile } from "../../services/githubApi";
 import { useNotification } from "../../../shared/contexts/NotificationContext";
+import { useAuth } from "../../../shared/contexts/AuthContext";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 
 export default function GithubCallbackScreen() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { openNotification, updateNotification } = useNotification();
+  const { updateUser } = useAuth();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -16,23 +18,32 @@ export default function GithubCallbackScreen() {
   useEffect(() => {
     if (!code) {
       setStatus("error");
-      setErrorMessage("Không tìm thấy mã xác thực (code) từ GitHub.");
+      setErrorMessage("GitHub authentication code not found.");
       return;
     }
 
-    const notifId = openNotification("loading", "Đang kết nối và đồng bộ tài khoản GitHub của bạn...");
+    const notifId = openNotification("loading", "Connecting and syncing your GitHub account...");
 
     connectGithub(code)
-      .then((res) => {
+      .then(async (res) => {
+        try {
+          const profile = await getGithubProfile();
+          if (profile.avatarUrl) {
+            updateUser({ avatarUrl: profile.avatarUrl });
+          }
+        } catch (e) {
+          console.error("Failed to fetch github profile after connect:", e);
+        }
+        
         setStatus("success");
-        updateNotification(notifId, "success", res.message || "Kết nối GitHub thành công!");
+        updateNotification(notifId, "success", res.message || "GitHub connected successfully!");
         setTimeout(() => {
           navigate("/dashboard/profile");
         }, 2000);
       })
       .catch((err) => {
         setStatus("error");
-        const errMsg = err?.response?.data?.message || err?.message || "Đồng bộ thất bại. Vui lòng thử lại.";
+        const errMsg = err?.response?.data?.message || err?.message || "Sync failed. Please try again.";
         setErrorMessage(errMsg);
         updateNotification(notifId, "error", errMsg);
       });
@@ -47,9 +58,9 @@ export default function GithubCallbackScreen() {
             <div className="flex justify-center">
               <Loader2 className="w-16 h-16 text-indigo-600 animate-spin" />
             </div>
-            <h2 className="text-xl font-bold text-slate-800">Đang xử lý kết nối</h2>
+            <h2 className="text-xl font-bold text-slate-800">Processing connection</h2>
             <p className="text-slate-500 text-sm">
-              Vui lòng không đóng trình duyệt. Chúng tôi đang trao đổi token và đồng bộ danh sách dự án của bạn từ GitHub.
+              Please do not close the browser. We are exchanging tokens and syncing your projects from GitHub.
             </p>
           </>
         )}
@@ -59,9 +70,9 @@ export default function GithubCallbackScreen() {
             <div className="flex justify-center">
               <CheckCircle className="w-16 h-16 text-emerald-500" />
             </div>
-            <h2 className="text-xl font-bold text-slate-800">Kết nối thành công!</h2>
+            <h2 className="text-xl font-bold text-slate-800">Connection successful!</h2>
             <p className="text-slate-500 text-sm">
-              Tài khoản GitHub của bạn đã được liên kết thành công. Hệ thống đang chuyển hướng bạn quay lại trang cá nhân...
+              Your GitHub account has been linked successfully. Redirecting you to your profile...
             </p>
           </>
         )}
@@ -71,13 +82,13 @@ export default function GithubCallbackScreen() {
             <div className="flex justify-center">
               <AlertCircle className="w-16 h-16 text-rose-500" />
             </div>
-            <h2 className="text-xl font-bold text-slate-800">Lỗi kết nối</h2>
+            <h2 className="text-xl font-bold text-slate-800">Connection Error</h2>
             <p className="text-rose-600 font-medium text-sm">{errorMessage}</p>
             <button
               onClick={() => navigate("/dashboard/profile")}
               className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-full text-sm font-bold shadow-md hover:bg-indigo-700 transition-colors"
             >
-              Quay lại trang cá nhân
+              Back to profile
             </button>
           </>
         )}

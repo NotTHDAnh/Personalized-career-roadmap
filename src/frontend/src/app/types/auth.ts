@@ -13,6 +13,7 @@ export type LoginUser = {
   email: string;
   fullName: string;
   role: string;
+  avatarUrl?: string;
 };
 
 export type LoginResponse = {

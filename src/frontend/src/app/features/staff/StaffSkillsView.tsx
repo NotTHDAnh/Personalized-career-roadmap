@@ -54,10 +54,10 @@ export function StaffSkillsView() {
         setIsLoading(true);
         await apiClient.delete(`/Skill/${deleteSkillId}`);
         setSkills(prev => prev.filter(s => s.skillId !== deleteSkillId));
-        toast.success("Xóa kỹ năng thành công");
+        toast.success("Skill deleted successfully");
       } catch (error: any) {
         console.error("Delete failed:", error);
-        toast.error(error?.response?.data?.message || "Lỗi khi xóa kỹ năng");
+        toast.error(error?.response?.data?.message || "Failed to delete skill");
       } finally {
         setIsLoading(false);
       }
@@ -72,11 +72,11 @@ export function StaffSkillsView() {
           }
         }
         setSkills(prev => prev.filter(s => !selectedSkillIds.includes(s.skillId)));
-        toast.success(`Đã xóa thành công ${selectedSkillIds.length} kỹ năng`);
+        toast.success(`Successfully deleted ${selectedSkillIds.length} skills`);
         setSelectedSkillIds([]);
       } catch (error: any) {
         console.error("Failed bulk delete:", error);
-        toast.error("Một số kỹ năng xóa thất bại. Vui lòng thử lại");
+        toast.error("Some skills failed to delete. Please try again");
       } finally {
         setIsLoading(false);
       }
@@ -138,7 +138,7 @@ export function StaffSkillsView() {
         setExpandedCategories(initialExpandedState);
       } catch (error) {
         console.error("Failed to fetch skills:", error);
-        toast.error("Không thể tải danh sách kỹ năng");
+        toast.error("Failed to load skills list");
       } finally {
         setIsLoading(false);
       }
@@ -295,9 +295,28 @@ export function StaffSkillsView() {
                         {groupedSkills[category].length} Skills
                       </span>
                     </div>
-                    <button className="p-1 rounded-md text-[#64748B] hover:bg-[#E2E8F0] transition-colors">
-                      {expandedCategories[category] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {isGlobalEditMode && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const allSelected = groupedSkills[category].every(s => selectedSkillIds.includes(s.skillId));
+                            if (allSelected) {
+                              setSelectedSkillIds(prev => prev.filter(id => !groupedSkills[category].find(s => s.skillId === id)));
+                            } else {
+                              setSelectedSkillIds(prev => [...new Set([...prev, ...groupedSkills[category].map(s => s.skillId)])]);
+                            }
+                          }}
+                          className="text-[12px] font-bold px-3 py-1 rounded-lg transition-colors border border-[#E2E8F0] bg-white hover:bg-gray-50 text-[#3B28CC] shadow-sm"
+                        >
+                          {groupedSkills[category].every(s => selectedSkillIds.includes(s.skillId)) ? "Deselect All" : "Select All"}
+                        </button>
+                      )}
+                      <button className="p-1 rounded-md text-[#64748B] hover:bg-[#E2E8F0] transition-colors">
+                        {expandedCategories[category] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      </button>
+                    </div>
                   </div>
                   
                   {/* Skills List */}
@@ -335,20 +354,26 @@ export function StaffSkillsView() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {groupedSkills[category].map((skill) => (
-                            <tr key={skill.skillId} className="hover:bg-[#F8FAFC]/50 transition-colors">
+                            <tr 
+                              key={skill.skillId} 
+                              className={`hover:bg-[#F8FAFC]/50 transition-colors ${isGlobalEditMode ? 'cursor-pointer' : ''}`}
+                              onClick={() => {
+                                if (isGlobalEditMode) {
+                                  if (selectedSkillIds.includes(skill.skillId)) {
+                                    setSelectedSkillIds(prev => prev.filter(id => id !== skill.skillId));
+                                  } else {
+                                    setSelectedSkillIds(prev => [...prev, skill.skillId]);
+                                  }
+                                }
+                              }}
+                            >
                               {isGlobalEditMode && (
                                 <td className="px-4 py-4 text-center">
                                   <input
                                     type="checkbox"
                                     checked={selectedSkillIds.includes(skill.skillId)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedSkillIds(prev => [...prev, skill.skillId]);
-                                      } else {
-                                        setSelectedSkillIds(prev => prev.filter(id => id !== skill.skillId));
-                                      }
-                                    }}
-                                    className="w-4 h-4 rounded border-gray-300 text-[#3B28CC] focus:ring-[#3B28CC]"
+                                    readOnly
+                                    className="w-4 h-4 rounded border-gray-300 text-[#3B28CC] focus:ring-[#3B28CC] pointer-events-none"
                                   />
                                 </td>
                               )}

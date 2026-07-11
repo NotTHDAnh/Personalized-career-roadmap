@@ -110,9 +110,15 @@ export function StaffLayout() {
         <div className="p-4 mt-auto border-t border-[#1E293B]">
           {/* User Info */}
           <div className="flex items-center px-1 mb-4 overflow-hidden">
-            <div className="w-10 h-10 rounded-full bg-[#1E293B] text-white flex items-center justify-center font-bold text-[14px] flex-shrink-0 border border-[#334155]">
-              {initial}
-            </div>
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover shadow-sm border border-[#334155] flex-shrink-0" />
+            ) : (
+              <img 
+                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}&backgroundColor=1E293B&textColor=ffffff`} 
+                alt={displayName} 
+                className="w-10 h-10 rounded-full object-cover shadow-sm border border-[#334155] flex-shrink-0" 
+              />
+            )}
             <div className={`flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ${isSidebarOpen ? "max-w-[150px] opacity-100 ml-3" : "max-w-0 opacity-0 ml-0"}`}>
               <span className="text-[13px] font-bold text-white truncate">
                 {displayName}

@@ -99,7 +99,7 @@ export function StaffCoursesView() {
         setCourses(detailedCourses);
       } catch (error) {
         console.error("Failed to fetch courses:", error);
-        toast.error("Không thể tải danh sách môn học");
+        toast.error("Failed to load courses list");
       } finally {
         setIsLoading(false);
       }
@@ -176,7 +176,7 @@ export function StaffCoursesView() {
       setOpenDropdownId(null);
     } catch (error) {
       console.error("Failed to load course details:", error);
-      toast.error("Không thể lấy chi tiết môn học để chỉnh sửa");
+      toast.error("Failed to fetch course details for editing");
     } finally {
       setIsLoading(false);
     }
@@ -225,11 +225,11 @@ export function StaffCoursesView() {
           return course;
         }));
         
-        toast.success("Cập nhật môn học thành công");
+        toast.success("Course updated successfully");
         setEditMode('none');
       } catch (error: any) {
         console.error("Failed to update course:", error);
-        toast.error(error?.message || "Lỗi khi cập nhật môn học");
+        toast.error(error?.message || "Failed to update course");
       }
     } else if (editMode === 'bulk') {
       try {
@@ -257,12 +257,12 @@ export function StaffCoursesView() {
           return course;
         }));
         
-        toast.success(`Cập nhật thành công ${selectedCourseIds.length} môn học`);
+        toast.success(`Successfully updated ${selectedCourseIds.length} courses`);
         setEditMode('none');
         setSelectedCourseIds([]);
       } catch (error: any) {
         console.error("Failed bulk update:", error);
-        toast.error("Một số môn học cập nhật thất bại. Vui lòng kiểm tra lại");
+        toast.error("Some courses failed to update. Please check again");
       } finally {
         setIsLoading(false);
       }
@@ -316,13 +316,13 @@ export function StaffCoursesView() {
         setCourses(prev => prev.filter(c => !idsToDelete.includes(c.courseId)));
         
         if (idsToDelete.length > 1) {
-          toast.success(`Đã xóa môn học và ${idsToDelete.length - 1} môn học phụ thuộc`);
+          toast.success(`Deleted course and ${idsToDelete.length - 1} dependent courses`);
         } else {
-          toast.success("Xóa môn học thành công");
+          toast.success("Course deleted successfully");
         }
       } catch (error: any) {
         console.error("Failed to delete course:", error);
-        toast.error(error?.message || "Lỗi khi xóa môn học");
+        toast.error(error?.message || "Failed to delete course");
       } finally {
         setIsLoading(false);
       }
@@ -342,14 +342,14 @@ export function StaffCoursesView() {
         setCourses(prev => prev.filter(c => !idsToDelete.includes(c.courseId)));
         
         if (idsToDelete.length > selectedCourseIds.length) {
-            toast.success(`Đã xóa thành công ${idsToDelete.length} môn học (bao gồm phụ thuộc)`);
+            toast.success(`Successfully deleted ${idsToDelete.length} courses (including dependents)`);
         } else {
-            toast.success(`Đã xóa thành công ${idsToDelete.length} môn học`);
+            toast.success(`Successfully deleted ${idsToDelete.length} courses`);
         }
         setSelectedCourseIds([]);
       } catch (error: any) {
         console.error("Failed bulk delete:", error);
-        toast.error("Một số môn học xóa thất bại. Vui lòng thử lại");
+        toast.error("Some courses failed to delete. Please try again");
       } finally {
         setIsLoading(false);
       }
@@ -619,14 +619,22 @@ export function StaffCoursesView() {
                     ))
                   ) : paginatedCourses.length > 0 ? (
                     paginatedCourses.map((course) => (
-                      <tr key={course.courseId} className="hover:bg-[#F8FAFC]/50 transition-colors">
+                      <tr 
+                        key={course.courseId} 
+                        className={`hover:bg-[#F8FAFC]/50 transition-colors ${isGlobalEditMode ? 'cursor-pointer' : ''}`}
+                        onClick={() => {
+                          if (isGlobalEditMode) {
+                            handleSelectCourse(course.courseId, !selectedCourseIds.includes(course.courseId));
+                          }
+                        }}
+                      >
                         {isGlobalEditMode && (
                           <td className="px-6 py-4 text-center">
                             <input 
                               type="checkbox" 
-                              className="w-4 h-4 rounded border-[#CBD5E1] text-[#3B28CC] focus:ring-[#3B28CC] cursor-pointer"
+                              className="w-4 h-4 rounded border-[#CBD5E1] text-[#3B28CC] focus:ring-[#3B28CC] pointer-events-none"
                               checked={selectedCourseIds.includes(course.courseId)}
-                              onChange={(e) => handleSelectCourse(course.courseId, e.target.checked)}
+                              readOnly
                             />
                           </td>
                         )}

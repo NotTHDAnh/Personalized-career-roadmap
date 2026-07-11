@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { StudentDetailDto } from "@/app/types";
+import { useAuth } from "@/shared/contexts/AuthContext";
 
 interface RecordFile {
   id: number;
@@ -15,6 +16,7 @@ interface StudentProfileCardProps {
 }
 
 export function StudentProfileCard({ studentDetail }: StudentProfileCardProps) {
+  const { user } = useAuth();
   const [isDragging, setIsDragging] = useState(false);
   const [records, setRecords] = useState<RecordFile[]>([]);
   const [isImporting, setIsImporting] = useState(false);
@@ -102,9 +104,13 @@ export function StudentProfileCard({ studentDetail }: StudentProfileCardProps) {
     <div className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] flex flex-col transition-colors duration-300">
       {/* Profile Header Area */}
       <div className="p-5 flex flex-col items-center text-center border-b border-[#E2E8F0] transition-colors">
-        <div className="w-[64px] h-[64px] bg-[#E0E7FF] text-[#3B28CC] rounded-full mb-3 flex items-center justify-center font-bold text-[24px] shadow-sm border border-[#C7D2FE]">
-          {studentDetail?.name ? studentDetail.name.substring(0, 2).toUpperCase() : "NA"}
-        </div>
+        {user?.avatarUrl ? (
+          <img src={user.avatarUrl} alt="Avatar" className="w-[64px] h-[64px] rounded-full object-cover shadow-sm border border-[#C7D2FE] mb-3" />
+        ) : (
+          <div className="w-[64px] h-[64px] bg-[#E0E7FF] text-[#3B28CC] rounded-full mb-3 flex items-center justify-center font-bold text-[24px] shadow-sm border border-[#C7D2FE]">
+            {studentDetail?.name ? studentDetail.name.substring(0, 2).toUpperCase() : "NA"}
+          </div>
+        )}
         <h3 className="text-[16px] font-bold text-[#0F172A] tracking-tight mb-0.5">
           {studentDetail?.name || "Loading..."}
         </h3>
