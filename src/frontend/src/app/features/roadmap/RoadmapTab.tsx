@@ -341,6 +341,9 @@ export default function MyRoadmaps() {
     roadmapData.phases.forEach((phase: any) => {
       if (phase.nodes) {
         phase.nodes.forEach((node: any) => {
+          if (node.deadline) {
+            console.log(`[Deadline Check] Course: ${node.courseName || node.courseCode || "Unknown"}, Deadline: ${node.deadline}, Status: ${node.status}`);
+          }
           const isCompleted = node.status === "COMPLETED" || node.status === "done";
           if (!isCompleted && node.deadline) {
             const nodeDeadlineStr = node.deadline.split("T")[0];

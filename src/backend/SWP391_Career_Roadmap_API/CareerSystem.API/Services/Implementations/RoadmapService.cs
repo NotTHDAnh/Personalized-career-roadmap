@@ -112,7 +112,19 @@ namespace CareerSystem.API.Services.Implementations
                 result.Add(rec);
             }
 
-            foreach (var course in courses)
+            // Sắp xếp danh sách đầu vào theo độ ưu tiên của Level (Beginner -> Intermediate -> Advanced) trước khi duyệt DFS
+            var levelOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "Beginner", 1 },
+                { "Intermediate", 2 },
+                { "Advanced", 3 }
+            };
+
+            var orderedCourses = courses
+                .OrderBy(c => levelOrder.TryGetValue(c.Level ?? "Beginner", out var order) ? order : 1)
+                .ToList();
+
+            foreach (var course in orderedCourses)
                 Dfs(course.CourseCode);
 
             return result;
