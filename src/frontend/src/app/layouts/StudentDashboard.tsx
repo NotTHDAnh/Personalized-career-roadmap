@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation } from "react-router";
 import { useAuth } from "../../shared/contexts/AuthContext";
+import { getGithubProfile } from "../services/githubApi";
 import {
   BookOpen,
   Map,
@@ -36,9 +37,21 @@ const navItems: NavItem[] = [
 ];
 
 export function StudentDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (user && !user.avatarUrl) {
+      getGithubProfile()
+        .then((profile) => {
+          if (profile.isConnected && profile.avatarUrl) {
+            updateUser({ avatarUrl: profile.avatarUrl });
+          }
+        })
+        .catch(() => {}); // Ignore errors if not connected or API fails
+    }
+  }, [user?.avatarUrl, updateUser, user]);
 
   const displayName = user?.fullName || "Student";
   const initial = displayName.trim().split(/\s+/).at(-1)?.[0]?.toUpperCase() ?? "S";
@@ -108,9 +121,13 @@ export function StudentDashboard() {
         <div className="p-4 mt-auto border-t border-[#E2E8F0]">
           {/* User Info */}
           <div className="flex items-center px-1 mb-4 overflow-hidden">
-            <div className="w-10 h-10 rounded-full bg-white text-[#3B28CC] flex items-center justify-center font-bold text-[14px] flex-shrink-0 shadow-sm border border-[#C7D2FE]">
-              {initial}
-            </div>
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover shadow-sm border border-[#C7D2FE] flex-shrink-0" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-white text-[#3B28CC] flex items-center justify-center font-bold text-[14px] flex-shrink-0 shadow-sm border border-[#C7D2FE]">
+                {initial}
+              </div>
+            )}
             <div className={`flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ${isSidebarOpen ? "max-w-[150px] opacity-100 ml-3" : "max-w-0 opacity-0 ml-0"}`}>
               <span className="text-[13px] font-bold text-[#0F172A] truncate">
                 {displayName}
@@ -148,9 +165,13 @@ export function StudentDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-white text-[#3B28CC] flex items-center justify-center font-bold text-[13px] shadow-sm border border-[#C7D2FE]">
-              {initial}
-            </div>
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={displayName} className="w-9 h-9 rounded-full object-cover shadow-sm border border-[#C7D2FE]" />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-white text-[#3B28CC] flex items-center justify-center font-bold text-[13px] shadow-sm border border-[#C7D2FE]">
+                {initial}
+              </div>
+            )}
           </div>
         </header>
 

@@ -81,7 +81,7 @@ export default function MyRoadmaps() {
         setStudentSkills(data.tags);
       }
     } catch (err) {
-      console.error("Lỗi lấy thông tin kỹ năng sinh viên:", err);
+      console.error("Error fetching student skills:", err);
     }
   };
 
@@ -110,8 +110,8 @@ export default function MyRoadmaps() {
         setRoadmapData(null);
       }
     } catch (err) {
-      console.error("Lỗi xóa roadmap:", err);
-      setError("Không thể xóa lộ trình. Vui lòng thử lại.");
+      console.error("Error deleting roadmap:", err);
+      setError("Cannot delete roadmap. Please try again.");
     } finally {
       setIsDeleting(false);
       setIsDeleteDialogOpen(false);
@@ -213,7 +213,7 @@ export default function MyRoadmaps() {
         window.dispatchEvent(new Event('roadmap_updated'));
         window.dispatchEvent(new Event('gpa_updated'));
       }).catch((err) => {
-        console.error("Lỗi cập nhật trạng thái node trên Database:", err);
+        console.error("Error updating node state on Database:", err);
       });
     } else {
       window.dispatchEvent(new Event('roadmap_updated'));
@@ -238,7 +238,7 @@ export default function MyRoadmaps() {
           setLoading(false);
         }
       } catch (err) {
-        console.error("Lỗi lấy danh sách roadmap:", err);
+        console.error("Error fetching roadmap list:", err);
         setRoadmaps([]);
         setSelectedRoadmapId("");
         setLoading(false);
@@ -317,7 +317,7 @@ export default function MyRoadmaps() {
           });
         }
       } catch (err) {
-        console.error("Lỗi load chi tiết roadmap:", err);
+        console.error("Error loading roadmap details:", err);
         setRoadmapData(null);
       } finally {
         setLoading(false);

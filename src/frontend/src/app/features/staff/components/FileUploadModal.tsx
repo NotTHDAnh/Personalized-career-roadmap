@@ -96,19 +96,19 @@ export function FileUploadModal({ isOpen, onClose, title, importType, acceptedTy
 
         if (headers.length < expectedHeaders.length) {
           isValid = false;
-          errorMessage = `File Excel không đúng định dạng. Header cần có: ${expectedHeaders.join(", ")}`;
+          errorMessage = `Invalid Excel format. Expected headers: ${expectedHeaders.join(", ")}`;
         } else {
           for (let i = 0; i < expectedHeaders.length; i++) {
             if (headers[i]?.toLowerCase() !== expectedHeaders[i].toLowerCase()) {
               isValid = false;
-              errorMessage = `Sai tên cột ở vị trí số ${i + 1}. Mong đợi: "${expectedHeaders[i]}", nhưng nhận được: "${headers[i] || ""}"`;
+              errorMessage = `Invalid column name at position ${i + 1}. Expected: "${expectedHeaders[i]}", but got: "${headers[i] || ""}"`;
               break;
             }
           }
         }
       } catch (error) {
         isValid = false;
-        errorMessage = "Không thể đọc file. Vui lòng đảm bảo file không bị hỏng và đúng định dạng Excel.";
+        errorMessage = "Cannot read file. Please ensure the file is not corrupted and is in the correct Excel format.";
       }
 
       // Fake progress interval

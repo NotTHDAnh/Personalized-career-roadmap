@@ -21,7 +21,7 @@ import { mapDtoToGraph } from "../roadmap/core/roadmapAdapter";
 import { getGithubProfile, syncGithubRepos, disconnectGithub, GithubProfileStatus } from "../../services/githubApi";
 
 export default function ProfileTranscripts() {
-  const { user, token } = useAuth();
+  const { user, token, updateUser } = useAuth();
   const [studentDetail, setStudentDetail] = useState<StudentDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +106,7 @@ export default function ProfileTranscripts() {
   const handleSaveAddCourses = async () => {
     if (!studentDetail || !user?.userId) return;
     if (selectedNewCourses.length === 0) {
-      toast.info("Vui lòng chọn ít nhất 1 khóa học.");
+      toast.info("Please select at least 1 course.");
       return;
     }
 
@@ -127,7 +127,7 @@ export default function ProfileTranscripts() {
     }
 
     if (addedCount === 0) {
-      toast.info("Các khóa học này đã có trong hồ sơ của bạn.");
+      toast.info("These courses are already in your profile.");
       setIsAddCourseOpen(false);
       return;
     }
@@ -143,14 +143,14 @@ export default function ProfileTranscripts() {
 
       await Promise.all(addPromises);
 
-      toast.success(`Đã thêm ${addedCount} khóa học thành công!`);
+      toast.success(`Successfully added ${addedCount} courses!`);
       setIsAddCourseOpen(false);
       setSelectedNewCourses([]);
       setCourseSearch("");
       fetchDetail();
     } catch (error: any) {
       console.error("Add Course Error:", error);
-      toast.error("Lỗi khi thêm khóa học.");
+      toast.error("Error adding courses.");
     }
   };
 
@@ -254,14 +254,14 @@ export default function ProfileTranscripts() {
   const handleSyncGithub = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
-    const notifId = openNotification("loading", "Đang đồng bộ repositories từ GitHub...");
+    const notifId = openNotification("loading", "Syncing repositories from GitHub...");
     try {
       const res = await syncGithubRepos();
-      updateNotification(notifId, "success", res.message || "Đồng bộ hoàn tất!");
+      updateNotification(notifId, "success", res.message || "Sync complete!");
       const profile = await getGithubProfile();
       setGithubProfile(profile);
     } catch (err: any) {
-      const errMsg = err?.response?.data?.message || err?.message || "Đồng bộ thất bại.";
+      const errMsg = err?.response?.data?.message || err?.message || "Sync failed.";
       updateNotification(notifId, "error", errMsg);
     } finally {
       setIsSyncing(false);
@@ -269,13 +269,14 @@ export default function ProfileTranscripts() {
   };
 
   const handleDisconnectGithub = async () => {
-    const notifId = openNotification("loading", "Đang hủy liên kết tài khoản GitHub...");
+    const notifId = openNotification("loading", "Disconnecting GitHub account...");
     try {
       await disconnectGithub();
-      updateNotification(notifId, "success", "Hủy liên kết tài khoản GitHub thành công.");
+      updateNotification(notifId, "success", "GitHub account disconnected successfully.");
       setGithubProfile({ isConnected: false });
+      updateUser({ avatarUrl: undefined }); // Remove avatar from AuthContext
     } catch (err: any) {
-      const errMsg = err?.response?.data?.message || err?.message || "Hủy liên kết thất bại.";
+      const errMsg = err?.response?.data?.message || err?.message || "Disconnection failed.";
       updateNotification(notifId, "error", errMsg);
     }
   };
@@ -574,10 +575,10 @@ export default function ProfileTranscripts() {
     }
     
     if (successCount > 0) {
-      toast.success(`Đã xóa ${successCount} skill thành công!`);
+      toast.success(`Successfully deleted ${successCount} skills!`);
       fetchDetail(); // Refresh data from backend
     } else {
-      toast.error(`Lỗi khi xóa skill.`);
+      toast.error(`Error deleting skills.`);
     }
     setSkillsToDelete([]);
     setIsDeletingSkills(false);
@@ -590,7 +591,7 @@ export default function ProfileTranscripts() {
 
   const handleSaveSelectedSkills = async () => {
     if (selectedNewSkills.length === 0) {
-      toast.info("Vui lòng chọn ít nhất 1 skill.");
+      toast.info("Please select at least 1 skill.");
       return;
     }
     let successCount = 0;
@@ -604,10 +605,10 @@ export default function ProfileTranscripts() {
     }
     
     if (successCount > 0) {
-      toast.success(`Đã thêm ${successCount} skill thành công!`);
+      toast.success(`Successfully added ${successCount} skills!`);
       fetchDetail(); // Refresh data from backend
     } else {
-      toast.error(`Lỗi khi thêm skill.`);
+      toast.error(`Error adding skills.`);
     }
     setIsAddSkillOpen(false);
     setSelectedNewSkills([]);

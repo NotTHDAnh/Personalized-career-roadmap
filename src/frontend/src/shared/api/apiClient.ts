@@ -93,7 +93,35 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    const errorText = await response.text();
+    let errorText = await response.text();
+    
+    // Auto-translate Vietnamese API errors to English
+    if (/[\u00C0-\u1EF9]/.test(errorText)) {
+      try {
+        const parsed = JSON.parse(errorText);
+        if (parsed.message) {
+          const lower = parsed.message.toLowerCase();
+          if (lower.includes("mật khẩu")) parsed.message = "Invalid password.";
+          else if (lower.includes("không tìm thấy")) parsed.message = "Resource not found.";
+          else if (lower.includes("đã được liên kết")) parsed.message = "Account is already linked.";
+          else if (lower.includes("không hợp lệ")) parsed.message = "Invalid data or code provided.";
+          else if (lower.includes("tồn tại")) parsed.message = "Resource already exists.";
+          else if (lower.includes("thất bại")) parsed.message = "Operation failed.";
+          else parsed.message = "An error occurred from the server.";
+          errorText = JSON.stringify(parsed);
+        }
+      } catch {
+        const lower = errorText.toLowerCase();
+        if (lower.includes("mật khẩu")) errorText = "Invalid password.";
+        else if (lower.includes("không tìm thấy")) errorText = "Resource not found.";
+        else if (lower.includes("đã được liên kết")) errorText = "Account is already linked.";
+        else if (lower.includes("không hợp lệ")) errorText = "Invalid data or code provided.";
+        else if (lower.includes("tồn tại")) errorText = "Resource already exists.";
+        else if (lower.includes("thất bại")) errorText = "Operation failed.";
+        else errorText = "An error occurred from the server.";
+      }
+    }
+
     throw new Error(errorText || `API request failed (${response.status})`);
   }
 

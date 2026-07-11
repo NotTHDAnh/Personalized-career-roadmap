@@ -30,6 +30,8 @@ export default function LoginScreen() {
   const [showPw, setShowPw] = useState(false);
 
   useEffect(() => {
+    if (showForgot) return;
+
     // Dynamically load Google Identity Services SDK
     if (document.getElementById("google-gsi-client")) {
       initializeGoogleSignIn();
@@ -38,7 +40,7 @@ export default function LoginScreen() {
 
     const script = document.createElement("script");
     script.id = "google-gsi-client";
-    script.src = "https://accounts.google.com/gsi/client";
+    script.src = "https://accounts.google.com/gsi/client?hl=en";
     script.async = true;
     script.defer = true;
     script.onload = () => {
@@ -67,7 +69,7 @@ export default function LoginScreen() {
         });
       }
     }
-  }, [mode]);
+  }, [mode, showForgot]);
 
   async function handleGoogleCredentialResponse(response: any) {
     const idToken = response.credential;
@@ -106,7 +108,7 @@ export default function LoginScreen() {
 
   async function handleDevMockLogin() {
     const mockEmail = prompt(
-      "Nhập Gmail mock để đăng nhập (Hệ thống sẽ chỉ cho phép email tồn tại trong DB):",
+      "Enter mock Gmail to login (The system only allows emails that exist in DB):",
       "nguyen.van.an@student.uni.edu"
     );
     if (!mockEmail) return;

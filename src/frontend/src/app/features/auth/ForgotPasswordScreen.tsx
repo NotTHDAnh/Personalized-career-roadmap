@@ -21,17 +21,17 @@ export default function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordSc
     setSuccess("");
 
     if (!email.trim()) {
-      setError("Vui lòng nhập địa chỉ Email.");
+      setError("Please enter your email address.");
       return;
     }
 
     try {
       setLoading(true);
       const res = await authApi.forgotPassword(email);
-      setSuccess(res.message || "Mật khẩu mới đã được gửi vào Email của bạn.");
+      setSuccess(res.message || "A new password has been sent to your email.");
       setEmail("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Đã xảy ra lỗi khi gửi yêu cầu.");
+      setError(err instanceof Error ? err.message : "An error occurred while sending the request.");
     } finally {
       setLoading(false);
     }

@@ -91,7 +91,7 @@ export function MentorTab() {
     {
       id: 0,
       role: "ai",
-      content: `Xin chào, ${studentName} 👋 Tôi là Cố vấn Học tập AI của bạn. Tôi có thể giúp bạn phân tích định hướng nghề nghiệp, xác định những kỹ năng còn thiếu và xây dựng lộ trình học tập cá nhân hóa dựa trên hồ sơ học tập của bạn.`,
+      content: `Hello, ${studentName} 👋 I am your AI Academic Mentor. I can help you analyze your career goals, identify missing skills, and build a personalized learning roadmap based on your academic profile.`,
     },
   ]);
 
@@ -396,11 +396,11 @@ export function MentorTab() {
         phases: roadmapPreview.phases,
       });
 
-      openNotification("success", "Lộ trình đã được lưu thành công.");
+      openNotification("success", "Roadmap saved successfully.");
       setShowRoadmapPreview(false);
       setRoadmapPreview(null);
     } catch {
-      openNotification("error", "Lưu lộ trình thất bại.");
+      openNotification("error", "Failed to save roadmap.");
     }
   }
 
@@ -430,14 +430,14 @@ export function MentorTab() {
         {
           id: 0,
           role: "ai",
-          content: `Xin chào, ${studentName} 👋 Tôi là Cố vấn Học tập AI của bạn. Tôi có thể giúp bạn phân tích định hướng nghề nghiệp, xác định những kỹ năng còn thiếu và xây dựng lộ trình học tập cá nhân hóa dựa trên hồ sơ học tập của bạn.`,
+          content: `Hello, ${studentName} 👋 I am your AI Academic Mentor. I can help you analyze your career goals, identify missing skills, and build a personalized learning roadmap based on your academic profile.`,
         },
       ]);
       setTargetRole(null);
       setRecommendedCareers([]);
-      openNotification("success", "Đã xóa lịch sử trò chuyện thành công.");
+      openNotification("success", "Chat history deleted successfully.");
     } catch {
-      openNotification("error", "Không thể xóa lịch sử trò chuyện.");
+      openNotification("error", "Failed to delete chat history.");
     } finally {
       setLoadingHistory(false);
     }
