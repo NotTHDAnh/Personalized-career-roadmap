@@ -31,7 +31,7 @@ export function StaffSkillsView() {
   const [deleteCountdown, setDeleteCountdown] = useState(5);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (deleteModalOpen && deleteCountdown > 0) {
       timer = setTimeout(() => {
         setDeleteCountdown(prev => prev - 1);
@@ -64,19 +64,32 @@ export function StaffSkillsView() {
     } else if (deleteType === 'bulk') {
       try {
         setIsLoading(true);
+        let successCount = 0;
+        let failCount = 0;
+        const successfulIds: string[] = [];
+        
         for (const id of selectedSkillIds) {
           try {
              await apiClient.delete(`/Skill/${id}`);
+             successCount++;
+             successfulIds.push(id);
           } catch (e) {
              console.error(`Failed to delete skill ${id}`, e);
+             failCount++;
           }
         }
-        setSkills(prev => prev.filter(s => !selectedSkillIds.includes(s.skillId)));
-        toast.success(`Successfully deleted ${selectedSkillIds.length} skills`);
+        
+        if (successCount > 0) {
+          setSkills(prev => prev.filter(s => !successfulIds.includes(s.skillId)));
+          toast.success(`Successfully deleted ${successCount} skills`);
+        }
+        if (failCount > 0) {
+          toast.error(`Failed to delete ${failCount} skills. They might be in use.`);
+        }
         setSelectedSkillIds([]);
       } catch (error: any) {
         console.error("Failed bulk delete:", error);
-        toast.error("Some skills failed to delete. Please try again");
+        toast.error("An error occurred during bulk delete.");
       } finally {
         setIsLoading(false);
       }
@@ -218,7 +231,7 @@ export function StaffSkillsView() {
           </div>
 
           {/* Toolbar Section */}
-          <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+          <div className="flex items-center justify-between gap-3 mb-6 flex-wrap sticky top-[-24px] md:top-[-32px] pt-6 pb-4 md:pt-8 z-40 bg-[#F4F7F9] -mt-6 md:-mt-8 -mx-6 md:-mx-8 px-6 md:px-8 border-b border-transparent transition-all shadow-sm">
             <div className="flex items-center gap-3 flex-1 min-w-[200px] max-w-[480px]">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />

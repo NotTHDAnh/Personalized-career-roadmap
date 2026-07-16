@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { 
-  CloudUpload, 
-  FileSpreadsheet, 
+import {
+  CloudUpload,
+  FileSpreadsheet,
   LogOut,
   Users,
   BookOpen,
@@ -38,22 +38,22 @@ interface StatCount {
 
 export default function StaffPanel() {
   const { logout, user } = useAuth();
-  
+
   // Data States
   const [stats, setStats] = useState<StatCount | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
-  
+
   // Course Form State
   const [form, setForm] = useState({ courseName: "", courseCode: "", credits: "", totalStudyHours: "", hashtags: "", outcomes: "", isFoundationalCourse: false });
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
-  
+
   // Table state
   const [loadingTable, setLoadingTable] = useState(true);
   const [newestCourses, setNewestCourses] = useState<any[]>([]);
-  
+
   // File Import Modal State
-  const [uploadModalState, setUploadModalState] = useState<{isOpen: boolean, title: string, importType: 'students' | 'courses'}>({ isOpen: false, title: "", importType: 'students' });
-  
+  const [uploadModalState, setUploadModalState] = useState<{ isOpen: boolean, title: string, importType: 'students' | 'courses' }>({ isOpen: false, title: "", importType: 'students' });
+
   // AI Config State
   const [aiKey, setAiKey] = useState("");
   const [savedAiKey, setSavedAiKey] = useState<string | null>(null);
@@ -125,7 +125,7 @@ export default function StaffPanel() {
         })
         .catch(console.error);
     }
-    
+
     fetchStats();
     fetchTableCourses();
   }, []);
@@ -136,7 +136,7 @@ export default function StaffPanel() {
       toast.error("Please fill in all required fields.");
       return;
     }
-    
+
     try {
       await apiClient.post("/Staff/courses", {
         CourseCode: form.courseCode.trim(),
@@ -179,13 +179,13 @@ export default function StaffPanel() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     toast.info(`Uploading ${file.name}...`);
     // Here you would call apiClient.post for the file upload
     setTimeout(() => {
       toast.success(`${type} imported successfully!`);
     }, 1000);
-    
+
     // Reset input
     e.target.value = '';
   };
@@ -202,7 +202,7 @@ export default function StaffPanel() {
       setAiKeyError("Please enter a valid API Key");
       return;
     }
-    
+
     if (!user?.userId) {
       toast.error("User not found");
       return;
@@ -247,10 +247,10 @@ export default function StaffPanel() {
                 </div>
                 <div className="flex-1 flex flex-col">
                   <h3 className="text-[14px] font-bold text-[#0F172A] mb-1">Student Accounts</h3>
-                  <p className="text-[12px] text-[#64748B] mb-3 leading-relaxed flex-1">Upload .CSV or .XLSX list to batch import student accounts and profiles.</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <p className="text-[12px] text-[#64748B] mb-3 leading-relaxed flex-1">Upload .XLSX list to batch import student accounts and profiles.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setUploadModalState({ isOpen: true, title: "Student Accounts", importType: "students" })}
                     className="w-full border-[#E2E8F0] text-[#3B28CC] hover:bg-[#E0E7FF] hover:text-[#3B28CC] hover:border-[#C7D2FE] text-[12px] h-8"
                   >
@@ -266,9 +266,9 @@ export default function StaffPanel() {
                 <div className="flex-1 flex flex-col">
                   <h3 className="text-[14px] font-bold text-[#0F172A] mb-1">Curriculum & Courses</h3>
                   <p className="text-[12px] text-[#64748B] mb-3 leading-relaxed flex-1">Import master curriculum, courses, skills, and roles via file.</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setUploadModalState({ isOpen: true, title: "Curriculum & Courses", importType: "courses" })}
                     className="w-full border-[#E2E8F0] text-[#16A34A] hover:bg-[#DCFCE7] hover:text-[#16A34A] hover:border-[#bbf7d0] text-[12px] h-8"
                   >
@@ -355,7 +355,7 @@ export default function StaffPanel() {
               <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                 <Settings className="w-24 h-24" />
               </div>
-              
+
               <div className="flex items-start gap-3 mb-4 relative z-10">
                 <div className="w-8 h-8 rounded-lg bg-[#F8FAFC] flex items-center justify-center border border-[#E2E8F0] shrink-0 mt-0.5">
                   <Key className="w-4 h-4 text-[#0F172A]" />
@@ -375,7 +375,7 @@ export default function StaffPanel() {
                   )}
                 </div>
               </div>
-              
+
               <p className="text-[12px] text-[#64748B] mb-2 leading-relaxed relative z-10">
                 Gemini API Key is required for AI-powered features such as Mentor Chat and Roadmap Generation.
               </p>
@@ -390,7 +390,7 @@ export default function StaffPanel() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button 
+                      <button
                         onClick={async () => {
                           if (user?.userId) {
                             try {
@@ -423,9 +423,9 @@ export default function StaffPanel() {
                         </div>
                       )}
                       <div className="relative">
-                        <Input 
-                          type={showKey ? "text" : "password"} 
-                          placeholder="AIzaSy..." 
+                        <Input
+                          type={showKey ? "text" : "password"}
+                          placeholder="AIzaSy..."
                           value={aiKey}
                           onChange={(e) => {
                             setAiKey(e.target.value);
@@ -433,7 +433,7 @@ export default function StaffPanel() {
                           }}
                           className={`pr-10 text-[13px] bg-[#F8FAFC] focus-visible:ring-[#3B28CC] ${aiKeyError ? 'border-red-500' : 'border-[#E2E8F0]'}`}
                         />
-                        <button 
+                        <button
                           type="button"
                           onClick={() => setShowKey(!showKey)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#0F172A] transition-colors"
@@ -442,8 +442,8 @@ export default function StaffPanel() {
                         </button>
                       </div>
                     </div>
-                    <Button 
-                      onClick={handleSaveAiKey} 
+                    <Button
+                      onClick={handleSaveAiKey}
                       disabled={isSavingKey || !aiKey.trim()}
                       className="w-full bg-[#3B28CC] hover:bg-[#3B28CC]/90 text-white gap-2 mt-2 h-9 text-[13px]"
                     >
@@ -457,8 +457,8 @@ export default function StaffPanel() {
           </div>
         </div>
       </div>
-      <FileUploadModal 
-        isOpen={uploadModalState.isOpen} 
+      <FileUploadModal
+        isOpen={uploadModalState.isOpen}
         onClose={() => {
           setUploadModalState(prev => ({ ...prev, isOpen: false }));
           fetchStats(); // Refresh stats in case something was imported
@@ -479,7 +479,7 @@ function StatCard({ title, icon: Icon, value, loading, color }: { title: string,
     emerald: "bg-[#ECFDF5] text-[#10B981] border-[#A7F3D0]",
     amber: "bg-[#FFFBEB] text-[#D97706] border-[#FDE68A]",
   };
-  
+
   return (
     <Card className="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-[#E2E8F0] p-5 flex flex-col transition-colors">
       <div className="flex items-center gap-3 mb-4">

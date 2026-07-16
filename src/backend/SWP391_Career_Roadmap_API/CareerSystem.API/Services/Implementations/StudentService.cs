@@ -349,7 +349,7 @@ namespace CareerSystem.API.Services.Implementations
 
             // Remove COURSE source skills that are no longer passed
             var skillsToRemove = studentSkills
-                .Where(ss => ss.Source == "COURSE" && !courseSkillIds.Contains(ss.SkillId))
+                .Where(ss => ss.Source == "MANUAL" && !courseSkillIds.Contains(ss.SkillId))
                 .ToList();
             if (skillsToRemove.Any())
             {
@@ -380,7 +380,7 @@ namespace CareerSystem.API.Services.Implementations
                         StudentSkillId = newStudentSkillId,
                         UserId = studentId,
                         SkillId = skillId,
-                        Source = "COURSE"
+                        Source = "MANUAL"
                     });
                 }
             }

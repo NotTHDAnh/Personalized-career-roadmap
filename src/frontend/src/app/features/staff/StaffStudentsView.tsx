@@ -77,7 +77,9 @@ export function StaffStudentsView() {
     name: "",
     email: "",
     role: "",
+    tags: "",
     status: false,
+    deleteHistory: false,
     createdAt: "",
     courses: [] as {courseId: string, gpa: number | string | null, examAttempts: number | string | null}[],
     inProgressCourses: [] as {courseId: string, gpa: number | string | null, examAttempts: number | string | null}[]
