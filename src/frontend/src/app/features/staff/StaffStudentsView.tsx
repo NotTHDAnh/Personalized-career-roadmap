@@ -171,7 +171,7 @@ export function StaffStudentsView() {
   // Actions
   const handleOpenDetail = async (id: string) => {
     try {
-      const detailData = await apiClient.get<StudentDetail>(`/staff/student/${id}`);
+      const detailData = await apiClient.get<StudentDetail>(`/student/students/${id}`);
       
       const translatedDetail = {
         ...detailData,
