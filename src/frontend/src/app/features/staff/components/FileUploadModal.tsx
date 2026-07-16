@@ -161,14 +161,26 @@ export function FileUploadModal({ isOpen, onClose, title, importType, acceptedTy
           ? '/Staff/import-students' 
           : '/Staff/import-courses';
           
-        await apiClient.post(endpoint, formData);
+        const responseData = await apiClient.post<any>(endpoint, formData);
+        
+        if (responseData && (responseData.failedCount > 0 || responseData.successCount === 0)) {
+          if (responseData.successCount === 0) {
+            const errs = responseData.errors?.length > 0
+              ? responseData.errors.map((e: any) => `Row ${e.row}: ${e.errorMessage}`).join(' | ')
+              : 'The file contains no valid data rows.';
+            throw new Error(JSON.stringify({ message: `No records were added. Details: ${errs}` }));
+          } else {
+            const errs = responseData.errors?.map((e: any) => `Row ${e.row}: ${e.errorMessage}`).join(' | ');
+            throw new Error(JSON.stringify({ message: `Imported ${responseData.successCount} records. Failed ${responseData.failedCount} rows. Details: ${errs}` }));
+          }
+        }
         
         setFiles(prev => prev.map(f => f.id === upload.id ? { ...f, status: "saved" } : f));
       } catch (err: any) {
         hasError = true;
         setFiles(prev => prev.map(f => f.id === upload.id ? { ...f, status: "error" } : f));
         const parsedError = parseApiError(err);
-        toast.error(`Failed to import ${upload.file.name}: ${err.response?.data?.message || parsedError.message}`);
+        toast.error(`Failed to import ${upload.file.name}: ${parsedError.message}`, { duration: 10000 });
       }
     }
 

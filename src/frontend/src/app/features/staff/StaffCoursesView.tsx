@@ -403,7 +403,7 @@ export function StaffCoursesView() {
           </div>
 
           {/* Toolbar Section */}
-          <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+          <div className="flex items-center justify-between gap-3 mb-6 flex-wrap sticky top-[-24px] md:top-[-32px] pt-6 pb-4 md:pt-8 z-40 bg-[#F4F7F9] -mt-6 md:-mt-8 -mx-6 md:-mx-8 px-6 md:px-8 border-b border-transparent transition-all shadow-sm">
             <div className="flex items-center gap-3 flex-1 min-w-[200px] max-w-[480px]">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />

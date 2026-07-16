@@ -43,6 +43,29 @@ export function StudentProfileCard({ studentDetail }: StudentProfileCardProps) {
         throw new Error(await response.text() || "Failed to import");
       }
       
+      const data = await response.json();
+      
+      if (data && (data.failedCount > 0 || data.successCount === 0)) {
+        if (data.successCount === 0) {
+          const errorMsgs = data.errors?.length > 0 
+            ? data.errors.map((e: any) => `Row ${e.row}: ${e.errorMessage}`).join(' | ') 
+            : 'The file contains no valid data rows.';
+          toast.error(`No records were added. Details: ${errorMsgs}`);
+        } else {
+          const errorMsgs = data.errors?.map((e: any) => `Row ${e.row}: ${e.errorMessage}`).join(' | ');
+          toast.warning(`Imported ${data.successCount} records. Failed ${data.failedCount} rows. Details: ${errorMsgs}`);
+        }
+        
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        
+        if (data.successCount > 0) {
+          setTimeout(() => {
+            window.location.reload();
+          }, 2500);
+        }
+        return;
+      }
+      
       const newRecord: RecordFile = {
         id: Date.now(),
         name: file.name,
@@ -50,21 +73,34 @@ export function StudentProfileCard({ studentDetail }: StudentProfileCardProps) {
       };
       setRecords([newRecord]);
       
-      toast.success("Academic records imported successfully! Refreshing...");
+      toast.success(`Academic records imported successfully! (${data.successCount || 0} records) Refreshing...`);
       setTimeout(() => {
         window.location.reload();
       }, 1000);
     } catch (err: any) {
-      console.warn("Transcript import API failed, triggering simulation mode:", err);
+      console.error("Transcript import API failed:", err);
       
-      const newRecord: RecordFile = {
-        id: Date.now(),
-        name: file.name,
-        size: `${(file.size / 1024).toFixed(1)} KB`,
-      };
-      setRecords([newRecord]);
+      let errorData: any = null;
+      try {
+        errorData = JSON.parse(err.message);
+      } catch {
+        errorData = null;
+      }
+
+      let errorMessage = "Failed to import academic records.";
+      if (errorData?.errors) {
+        errorMessage = Object.values(errorData.errors).flat().join('\\n');
+      } else if (errorData?.message || errorData?.title) {
+        errorMessage = errorData.message || errorData.title;
+      } else if (err.message && err.message !== "[object Object]") {
+        errorMessage = err.message;
+      }
+
+      toast.error(errorMessage);
       
-      toast.success("Academic records imported successfully (Simulation mode)!");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } finally {
       setIsImporting(false);
     }
