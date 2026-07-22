@@ -2,6 +2,7 @@ using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
+using CareerSystem.API.Utilities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
@@ -37,36 +38,15 @@ namespace CareerSystem.API.Services.Implementations
         {
             var result = new AcademicRecordImportResultDto();
 
-            // 1. Validate file
-            if (file == null || file.Length == 0)
-                throw new ArgumentException("File không được để trống.");
+            using var validatedPackage = await ExcelValidationUtility.ValidateAndLoadAsync(
+                file,
+                ExpectedHeaders,
+                "Header file Excel không đúng định dạng. Vui lòng sử dụng template mẫu. Header cần có: STT, Mã môn học, GPA, Số lần thi",
+                "File Excel không chứa dữ liệu bảng điểm nào (chỉ có header)."
+            );
 
-            if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
-                throw new ArgumentException("Chỉ chấp nhận file định dạng .xlsx");
-
-            if (file.Length > 10 * 1024 * 1024) // 10MB
-                throw new ArgumentException("File không được vượt quá 10MB.");
-
-            // 2. Đọc file Excel
-            using var stream = new MemoryStream();
-            await file.CopyToAsync(stream);
-            stream.Position = 0;
-
-            using var package = new ExcelPackage(stream);
-            var worksheet = package.Workbook.Worksheets.FirstOrDefault();
-
-            if (worksheet == null)
-                throw new ArgumentException("File Excel không chứa worksheet nào.");
-
-            // 3. Validate header
-            if (!ValidateHeaders(worksheet))
-                throw new ArgumentException(
-                    "Header file Excel không đúng định dạng. Vui lòng sử dụng template mẫu. " +
-                    "Header cần có: STT, Mã môn học, GPA, Số lần thi");
-
-            int totalRows = worksheet.Dimension?.Rows ?? 0;
-            if (totalRows <= 1)
-                throw new ArgumentException("File Excel không chứa dữ liệu bảng điểm nào (chỉ có header).");
+            var worksheet = validatedPackage.Worksheet;
+            int totalRows = validatedPackage.TotalRows;
 
             // 4. Lấy danh sách Môn học hiện có trong DB để kiểm tra mã môn học nhập vào
             var existingCourses = await _context.Courses.Where(c => c.IsActive).ToListAsync();
@@ -251,19 +231,6 @@ namespace CareerSystem.API.Services.Implementations
             return package.GetAsByteArray();
         }
 
-        private static bool ValidateHeaders(ExcelWorksheet worksheet)
-        {
-            if (worksheet.Dimension == null || worksheet.Dimension.Columns < ColCount)
-                return false;
 
-            for (int col = 0; col < ExpectedHeaders.Length; col++)
-            {
-                var cellValue = worksheet.Cells[1, col + 1].Text?.Trim();
-                if (!string.Equals(cellValue, ExpectedHeaders[col], StringComparison.OrdinalIgnoreCase))
-                    return false;
-            }
-
-            return true;
-        }
     }
 }
