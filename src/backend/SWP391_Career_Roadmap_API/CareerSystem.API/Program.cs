@@ -35,6 +35,9 @@ namespace CareerSystem.API
             builder.Services.AddHttpClient<CareerSystem.API.Services.Interfaces.IGeminiService,
                 CareerSystem.API.Services.Implementations.GeminiService>();
 
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IApiKeyService,
+                CareerSystem.API.Services.Implementations.ApiKeyService>();
+
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IPromptContextService,
                 CareerSystem.API.Services.Implementations.PromptContextService>();
 

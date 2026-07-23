@@ -1,10 +1,10 @@
-using CareerSystem.API.Data;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CareerSystem.API.Controllers
 {
@@ -13,49 +13,25 @@ namespace CareerSystem.API.Controllers
     [Authorize]
     public class ApiKeyController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        private readonly IGeminiService _geminiService;
+        private readonly IApiKeyService _apiKeyService;
 
-        public ApiKeyController(AppDbContext context, IGeminiService geminiService)
+        public ApiKeyController(IApiKeyService apiKeyService)
         {
-            _context = context;
-            _geminiService = geminiService;
+            _apiKeyService = apiKeyService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetApiKeyStatus(string userId)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
-            if (user == null)
+            try
             {
-                return NotFound("Không tìm thấy người dùng.");
+                var status = await _apiKeyService.GetApiKeyStatusAsync(userId);
+                return Ok(status);
             }
-
-            var hasKey = !string.IsNullOrWhiteSpace(user.GeminiApiKey);
-            if (!hasKey)
+            catch (KeyNotFoundException ex)
             {
-                return NotFound("không tìm thấy cấu hình API key");
+                return NotFound(ex.Message);
             }
-            string? maskedKey = null;
-
-            if (hasKey)
-            {
-                var key = user.GeminiApiKey!.Trim();
-                if (key.Length > 10)
-                {
-                    maskedKey = $"{key.Substring(0, 6)}...{key.Substring(key.Length - 4)}";
-                }
-                else
-                {
-                    maskedKey = "...";
-                }
-            }
-
-            return Ok(new UserApiKeyStatusDto
-            {
-                HasKey = hasKey,
-                MaskedKey = maskedKey
-            });
         }
 
         [HttpPost]
@@ -66,38 +42,33 @@ namespace CareerSystem.API.Controllers
                 return BadRequest("API Key không được để trống.");
             }
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
-            if (user == null)
+            try
             {
-                return NotFound("Không tìm thấy người dùng.");
+                await _apiKeyService.UpdateApiKeyAsync(userId, request.GeminiApiKey);
+                return Ok(new { message = "Cấu hình Gemini API Key thành công!" });
             }
-
-            // Gọi thử API Gemini để xác thực tính hợp lệ của Key
-            var isValid = await _geminiService.ValidateApiKeyAsync(request.GeminiApiKey);
-            if (!isValid)
+            catch (KeyNotFoundException ex)
             {
-                return BadRequest("Gemini API Key không hợp lệ hoặc không hoạt động. Vui lòng kiểm tra lại.");
+                return NotFound(ex.Message);
             }
-
-            user.GeminiApiKey = request.GeminiApiKey.Trim();
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Cấu hình Gemini API Key thành công!" });
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpDelete]
         public async Task<IActionResult> DeleteApiKey(string userId)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
-            if (user == null)
+            try
             {
-                return NotFound("Không tìm thấy người dùng.");
+                await _apiKeyService.DeleteApiKeyAsync(userId);
+                return Ok(new { message = "Đã xóa Gemini API Key thành công!" });
             }
-
-            user.GeminiApiKey = null;
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Đã xóa Gemini API Key thành công!" });
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
     }
 }
