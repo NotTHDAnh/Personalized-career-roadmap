@@ -1,6 +1,4 @@
 using CareerSystem.API.DTOs;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace CareerSystem.API.Services.Interfaces
 {
@@ -13,5 +11,7 @@ namespace CareerSystem.API.Services.Interfaces
         Task<bool> UpdateNodesStatusAsync(UpdateNodesStatusRequest request);
         Task<RoadmapDetailDto> GenerateRoadmapPreviewAsync(PersonalizedRoadmapRequest request);
         Task<string> SaveRoadmapAsync(SaveRoadmapRequestDto request);
+        Task<List<string>> GetMissingSkillsAsync(string roadmapId);
+
     }
 }

@@ -18,6 +18,15 @@ namespace CareerSystem.API.Controllers
             _roadmapService = roadmapService;
         }
 
+        //API get missing skills
+        [HttpGet("missing-skills")]
+        public async Task<IActionResult> GetMissingSkills(string roadmapId)
+        {
+            var result = await _roadmapService.GetMissingSkillsAsync(roadmapId);
+            if (result == null) return NotFound(new { message = "không tìm thấy roadmap" });
+            else return Ok(result);
+        }
+
         //API tạo roadmap
         [HttpPost("generate-personalized")]
         [ValidateGeminiApiKey]

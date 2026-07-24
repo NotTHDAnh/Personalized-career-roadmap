@@ -509,6 +509,14 @@ namespace CareerSystem.API.Services.Implementations
             };
         }
 
+        public async Task<List<string>> GetMissingSkillsAsync(string roadmapId)
+        {
+            return await _context.SkillNodes.
+                Include(sn => sn.Skill).
+                Where(sn => sn.RoadmapId == roadmapId && sn.Status == "PENDING")
+                .Select(sn => sn.Skill.SkillName).Distinct().ToListAsync();
+        }
+
         public async Task<string> SaveRoadmapAsync(SaveRoadmapRequestDto request)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == request.UserId);
