@@ -20,6 +20,7 @@ interface ChatSectionProps {
   onClearHistory: () => void;
   loadingHistory: boolean;
   hasActivePreview: boolean;
+  targetRoadmapStatus: "checking" | "create" | "update" | "update_locked" | "view";
 }
 
 
@@ -57,6 +58,7 @@ export default function MentorChatSection({
   onClearHistory,
   loadingHistory,
   hasActivePreview,
+  targetRoadmapStatus,
 }: ChatSectionProps) {
   return (
     <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -161,16 +163,18 @@ export default function MentorChatSection({
             type="button"
             variant="outline"
             onClick={() => void onCreateRoadmap()}
-            disabled={!targetRole || typing || creatingRoadmap || hasActivePreview}
+            disabled={!targetRole || typing || creatingRoadmap || hasActivePreview || targetRoadmapStatus === "checking" || targetRoadmapStatus === "update_locked"}
             title={
               targetRole
-                ? `Create roadmap for ${targetRole.name}`
+                ? (targetRoadmapStatus === "update_locked" ? "Please ask AI Mentor to update your roadmap to unlock this button." : `Roadmap action for ${targetRole.name}`)
                 : "Ask AI Mentor about a target career role first"
             }
             className="rounded-xl border-[#006b5f] text-[#006b5f] hover:bg-[#f0fffb] hover:text-[#00544b]"
           >
-            {creatingRoadmap && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-            Create Roadmap
+            {(creatingRoadmap || targetRoadmapStatus === "checking") && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+            {targetRoadmapStatus === "create" ? "Create Roadmap" :
+             (targetRoadmapStatus === "update" || targetRoadmapStatus === "update_locked") ? "Update Roadmap" :
+             targetRoadmapStatus === "view" ? "View Roadmap" : "Checking..."}
           </Button>
 
           <Button
