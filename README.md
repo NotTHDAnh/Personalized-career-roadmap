@@ -91,52 +91,46 @@ This application acts as a career development assistant for SE students. By anal
 ## Screenshot and Demo video
 # Student
 <figure>
-<img width="1875" height="943" alt="login" src="https://github.com/user-attachments/assets/8842b648-36c2-497b-a309-e2f85847d85a" />
-<figcaption><sub>Login Screen</sub></figcaption>
+<img width="1871" height="976" alt="Screenshot 2026-07-25 093005" src="https://github.com/user-attachments/assets/50d856e8-4129-4d3b-9043-26d18eea2c8a" />
 </figure>
 
 <figure>
 <img width="1874" height="943" alt="user_dashboard_profile" src="https://github.com/user-attachments/assets/6ad21aeb-0f70-4c04-9512-69353c400745" />
-<figcaption><sub>DashBoard Screen</sub></figcaption>
 </figure>
 
 
 <figure>
 <img width="1870" height="942" alt="user_ai_mentor" src="https://github.com/user-attachments/assets/6000204a-c72f-4201-ba59-632ccf31c33f" />
-<figcaption><sub>AI Mentor Screen</sub></figcaption>
 </figure>
 
 
 <figure>
 <img width="1874" height="942" alt="user_roadmap" src="https://github.com/user-attachments/assets/0915834a-d4a1-4336-ba77-857181bff07a" />
-<img width="1878" height="942" alt="user_roadmap_skill_analysis" src="https://github.com/user-attachments/assets/08aaa259-e41c-4edf-954d-5eafbdb62bdf" />
-<figcaption><sub>RoadMap Screen</sub></figcaption>
+<img width="1874" height="977" alt="Screenshot 2026-07-25 092952" src="https://github.com/user-attachments/assets/beae5461-e94d-4d0d-9d5c-23b71466f712" />
 </figure>
 
 # Staff
 <figure>
     <img width="1869" height="941" alt="staff_dashboard" src="https://github.com/user-attachments/assets/304509fc-0c5b-40bc-8d7a-032d3c6bde43" />
-<figcaption><sub>Staff DashBoard Screen</sub></figcaption>
 </figure>
 
 <figure>
      <img width="1878" height="941" alt="staff_skill_view" src="https://github.com/user-attachments/assets/25f4a6a8-96af-4c31-9ccf-b39fa50c9f1a" />
-<figcaption><sub>Staff Skill Viewing Screen</sub></figcaption>
 </figure>
 
  <figure>
      <img width="1876" height="943" alt="staff_student_view" src="https://github.com/user-attachments/assets/238a8d12-e310-4b32-b3e4-633b7820a499" />
-<figcaption><sub>Staff Student Viewing Screen</sub></figcaption>
 </figure>
 
 <figure>
     <img width="1872" height="943" alt="staff_course_view" src="https://github.com/user-attachments/assets/7548d7c1-abd5-47e9-bab5-068835295e9d" />
-<figcaption><sub>Staff Course Viewing Screen</sub></figcaption>
 </figure>
 
 # Demo
 
-https://github.com/user-attachments/assets/91ed929d-49ff-43a9-8087-f3650b87874d
+
+https://github.com/user-attachments/assets/4a251eea-adfa-44c3-b970-efc10bc22fc3
+
 
 ---
 
