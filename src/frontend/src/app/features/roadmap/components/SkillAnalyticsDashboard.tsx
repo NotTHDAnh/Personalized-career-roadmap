@@ -99,7 +99,7 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
   useEffect(() => {
     if (selectedRoadmapId) {
       setLoadingMissing(true);
-      apiClient.get<string[]>(`/Roadmap/missing-skills?roadmapId=${selectedRoadmapId}`)
+      apiClient.get<string[]>(`/roadmap/missing-skills?roadmapId=${selectedRoadmapId}`)
         .then(res => {
           setMissingSkillsFromApi(res || []);
         })
