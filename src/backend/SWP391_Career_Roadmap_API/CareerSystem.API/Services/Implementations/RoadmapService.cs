@@ -511,10 +511,38 @@ namespace CareerSystem.API.Services.Implementations
 
         public async Task<List<string>> GetMissingSkillsAsync(string roadmapId)
         {
-            return await _context.SkillNodes.
-                Include(sn => sn.Skill).
-                Where(sn => sn.RoadmapId == roadmapId && sn.Status == "PENDING")
-                .Select(sn => sn.Skill.SkillName).Distinct().ToListAsync();
+            var pendingNodes = await _context.SkillNodes
+                .Where(sn => sn.RoadmapId == roadmapId && sn.Status == "PENDING")
+                .Select(sn => new { sn.CourseId, sn.SkillId })
+                .ToListAsync();
+
+            if (!pendingNodes.Any()) return new List<string>();
+
+            var pendingCourseIds = pendingNodes
+                .Where(n => !string.IsNullOrEmpty(n.CourseId))
+                .Select(n => n.CourseId!)
+                .Distinct()
+                .ToList();
+
+            var pendingSkillIds = pendingNodes
+                .Where(n => !string.IsNullOrEmpty(n.SkillId))
+                .Select(n => n.SkillId!)
+                .Distinct()
+                .ToList();
+
+            var directSkills = await _context.Skills
+                .Where(s => pendingSkillIds.Contains(s.SkillId))
+                .Select(s => s.SkillName)
+                .ToListAsync();
+
+            var courseSkills = await (
+                from clo in _context.CourseLearningOutcomes
+                join skill in _context.Skills on clo.SkillId equals skill.SkillId
+                where pendingCourseIds.Contains(clo.CourseId)
+                select skill.SkillName
+            ).ToListAsync();
+
+            return directSkills.Union(courseSkills).Distinct().ToList();
         }
 
         public async Task<string> SaveRoadmapAsync(SaveRoadmapRequestDto request)
@@ -572,13 +600,13 @@ namespace CareerSystem.API.Services.Implementations
                     select skill
                 ).FirstOrDefaultAsync();
 
-                if (skillDb == null) continue;
+                var fallbackSkillId = skillDb?.SkillId ?? await _context.Skills.Select(s => s.SkillId).FirstOrDefaultAsync() ?? "";
 
                 var node = new SkillNode
                 {
                     NodeId = Guid.NewGuid().ToString(),
                     RoadmapId = newRoadmap.RoadmapId,
-                    SkillId = skillDb.SkillId,
+                    SkillId = fallbackSkillId,
                     CourseId = courseDb.CourseId,
                     ParentNodeId = previousNodeId,
                     Status = "PENDING",

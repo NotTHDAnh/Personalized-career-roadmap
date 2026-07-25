@@ -12,6 +12,7 @@
 
 import ReactMarkdown from "react-markdown";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import type { KeyboardEvent } from "react";
 import type { Message, MentorAskResponse, GenerateRoadmapResponse, RoadmapPreview } from "@/app/types";
 import { apiClient } from "@/shared/api/apiClient";
@@ -82,6 +83,7 @@ async function askMentor(message: string, userId: string): Promise<MentorAskResp
 const DEFAULT_DAILY_STUDY_HOURS = 2;
 
 export function MentorTab() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { openNotification } = useNotification();
   const studentName = user?.fullName || "student";
@@ -96,11 +98,16 @@ export function MentorTab() {
   ]);
 
   const [input, setInput] = useState("");
+  const [lastUserPrompt, setLastUserPrompt] = useState("");
 
   const [targetRole, setTargetRole] = useState<{
     id?: string;
     name: string;
   } | null>(null);
+
+  const [targetRoadmapStatus, setTargetRoadmapStatus] = useState<"checking" | "create" | "update" | "view">("create");
+  const [oldRoadmapId, setOldRoadmapId] = useState<string | null>(null);
+  const [draftPreview, setDraftPreview] = useState<RoadmapPreview | null>(null);
 
   const [creatingRoadmap, setCreatingRoadmap] = useState(false);
   const [roadmapPreview, setRoadmapPreview] = useState<RoadmapPreview | null>(null);
@@ -218,6 +225,56 @@ export function MentorTab() {
     container.scrollTop = container.scrollHeight;
   }, [messages, typing]);
 
+  useEffect(() => {
+    async function checkTargetRoleStatus() {
+      if (!targetRole || !targetRole.name) {
+        setTargetRoadmapStatus("create");
+        setOldRoadmapId(null);
+        setDraftPreview(null);
+        return;
+      }
+
+      setTargetRoadmapStatus("checking");
+      setDraftPreview(null);
+      try {
+        const userRoadmaps = await apiClient.get<any[]>(`/Roadmap/user/${userId}`);
+        const existingRoadmap = userRoadmaps.find(r => r.targetRoleName === targetRole.name);
+
+        if (!existingRoadmap) {
+          setTargetRoadmapStatus("create");
+          setOldRoadmapId(null);
+          return;
+        }
+
+        setOldRoadmapId(existingRoadmap.roadmapId);
+
+        const existingDetails = await apiClient.get<any>(`/Roadmap/${existingRoadmap.roadmapId}`);
+        const existingCourseCount = existingDetails.phases?.flatMap((p: any) => p.nodes)?.length || 0;
+
+        const previewResult = await apiClient.post<any>("/Roadmap/generate-preview", {
+          userId,
+          targetRoleId: targetRole.id || existingRoadmap.targetRoleId,
+          dailyStudyHours: dailyStudyHours || DEFAULT_DAILY_STUDY_HOURS
+        });
+        
+        setDraftPreview(previewResult);
+        
+        const previewCourseCount = previewResult.phases?.flatMap((p: any) => p.nodes)?.length || 0;
+
+        if (previewCourseCount !== existingCourseCount) {
+          setTargetRoadmapStatus("update");
+        } else {
+          setTargetRoadmapStatus("view");
+        }
+      } catch (error) {
+        console.error("Failed to check roadmap status", error);
+        setTargetRoadmapStatus("create");
+      }
+    }
+
+    void checkTargetRoleStatus();
+  }, [targetRole, userId, dailyStudyHours]);
+
   async function performAskMentor(text: string) {
     setTyping(true);
 
@@ -293,6 +350,7 @@ export function MentorTab() {
     const trimmedText = text.trim();
 
     if (!trimmedText || typing) return;
+    setLastUserPrompt(trimmedText);
 
     const userMsg: Message = {
       id: Date.now(),
@@ -378,6 +436,19 @@ export function MentorTab() {
       return;
     }
 
+    if (targetRoadmapStatus === "view") {
+      navigate("/dashboard/roadmap");
+      return;
+    }
+
+    if (draftPreview && targetRoadmapStatus === "update") {
+      setRoadmapPreview(draftPreview);
+      setShowRoadmapPreview(true);
+      setPreviewCollapsed(false);
+      openNotification("success", "Roadmap preview ready for update!");
+      return;
+    }
+
     if (dailyStudyHours === null) {
       setIsStudyHoursModalOpen(true);
     } else {
@@ -389,6 +460,11 @@ export function MentorTab() {
     if (!roadmapPreview || !targetRole) return;
 
     try {
+      if (targetRoadmapStatus === "update" && oldRoadmapId) {
+        // Tuân thủ 1 Role - 1 Roadmap: xóa roadmap cũ trước khi lưu bản update
+        await apiClient.delete(`/Roadmap/${oldRoadmapId}`);
+      }
+
       await apiClient.post("/Roadmap/save", {
         userId,
         targetRoleId: targetRole.id,
@@ -396,9 +472,14 @@ export function MentorTab() {
         phases: roadmapPreview.phases,
       });
 
-      openNotification("success", "Roadmap saved successfully.");
+      openNotification("success", targetRoadmapStatus === "update" ? "Roadmap updated successfully!" : "Roadmap saved successfully.");
       setShowRoadmapPreview(false);
       setRoadmapPreview(null);
+      setTargetRoadmapStatus("view");
+      setLastUserPrompt("");
+      
+      // Chuyển hướng sang tab Roadmap để xem kết quả
+      navigate("/dashboard/roadmap");
     } catch {
       openNotification("error", "Failed to save roadmap.");
     }
@@ -407,6 +488,7 @@ export function MentorTab() {
   function handleCancelRoadmapClick() {
     setShowRoadmapPreview(false);
     setPreviewCollapsed(false);
+    setLastUserPrompt("");
 
     openNotification("info", "Preview cancelled.");
   }
@@ -443,6 +525,11 @@ export function MentorTab() {
     }
   }
 
+  const isUpdateIntent = /(update|cập nhật|làm mới|đồng bộ|tạo lại|đổi|refresh|sửa)/i.test(lastUserPrompt);
+  const effectiveRoadmapStatus = (targetRoadmapStatus === "update" && !isUpdateIntent) 
+    ? "update_locked" 
+    : targetRoadmapStatus;
+
   return (
     // <div className="grid xl:grid-cols-[0.72fr_0.28fr] gap-8">
     //   <section className="bg-white rounded-2xl border border-[#c4c6cf] shadow-sm min-h-[680px] flex flex-col">
@@ -457,15 +544,16 @@ export function MentorTab() {
           targetRole={targetRole}
           recommendedCareers={recommendedCareers}
           messagesContainerRef={messagesContainerRef}
-          hasActivePreview={showRoadmapPreview}
           onSend={send}
           onKeyDown={handleKeyDown}
-          onCreateRoadmap={handleCreateRoadmapClick}
-          onClearHistory={handleClearHistory}
+          onCreateRoadmap={() => void handleCreateRoadmapClick()}
+          onClearHistory={() => void handleClearHistory()}
           loadingHistory={loadingHistory}
+          hasActivePreview={showRoadmapPreview}
+          targetRoadmapStatus={effectiveRoadmapStatus as any}
         />
 
-      {recommendedCareers.length > 0 && (
+        {recommendedCareers.length > 0 && (
         <div className="shrink-0 rounded-2xl border border-[#c4c6cf] bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-[#002046]">
             Choose one career to create your roadmap:

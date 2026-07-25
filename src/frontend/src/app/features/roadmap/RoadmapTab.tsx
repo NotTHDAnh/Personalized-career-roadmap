@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Check, Lock, ChevronDown, ChevronUp, Pencil, Save, Trash2, Briefcase, Loader2, Map, Plus, CalendarDays } from "lucide-react";
+import { Check, Lock, ChevronDown, ChevronUp, Pencil, Save, Trash2, Briefcase, Loader2, Map, Plus, CalendarDays, X, Clock } from "lucide-react";
 import { GoalNode } from "./components/GoalNode";
 import { RoadmapNode } from "./components/RoadmapNode";
 import { CourseCard } from "./components/CourseCard";
@@ -72,6 +72,7 @@ export default function MyRoadmaps() {
   const [showPhaseBoard, setShowPhaseBoard] = useState(true);
   const [showCongratModal, setShowCongratModal] = useState(false);
   const [studentSkills, setStudentSkills] = useState<string[]>([]);
+  const [showDeadlinesList, setShowDeadlinesList] = useState(false);
 
   const fetchStudentSkills = async () => {
     if (!userId) return;
@@ -397,6 +398,43 @@ export default function MyRoadmaps() {
     };
   }, [roadmapData]);
 
+  const thisWeekDeadlines = useMemo(() => {
+    if (!roadmapData || !roadmapData.phases) return [];
+    
+    const today = new Date();
+    const day = today.getDay(); // 0 (Sun) to 6 (Sat)
+    const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1);
+    const startOfWeek = new Date(today.setDate(diffToMonday));
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const deadlines: { courseName: string, deadline: string, dateObj: Date, courseCode: string }[] = [];
+
+    roadmapData.phases.forEach((phase: any) => {
+      if (phase.nodes) {
+        phase.nodes.forEach((node: any) => {
+          const isCompleted = node.status === "COMPLETED" || node.status === "done";
+          if (!isCompleted && node.deadline) {
+            const dateObj = new Date(node.deadline);
+            if (dateObj >= startOfWeek && dateObj <= endOfWeek) {
+              deadlines.push({
+                courseName: node.courseName || node.courseDetails?.courseName || "Unknown Course",
+                courseCode: node.courseCode || node.courseDetails?.courseCode || "Unknown",
+                deadline: node.deadline.split("T")[0],
+                dateObj
+              });
+            }
+          }
+        });
+      }
+    });
+
+    return deadlines.sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+  }, [roadmapData]);
+
   const stats = useMemo(() => {
     if (!roadmapData) return { totalCourses: 0, totalHours: 0, progress: 0 };
     const flatNodes = roadmapData.phases?.flatMap((p: any) => p.nodes) || [];
@@ -541,8 +579,48 @@ export default function MyRoadmaps() {
         </div>
       </div>
 
-      {/* ── Section 2: Canvas and Goal ── */}
-      <div className="flex gap-4">
+      {/* 🚀🚀 Section 2: Canvas and Goal 🚀🚀 */}
+      <div className="flex gap-4 relative">
+        {/* Visualized Deadline FAB */}
+        <div className="absolute top-4 left-4 z-[60] flex flex-col items-start gap-3">
+          <button 
+            onClick={() => setShowDeadlinesList(!showDeadlinesList)}
+            className="w-11 h-11 bg-white text-orange-500 border border-orange-100 rounded-full flex items-center justify-center shadow-md hover:bg-orange-50 hover:scale-105 active:scale-95 transition-all"
+            title="Deadlines this week"
+          >
+            {showDeadlinesList ? <X className="w-5 h-5 text-slate-400" /> : <CalendarDays className="w-5 h-5" />}
+          </button>
+          
+          {showDeadlinesList && (
+            <div className="bg-white rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] p-4 border border-slate-100 min-w-[280px] max-w-[320px] animate-in fade-in zoom-in-95 duration-200 slide-in-from-top-2 origin-top-left">
+              <h4 className="font-bold text-slate-800 text-[14px] mb-3 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-orange-500" />
+                This Week's Deadlines
+              </h4>
+              {thisWeekDeadlines.length > 0 ? (
+                <div className="space-y-2.5 max-h-[250px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-200">
+                  {thisWeekDeadlines.map((item, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => setShowDeadlinesList(false)}
+                      className="flex flex-col p-3 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100/50 hover:border-orange-200 transition-colors cursor-pointer"
+                    >
+                       <span className="text-[12px] font-bold text-slate-800 leading-tight mb-1.5">{item.courseCode} - {item.courseName}</span>
+                       <span className="text-[11px] font-bold text-orange-600 flex items-center gap-1.5">
+                         <CalendarDays className="w-3.5 h-3.5" /> Due: {item.deadline}
+                       </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[12px] text-slate-500 py-4 text-center font-medium bg-slate-50 rounded-xl">
+                  🎉 No deadlines this week!
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="flex-1 min-w-0 h-fit bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-colors duration-300">
           <div className="overflow-x-auto w-full">
             <div style={{ width: containerMinWidth, minWidth: "100%" }}>

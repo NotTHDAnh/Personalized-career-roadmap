@@ -20,7 +20,7 @@ namespace CareerSystem.API.Controllers
 
         //API get missing skills
         [HttpGet("missing-skills")]
-        public async Task<IActionResult> GetMissingSkills(string roadmapId)
+        public async Task<IActionResult> GetMissingSkills([FromQuery] string roadmapId)
         {
             var result = await _roadmapService.GetMissingSkillsAsync(roadmapId);
             if (result == null) return NotFound(new { message = "không tìm thấy roadmap" });

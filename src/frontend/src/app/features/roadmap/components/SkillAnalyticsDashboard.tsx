@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, Brush } from "recharts";
-import { ChevronDown, Activity, BookOpen, TrendingUp, Sparkles } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { ChevronDown, Activity, BookOpen, Sparkles, AlertCircle } from "lucide-react";
 import { apiClient } from "@/shared/api/apiClient";
-import { profileApi } from "../../profile/profileApi";
+
+const PHASE_COLORS = ["#4CAF50", "#3B82F6", "#8B5CF6"];
 
 interface RoadmapInfo {
   roadmapId: string;
@@ -15,99 +16,13 @@ interface SkillAnalyticsDashboardProps {
   studentSkills?: string[];
 }
 
-const COLORS = ["#38BDF8", "#818CF8", "#34D399", "#FBBF24", "#F472B6", "#A78BFA", "#60A5FA"];
-
-const PROGRESS_CIRCLE_RADIUS = 18;
-const SKILL_EXCELLENT_THRESHOLD = 80;
-const SKILL_GOOD_THRESHOLD = 50;
-
-const CircularProgress = ({ value, label }: { value: number, label: string | number }) => {
-  const radius = PROGRESS_CIRCLE_RADIUS;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (value / 100) * circumference;
-  
-  const color = value >= SKILL_EXCELLENT_THRESHOLD ? "#10B981" : value >= SKILL_GOOD_THRESHOLD ? "#3B82F6" : "#F59E0B";
-
-  return (
-    <div className="relative flex items-center justify-center">
-      <svg width="44" height="44" className="transform -rotate-90">
-        <circle cx="22" cy="22" r={PROGRESS_CIRCLE_RADIUS} stroke="#F1F5F9" strokeWidth="4" fill="transparent" />
-        <circle 
-          cx="22" cy="22" r={PROGRESS_CIRCLE_RADIUS} 
-          stroke={color} strokeWidth="4" fill="transparent" 
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          className="transition-all duration-1000 ease-out"
-        />
-      </svg>
-      <span className="absolute text-[10px] font-bold text-slate-700">{label}</span>
-    </div>
-  );
-};
-
-const MetricCard = ({ title, value, icon, trend, color }: any) => {
-  const colorMap: any = {
-    blue: "text-blue-500 bg-blue-50/80",
-    green: "text-emerald-500 bg-emerald-50/80",
-    purple: "text-purple-500 bg-purple-50/80",
-  };
-  const trendColor = trend?.startsWith("+") ? "text-emerald-600 bg-emerald-50" : "text-slate-500 bg-slate-50";
-
-  return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-100/50 shadow-sm flex items-center justify-between group hover:shadow-md transition-all duration-300">
-      <div>
-        <p className="text-[12px] font-bold text-slate-400 mb-0.5">{title}</p>
-        <div className="flex items-end gap-2">
-          <h4 className="text-xl font-black text-slate-800 tracking-tight">{value}</h4>
-          {trend && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${trendColor} mb-1`}>{trend}</span>}
-        </div>
-      </div>
-      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${colorMap[color]} shadow-sm group-hover:scale-110 transition-transform duration-300`}>
-        {icon}
-      </div>
-    </div>
-  );
-};
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    return (
-      <div className="bg-white p-3 border border-slate-200 shadow-lg rounded-xl min-w-[200px] z-[100] relative">
-        <h4 className="font-bold text-slate-800 text-[13px] mb-1.5">{label}</h4>
-        <div className="flex justify-between items-center mb-2 text-[11px] font-semibold text-slate-500">
-          <span>Avg GPA:</span>
-          <span className="text-emerald-500 font-bold">{data.avgGpa !== null ? data.avgGpa : "N/A"}</span>
-        </div>
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Taught in {data.count} Courses:</p>
-          <div className="space-y-1">
-            {data.courses && data.courses.slice(0, 4).map((c: any, i: number) => (
-              <div key={i} className="flex justify-between items-center text-[11px] bg-slate-50 rounded-md p-1.5 border border-slate-100">
-                <span className="text-slate-700 font-medium truncate max-w-[130px]" title={c.courseName}>{c.courseName}</span>
-                <span className="font-bold text-slate-600">{c.gpa !== null ? c.gpa : "-"}</span>
-              </div>
-            ))}
-            {data.courses && data.courses.length > 4 && (
-              <div className="text-[10px] text-center text-slate-400 font-semibold pt-1">
-                + {data.courses.length - 4} more
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-  return null;
-};
-
-export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData, studentSkills }: SkillAnalyticsDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"overall" | "roadmap">("overall");
-  const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
+export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAnalyticsDashboardProps) {
   const [selectedRoadmapId, setSelectedRoadmapId] = useState<string>("");
   const [allRoadmapDetails, setAllRoadmapDetails] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [missingSkillsFromApi, setMissingSkillsFromApi] = useState<string[]>([]);
+  const [loadingMissing, setLoadingMissing] = useState(false);
+  const [allGlobalCourses, setAllGlobalCourses] = useState<any[]>([]);
 
   useEffect(() => {
     if (roadmaps.length > 0 && !selectedRoadmapId) {
@@ -115,6 +30,14 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData, studentSk
     }
   }, [roadmaps, selectedRoadmapId]);
 
+  // Fetch all global courses for recommendations
+  useEffect(() => {
+    apiClient.get<any[]>("/Course/courses")
+      .then(res => setAllGlobalCourses(res || []))
+      .catch(err => console.error("Failed to fetch all global courses", err));
+  }, []);
+
+  // Fetch all roadmaps to get course details and skills mapping
   useEffect(() => {
     async function fetchAllRoadmaps() {
       if (!roadmaps || roadmaps.length === 0) return;
@@ -155,14 +78,6 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData, studentSk
                 if (p?.nodes) {
                   p.nodes.forEach((n: any) => {
                      n.courseDetails = n.courseId ? courseDetailsMap[n.courseId] : null;
-                     
-                     // Khôi phục điểm GPA từ localStorage thay vì Backend
-                     const storageKey = `gpa_roadmap_${data.roadmapId}`;
-                     const storedGpasStr = localStorage.getItem(storageKey);
-                     const storedGpas = storedGpasStr ? JSON.parse(storedGpasStr) : {};
-                     if (n.status === "COMPLETED") {
-                        n.gpa = n.gpa !== undefined && n.gpa !== null ? n.gpa : storedGpas[n.nodeId];
-                     }
                   });
                 }
               });
@@ -180,297 +95,283 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData, studentSk
     fetchAllRoadmaps();
   }, [roadmaps]);
 
-  const { stats, overallMetrics } = useMemo(() => {
-    // Gộp trạng thái mới nhất từ activeRoadmapData vào danh sách allRoadmapDetails
-    // giúp biểu đồ kỹ năng cập nhật tức thì (reactive) mà không cần tải lại trang.
-    const mergedDetails = allRoadmapDetails.map(roadmap => {
-      if (activeRoadmapData && roadmap.roadmapId === activeRoadmapData.roadmapId) {
-        // Tạo bảng tra cứu nhanh (lookup map) cho các môn học đang hoạt động
-        const activeNodesMap: Record<string, any> = {};
-        if (activeRoadmapData.phases) {
-          activeRoadmapData.phases.forEach((p: any) => {
-            if (p.nodes) {
-              p.nodes.forEach((n: any) => {
-                if (n.nodeId) activeNodesMap[n.nodeId] = n;
-              });
-            }
-          });
-        }
+  // Fetch Missing Skills from API
+  useEffect(() => {
+    if (selectedRoadmapId) {
+      setLoadingMissing(true);
+      apiClient.get<string[]>(`/roadmap/missing-skills?roadmapId=${selectedRoadmapId}`)
+        .then(res => {
+          setMissingSkillsFromApi(res || []);
+        })
+        .catch(err => {
+          console.error("Failed to fetch missing skills", err);
+          setMissingSkillsFromApi([]);
+        })
+        .finally(() => {
+          setLoadingMissing(false);
+        });
+    }
+  }, [selectedRoadmapId, activeRoadmapData]);
 
-        // Duyệt qua các giai đoạn/môn học gốc và ghi đè bằng dữ liệu trạng thái mới từ UI
-        return {
-          ...roadmap,
-          phases: roadmap.phases?.map((p: any) => ({
-            ...p,
-            nodes: p.nodes?.map((n: any) => {
-              const activeNode = activeNodesMap[n.nodeId];
-              if (activeNode) {
-                return {
-                  ...n,
-                  status: activeNode.status, // Ghi đè trạng thái (ví dụ: COMPLETED)
-                  gpa: activeNode.gpa        // Ghi đè điểm số GPA
-                };
-              }
-              return n;
-            })
-          }))
-        };
-      }
-      return roadmap;
-    });
+  // Calculations for UI
+  const { totalSkills, completedSkills, missingSkillsDetails, targetRole } = useMemo(() => {
+    let targetRoleName = "Target Role";
+    const roadmapInfo = roadmaps.find(r => r.roadmapId === selectedRoadmapId);
+    if (roadmapInfo) targetRoleName = roadmapInfo.targetRoleName;
 
-    const map: Record<string, { skillName: string; count: number; totalGpa: number; coursesWithGpa: number; contributingCourses: { courseName: string, gpa: number | null }[] }> = {};
-    let totalCompletedCourses = 0;
+    let currentRoadmap = allRoadmapDetails.find(r => r.roadmapId === selectedRoadmapId);
     
-    const roadmapsToAnalyze = activeTab === "overall" 
-      ? mergedDetails 
-      : mergedDetails.filter(r => r.roadmapId === selectedRoadmapId);
-
-    roadmapsToAnalyze.forEach(roadmap => {
-      const flatNodes = roadmap?.phases?.flatMap((p: any) => p.nodes) || [];
-      flatNodes.forEach((node: any) => {
-        if (node.status === "COMPLETED" || node.status === "done") {
-          const courseGpa = node.gpa ?? node.courseDetails?.gpa;
-          const source = node.source || node.courseDetails?.source;
-          const isUniversity = source === "university" || source === "UNIVERSITY";
-          const parsedGpa = Number(courseGpa);
-          const hasValidGpa = courseGpa !== null && courseGpa !== undefined && !isNaN(parsedGpa);
-          
-          totalCompletedCourses++;
-
-          const details = node.courseDetails;
-          const dynamicSkills = details?.learningOutcomes && details.learningOutcomes.length > 0
-              ? details.learningOutcomes.map((lo: any) => lo.skillName)
-              : [];
-          const skills = dynamicSkills;
-          const normalizedSkills = Array.isArray(skills) ? skills : (typeof skills === "string" ? [skills] : []);
-
-          normalizedSkills.forEach((s: string) => {
-            if (!map[s]) map[s] = { skillName: s, count: 0, totalGpa: 0, coursesWithGpa: 0, contributingCourses: [] };
-            map[s].count += 1;
-            
-            const courseCode = details?.courseCode || node.courseCode || details?.courseName || node.name || "Unknown Course";
-            map[s].contributingCourses.push({
-              courseName: courseCode,
-              gpa: hasValidGpa ? parsedGpa : null
+    if (currentRoadmap && activeRoadmapData && activeRoadmapData.roadmapId === currentRoadmap.roadmapId) {
+      const activeNodesMap: Record<string, any> = {};
+      if (activeRoadmapData.phases) {
+        activeRoadmapData.phases.forEach((p: any) => {
+          if (p.nodes) {
+            p.nodes.forEach((n: any) => {
+              if (n.nodeId) activeNodesMap[n.nodeId] = n;
             });
+          }
+        });
+      }
 
-            if (hasValidGpa) {
-              map[s].totalGpa += parsedGpa;
-              map[s].coursesWithGpa += 1;
+      currentRoadmap = {
+        ...currentRoadmap,
+        phases: currentRoadmap.phases?.map((p: any) => ({
+          ...p,
+          nodes: p.nodes?.map((n: any) => {
+            const activeNode = activeNodesMap[n.nodeId];
+            if (activeNode) {
+              return { ...n, status: activeNode.status };
             }
-          });
-        }
+            return n;
+          })
+        }))
+      };
+    }
+
+    if (!currentRoadmap) return { totalSkills: 0, completedSkills: 0, missingSkillsDetails: [], targetRole: targetRoleName };
+
+    const nodes = currentRoadmap.phases?.flatMap((p: any) => p.nodes) || [];
+    
+    const skillToNodes: Record<string, any[]> = {};
+    
+    nodes.forEach((node: any) => {
+      const details = node.courseDetails;
+      const skills = details?.learningOutcomes?.map((lo: any) => lo.skillName) || [];
+      skills.forEach((skill: string) => {
+        if (!skillToNodes[skill]) skillToNodes[skill] = [];
+        skillToNodes[skill].push(node);
       });
     });
 
-    if (activeTab === "overall" && studentSkills) {
-      studentSkills.forEach((s: string) => {
-        if (!map[s]) {
-          map[s] = {
-            skillName: s,
-            count: 0,
-            totalGpa: 0,
-            coursesWithGpa: 0,
-            contributingCourses: []
-          };
-        }
+    const allSkillNames = Object.keys(skillToNodes);
+    
+    let reactiveCompleted = 0;
+    allSkillNames.forEach(skill => {
+       const nodesForSkill = skillToNodes[skill];
+       const isCompleted = nodesForSkill.every(n => n.status === "COMPLETED" || n.status === "done");
+       if (isCompleted) reactiveCompleted++;
+    });
+
+    const courseToPhaseColor: Record<string, string> = {};
+    if (currentRoadmap?.phases) {
+      currentRoadmap.phases.forEach((p: any, phaseIndex: number) => {
+        const color = PHASE_COLORS[phaseIndex % PHASE_COLORS.length];
+        p.nodes?.forEach((n: any) => {
+          const courseCode = n.courseDetails?.courseCode || n.courseCode;
+          if (courseCode) {
+            courseToPhaseColor[courseCode] = color;
+          }
+        });
       });
     }
 
-    const maxCount = Math.max(...Object.values(map).map(item => item.count), 1);
+    const missingSkillsDetails = missingSkillsFromApi.map(skill => {
+      const matchingGlobalCourses = allGlobalCourses
+        .filter(c => c.skills && c.skills.includes(skill))
+        .map(c => c.courseCode || c.courseName);
+      
+      const uniqueCourseCodes = Array.from(new Set(matchingGlobalCourses));
 
-    const rawArray = Object.values(map).map(item => {
-      const avgGpa = item.coursesWithGpa > 0 ? Number((item.totalGpa / item.coursesWithGpa).toFixed(1)) : null;
-      const MAX_GPA_SCALE = 10.0;
-      const MIN_DAMPING_COUNT = 3;
+      const suggestedCourses = uniqueCourseCodes.map(code => {
+        return {
+          code,
+          color: courseToPhaseColor[code] || null
+        };
+      });
 
-      let progress = 0;
-      if (avgGpa !== null) {
-        const gpaScore = avgGpa / MAX_GPA_SCALE;
-        const freqScore = item.count / maxCount;
-        progress = Math.round((gpaScore * 0.7 + freqScore * 0.3) * 100);
-      } else {
-        progress = Math.min(Math.round((item.count / Math.max(MIN_DAMPING_COUNT, maxCount)) * 100), 100);
-      }
       return {
-        name: item.skillName,
-        count: item.count,
-        avgGpa: avgGpa,
-        progress: progress,
-        courses: item.contributingCourses
+        skillName: skill,
+        suggestedCourses
       };
     });
 
-    const sortedStats = rawArray.sort((a, b) => b.progress - a.progress);
-    
-    let sumGpa = 0;
-    let countGpa = 0;
-    sortedStats.forEach(s => {
-      if (s.avgGpa !== null) {
-        sumGpa += s.avgGpa;
-        countGpa++;
-      }
-    });
+    const missingCount = missingSkillsFromApi.length;
+    const completedCount = reactiveCompleted;
 
     return {
-      stats: sortedStats,
-      overallMetrics: {
-        totalSkills: sortedStats.length,
-        globalAvgGpa: countGpa > 0 ? (sumGpa / countGpa).toFixed(1) : "N/A",
-        totalCompleted: totalCompletedCourses
-      }
+      totalSkills: completedCount + missingCount,
+      completedSkills: completedCount,
+      missingSkillsDetails,
+      targetRole: targetRoleName
     };
-  }, [allRoadmapDetails, activeTab, selectedRoadmapId, activeRoadmapData, studentSkills]);
+  }, [allRoadmapDetails, activeRoadmapData, selectedRoadmapId, missingSkillsFromApi, roadmaps, allGlobalCourses]);
 
   if (loading) {
     return (
-      <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-sm border border-slate-100 flex items-center justify-center min-h-[300px]">
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-sm border border-slate-100 flex items-center justify-center min-h-[300px] mt-6">
         <div className="flex flex-col items-center gap-3">
           <Activity className="w-8 h-8 text-blue-500 animate-spin" />
-          <p className="text-slate-500 font-medium">Analyzing skills data...</p>
+          <p className="text-slate-500 font-medium">Loading analytics data...</p>
         </div>
       </div>
     );
   }
 
+  const progressPercent = totalSkills > 0 ? Math.round((completedSkills / totalSkills) * 100) : 0;
+  const pieData = [
+    { name: 'Completed', value: completedSkills, color: '#10B981' }, 
+    { name: 'Missing', value: Math.max(0, totalSkills - completedSkills), color: '#F1F5F9' }
+  ];
+
   return (
     <div className="bg-gradient-to-br from-slate-50 to-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white mt-6 overflow-hidden relative">
-      {/* Decorative blurred background element */}
       <div className="absolute top-0 right-0 w-48 h-48 bg-blue-200/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
       
-      {/* Header and Tabs */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between mb-5 gap-4 relative z-10">
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 relative z-10">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="w-4 h-4 text-blue-500" />
-            <h2 className="text-xl font-black text-slate-800 tracking-tight">Skill Analytics</h2>
+            <Sparkles className="w-5 h-5 text-blue-500" />
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Skill Gap Analysis</h2>
           </div>
-          <p className="text-slate-500 text-[13px] font-medium">Your progress and mastery overview.</p>
+          <p className="text-slate-500 text-[14px] font-medium">Analyze your skill completion progress towards your Target Role.</p>
         </div>
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex bg-slate-100/80 p-1 rounded-xl shadow-inner">
-            <button 
-              onClick={() => setActiveTab("overall")}
-              className={`px-5 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${activeTab === "overall" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+        
+        {roadmaps.length > 0 && (
+          <div className="relative">
+            <select
+              value={selectedRoadmapId}
+              onChange={e => setSelectedRoadmapId(e.target.value)}
+              className="appearance-none bg-white border border-slate-200 shadow-sm text-slate-700 text-sm rounded-xl pl-4 pr-10 py-2.5 font-bold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer min-w-[200px]"
             >
-              Overview
-            </button>
-            {roadmaps.length >= 2 && (
-              <button 
-                onClick={() => setActiveTab("roadmap")}
-                className={`px-5 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${activeTab === "roadmap" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                By Roadmap
-              </button>
-            )}
+              {roadmaps.map(r => (
+                <option key={r.roadmapId} value={r.roadmapId}>{r.targetRoleName}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-10">
+        {/* Left Side: Pie Chart */}
+        <div className="lg:col-span-1 bg-white/60 backdrop-blur-sm rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-[420px]">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-slate-800 uppercase tracking-wider">READINESS LEVEL</h2>
+            <p className="text-[13px] text-slate-500 mt-1">Current readiness level for the {targetRole} role</p>
           </div>
           
-          {activeTab === "roadmap" && (
-            <div className="relative">
-              <select
-                value={selectedRoadmapId}
-                onChange={e => setSelectedRoadmapId(e.target.value)}
-                className="appearance-none bg-white border border-slate-200 shadow-sm text-slate-700 text-sm rounded-xl pl-4 pr-10 py-2.5 font-bold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer min-w-[200px]"
-              >
-                {roadmaps.map(r => (
-                  <option key={r.roadmapId} value={r.roadmapId}>{r.targetRoleName}</option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="relative w-48 h-48 mb-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={90}
+                    startAngle={90}
+                    endAngle={-270}
+                    dataKey="value"
+                    stroke="none"
+                    cornerRadius={5}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
+                <span className="text-4xl font-black text-slate-800 tracking-tight">{progressPercent}%</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">MATCH SCORE</span>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Top Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 relative z-10">
-         <MetricCard title="Total Skills Mastered" value={overallMetrics.totalSkills} icon={<Activity className="w-4 h-4" />} color="blue" />
-         <MetricCard title="Avg Mastery GPA" value={overallMetrics.globalAvgGpa} icon={<TrendingUp className="w-4 h-4" />} color="green" />
-         <MetricCard title="Completed Courses" value={overallMetrics.totalCompleted} icon={<BookOpen className="w-4 h-4" />} color="purple" />
-      </div>
-
-      {/* Main Charts Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 relative z-10">
-        {/* Left: Bar Chart */}
-        <div className="lg:col-span-2 bg-white/60 backdrop-blur-sm rounded-3xl p-5 border border-slate-100 shadow-sm">
-           <div className="flex items-center justify-between mb-5">
-             <h3 className="text-[14px] font-bold text-slate-800 tracking-tight">Skill Analysis (GPA & Frequency)</h3>
-           </div>
-           <div className="h-[340px] w-full">
-             {stats.length > 0 ? (
-                 <ResponsiveContainer width="100%" height="100%">
-                   <ComposedChart data={stats} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
-                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                     <XAxis 
-                       dataKey="name" 
-                       axisLine={false} 
-                       tickLine={false} 
-                       tick={false}
-                     />
-                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#94A3B8", fontWeight: 600 }} />
-                     <YAxis yAxisId="right" orientation="right" domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#94A3B8", fontWeight: 600 }} />
-                     <Tooltip 
-                       cursor={{ fill: "rgba(241, 245, 249, 0.5)" }} 
-                       content={<CustomTooltip />}
-                       wrapperStyle={{ zIndex: 1000 }}
-                     />
-                     <Bar yAxisId="left" dataKey="count" name="Courses" radius={[6, 6, 0, 0]} maxBarSize={28}>
-                       {stats.map((entry, index) => (
-                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                       ))}
-                     </Bar>
-                     <Line yAxisId="right" type="monotone" dataKey="avgGpa" name="Avg GPA" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3.5, fill: "#10B981", strokeWidth: 2, stroke: "#FFF" }} activeDot={{ r: 5 }} connectNulls />
-                     <Brush dataKey="name" height={15} stroke="#CBD5E1" fill="#F8FAFC" startIndex={0} endIndex={Math.min(stats.length - 1, 15)} tickFormatter={() => ""} />
-                   </ComposedChart>
-                 </ResponsiveContainer>
-             ) : (
-               <div className="flex items-center justify-center h-full text-slate-400 font-medium">No data to display chart.</div>
-             )}
-           </div>
+            <div className="grid grid-cols-3 w-full gap-2 mt-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+              <div className="flex flex-col items-center">
+                <span className="text-xl font-bold text-slate-800">{completedSkills}</span>
+                <span className="text-[11px] font-semibold text-slate-500">Achieved</span>
+              </div>
+              <div className="flex flex-col items-center border-l border-slate-200">
+                <span className="text-xl font-bold text-slate-800">{missingSkillsFromApi.length}</span>
+                <span className="text-[11px] font-semibold text-slate-500">Missing</span>
+              </div>
+              <div className="flex flex-col items-center border-l border-slate-200">
+                <span className="text-xl font-bold text-slate-800">{totalSkills}</span>
+                <span className="text-[11px] font-semibold text-slate-500">Total</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Right: Detailed List */}
-        <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-5 border border-slate-100 shadow-sm flex flex-col">
-          <h3 className="text-[14px] font-bold text-slate-800 tracking-tight mb-4">Mastery Details (All)</h3>
-          <div className="flex-1 overflow-y-auto pr-2 pb-4 space-y-2.5 h-[340px] max-h-[340px] scrollbar-thin scrollbar-thumb-slate-200">
-            {stats.length > 0 ? stats.map((s, idx) => {
-              const isExpanded = expandedSkill === s.name;
-              return (
-              <div key={idx} className="bg-white rounded-2xl shadow-sm border border-slate-100/80 hover:shadow-md transition-shadow overflow-hidden">
-                <div 
-                  className="flex items-center justify-between p-3 cursor-pointer select-none"
-                  onClick={() => setExpandedSkill(isExpanded ? null : s.name)}
-                >
-                  <div>
-                    <p className="text-[13px] font-bold text-slate-800 mb-0.5">{s.name}</p>
-                    <p className="text-[11px] font-semibold text-slate-400">
-                      {s.avgGpa ? `GPA: ${s.avgGpa} • ` : ""}{s.count} courses
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CircularProgress 
-                      value={s.progress} 
-                      label={s.avgGpa !== null ? s.avgGpa : s.count} 
-                    />
-                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                  </div>
-                </div>
-                {isExpanded && (
-                  <div className="px-3 pb-3 pt-2 border-t border-slate-50 bg-slate-50/50">
-                    <div className="space-y-1.5">
-                      {s.courses && s.courses.map((c: any, i: number) => (
-                        <div key={i} className="flex justify-between items-center text-[11px] bg-white rounded-lg p-2 border border-slate-100 shadow-sm">
-                          <span className="text-slate-600 font-medium truncate max-w-[200px]" title={c.courseName}>{c.courseName}</span>
-                          <span className="font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">{c.gpa !== null ? c.gpa : "-"}</span>
-                        </div>
-                      ))}
+        {/* Right Side: Missing Skills List */}
+        <div className="lg:col-span-2 bg-white/60 backdrop-blur-sm rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-[420px]">
+          <div className="flex items-center justify-between mb-5 shrink-0">
+            <h3 className="text-[15px] font-bold text-slate-800 tracking-tight">Missing Skills ({missingSkillsFromApi.length})</h3>
+            {loadingMissing && <Activity className="w-4 h-4 text-slate-400 animate-spin" />}
+          </div>
+          
+          <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-2 scrollbar-thin scrollbar-thumb-slate-200 space-y-2.5">
+            {missingSkillsDetails.length > 0 ? (
+              missingSkillsDetails.map((item, idx) => (
+                <div key={idx} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="bg-red-50 p-1 rounded-md">
+                      <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                    </div>
+                    <div>
+                       <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider block leading-none mb-0.5">Required Skill</span>
+                       <h4 className="font-bold text-slate-800 text-[13px] leading-tight">{item.skillName}</h4>
                     </div>
                   </div>
-                )}
-              </div>
-            )}) : (
-              <div className="flex items-center justify-center h-full text-slate-400 font-medium text-sm">Complete a course to see your skills.</div>
+                  <div className="pl-8">
+                    <p className="text-[11px] font-medium text-slate-500 mb-1.5">Suggested courses for this skill:</p>
+                    {item.suggestedCourses.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.suggestedCourses.map((courseObj: any, cIdx: number) => (
+                          <span 
+                            key={cIdx} 
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border"
+                            style={courseObj.color ? {
+                              backgroundColor: `${courseObj.color}15`,
+                              color: courseObj.color,
+                              borderColor: `${courseObj.color}30`
+                            } : {
+                              backgroundColor: '#f8fafc',
+                              color: '#334155',
+                              borderColor: '#f1f5f9'
+                            }}
+                          >
+                            <BookOpen className="w-3 h-3" style={courseObj.color ? { color: courseObj.color } : { color: '#94a3b8' }} />
+                            {courseObj.code}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 italic">No courses found that teach this skill.</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              !loadingMissing && (
+                <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                  <Sparkles className="w-10 h-10 mb-3 text-emerald-400" />
+                  <p className="font-bold text-slate-600">Excellent!</p>
+                  <p className="text-sm">You have completed all skills for this roadmap.</p>
+                </div>
+              )
             )}
           </div>
         </div>
