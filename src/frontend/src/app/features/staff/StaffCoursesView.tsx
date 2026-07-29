@@ -47,19 +47,23 @@ export function StaffCoursesView() {
 
   // Filter Options Map
   const [skillCategories, setSkillCategories] = useState<Record<string, string[]>>({});
+  const [availableSkills, setAvailableSkills] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchSkills = async () => {
       try {
         const data = await apiClient.get<any[]>("/Skill");
+        const names: string[] = [];
         const grouped: Record<string, string[]> = {};
         data.forEach(s => {
           const cat = s.category || s.Category || "Uncategorized";
           const name = s.skillName || s.SkillName;
+          if (name && !names.includes(name)) names.push(name);
           if (!grouped[cat]) grouped[cat] = [];
-          if (!grouped[cat].includes(name)) grouped[cat].push(name);
+          if (name && !grouped[cat].includes(name)) grouped[cat].push(name);
         });
         setSkillCategories(grouped);
+        setAvailableSkills(names);
       } catch (error) {
         console.error("Failed to fetch skills for categories", error);
       }
@@ -109,7 +113,6 @@ export function StaffCoursesView() {
   }, []);
 
   // Available skills & courses for dropdowns
-  const availableSkills = Array.from(new Set(courses.flatMap(c => c.skills))).sort();
   const availableCourses = courses.map(c => c.courseCode);
 
   // Filter Options
