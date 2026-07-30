@@ -163,5 +163,54 @@ namespace CareerSystem.Tests
             var ex = await Assert.ThrowsAsync<Exception>(() => _service.AskAsync(request));
             Assert.Equal("Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để sử dụng tính năng này.", ex.Message);
         }
+
+        [Fact]
+        public async Task GetSessionHistoryAsync_WithCursorPagination_ReturnsPaginatedResults()
+        {
+            var session = new MentorSession
+            {
+                SessionId = "test-session-id",
+                UserId = "valid-user-guid",
+                CreatedAt = DateTime.Now
+            };
+            _context.MentorSessions.Add(session);
+
+            for (int i = 1; i <= 5; i++)
+            {
+                _context.ChatMessages.Add(new ChatMessage
+                {
+                    MessageId = $"msg-{i}",
+                    SessionId = "test-session-id",
+                    Sender = i % 2 == 1 ? "USER" : "AI",
+                    Content = $"Message {i}",
+                    Timestamp = DateTime.Now.AddMinutes(i)
+                });
+            }
+            await _context.SaveChangesAsync();
+
+            // Page 1: limit 2 -> should return msg-5, msg-4 (chronological: msg-4, msg-5), nextCursor = msg-4
+            var page1 = await _service.GetSessionHistoryAsync("valid-user-guid", cursor: null, limit: 2);
+            Assert.Equal(2, page1.Items.Count);
+            Assert.True(page1.HasNextPage);
+            Assert.Equal("msg-4", page1.NextCursor);
+            Assert.Equal("msg-4", page1.Items[0].MessageId);
+            Assert.Equal("msg-5", page1.Items[1].MessageId);
+            Assert.Equal(5, page1.TotalCount);
+
+            // Page 2: cursor = msg-4, limit 2 -> should return msg-3, msg-2 (chronological: msg-2, msg-3), nextCursor = msg-2
+            var page2 = await _service.GetSessionHistoryAsync("valid-user-guid", cursor: "msg-4", limit: 2);
+            Assert.Equal(2, page2.Items.Count);
+            Assert.True(page2.HasNextPage);
+            Assert.Equal("msg-2", page2.NextCursor);
+            Assert.Equal("msg-2", page2.Items[0].MessageId);
+            Assert.Equal("msg-3", page2.Items[1].MessageId);
+
+            // Page 3: cursor = msg-2, limit 2 -> should return msg-1, nextCursor = null, HasNextPage = false
+            var page3 = await _service.GetSessionHistoryAsync("valid-user-guid", cursor: "msg-2", limit: 2);
+            Assert.Single(page3.Items);
+            Assert.False(page3.HasNextPage);
+            Assert.Null(page3.NextCursor);
+            Assert.Equal("msg-1", page3.Items[0].MessageId);
+        }
     }
 }

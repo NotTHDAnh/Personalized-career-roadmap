@@ -107,10 +107,13 @@ namespace CareerSystem.API.Services.Implementations
             };
         }
 
-        public async Task<List<ChatMessageDto>> GetSessionHistoryAsync(string userId)
+        public async Task<CursorPagedResponseDto<ChatMessageDto>> GetSessionHistoryAsync(string userId, string? cursor = null, int limit = 20)
         {
             if (string.IsNullOrWhiteSpace(userId))
                 throw new Exception("UserId is required.");
+
+            if (limit <= 0) limit = 20;
+            if (limit > 100) limit = 100;
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             if (user == null)
@@ -130,12 +133,41 @@ namespace CareerSystem.API.Services.Implementations
                 _context.MentorSessions.Add(session);
                 await _context.SaveChangesAsync();
 
-                return new List<ChatMessageDto>();
+                return new CursorPagedResponseDto<ChatMessageDto>
+                {
+                    Items = new List<ChatMessageDto>(),
+                    NextCursor = null,
+                    HasNextPage = false,
+                    TotalCount = 0
+                };
             }
 
-            var messages = await _context.ChatMessages
-                .Where(m => m.SessionId == session.SessionId)
-                .OrderBy(m => m.Timestamp)
+            var query = _context.ChatMessages
+                .AsNoTracking()
+                .Where(m => m.SessionId == session.SessionId);
+
+            var totalCount = await query.CountAsync();
+
+            if (!string.IsNullOrWhiteSpace(cursor))
+            {
+                var cursorMessage = await _context.ChatMessages
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(m => m.MessageId == cursor && m.SessionId == session.SessionId);
+
+                if (cursorMessage != null && cursorMessage.Timestamp.HasValue)
+                {
+                    var cursorTimestamp = cursorMessage.Timestamp.Value;
+                    var cursorId = cursorMessage.MessageId;
+
+                    query = query.Where(m => m.Timestamp < cursorTimestamp
+                        || (m.Timestamp == cursorTimestamp && string.Compare(m.MessageId, cursorId) < 0));
+                }
+            }
+
+            var fetchedMessages = await query
+                .OrderByDescending(m => m.Timestamp)
+                .ThenByDescending(m => m.MessageId)
+                .Take(limit + 1)
                 .Select(m => new ChatMessageDto
                 {
                     MessageId = m.MessageId,
@@ -145,7 +177,19 @@ namespace CareerSystem.API.Services.Implementations
                 })
                 .ToListAsync();
 
-            return messages;
+            bool hasNextPage = fetchedMessages.Count > limit;
+            var itemsToReturn = hasNextPage ? fetchedMessages.Take(limit).ToList() : fetchedMessages;
+            string? nextCursor = hasNextPage ? itemsToReturn.Last().MessageId : null;
+
+            itemsToReturn.Reverse();
+
+            return new CursorPagedResponseDto<ChatMessageDto>
+            {
+                Items = itemsToReturn,
+                NextCursor = nextCursor,
+                HasNextPage = hasNextPage,
+                TotalCount = totalCount
+            };
         }
 
         public async Task<bool> ClearSessionHistoryAsync(string userId)

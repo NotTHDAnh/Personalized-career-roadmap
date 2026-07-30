@@ -5,7 +5,7 @@ namespace CareerSystem.API.Services.Interfaces
     public interface IMentorService
     {
         Task<MentorAskResponseDto> AskAsync(MentorAskRequestDto request);
-        Task<List<ChatMessageDto>> GetSessionHistoryAsync(string userId);
+        Task<CursorPagedResponseDto<ChatMessageDto>> GetSessionHistoryAsync(string userId, string? cursor = null, int limit = 20);
         Task<SessionInitializationDto> InitializeChatSessionAsync(string userId);
         Task<bool> ClearSessionHistoryAsync(string userId);
     }
