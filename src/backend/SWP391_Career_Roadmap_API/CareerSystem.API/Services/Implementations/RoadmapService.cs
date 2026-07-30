@@ -630,6 +630,7 @@ namespace CareerSystem.API.Services.Implementations
                 .Select(r => new UserRoadmapDto
                 {
                     RoadmapId = r.RoadmapId,
+                    TargetRoleId = r.TargetRoleId,
                     TargetRoleName = r.TargetRole != null ? r.TargetRole.RoleName : "Lộ trình cá nhân",
                     CreatedAt = r.CreatedAt
                 })

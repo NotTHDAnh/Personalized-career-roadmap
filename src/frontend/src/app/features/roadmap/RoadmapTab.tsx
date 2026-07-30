@@ -627,7 +627,7 @@ export default function MyRoadmaps() {
 
               {/* Zone label header — scrolls with the map */}
               <div style={{ display: "flex", width: "100%", background: "white" }}>
-                {zones.map(({ label, sub, textColor, bg }: { label: string, sub: string, textColor: string, bg: string }, i: number) => {
+                {zones?.map(({ label, sub, textColor, bg }: { label: string, sub: string, textColor: string, bg: string }, i: number) => {
                   const zoneWidth = computedGraph?.zones?.[i]?.width || 300;
                   const pct = totalSvgWidth > 0 ? (zoneWidth / totalSvgWidth) * 100 : 0;
                   return (

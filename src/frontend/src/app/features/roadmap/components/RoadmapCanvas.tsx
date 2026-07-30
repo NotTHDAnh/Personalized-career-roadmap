@@ -35,7 +35,12 @@ export function RoadmapCanvas({ graph, goal, zones }: RoadmapCanvasProps) {
             >
                 {/* Draw Zones and vertical boundaries */}
                 {graph.zones?.map((zoneMeta, i) => {
-                    const zoneStyle = zones[i] || zones[zones.length - 1]; // Fallback if zones array is shorter
+                    // Fallback to a default zone style if zones array is empty or undefined
+                    const defaultZone = { label: "", sub: "", textColor: "#000", bg: "rgba(255, 255, 255, 0)" };
+                    const zoneStyle = (zones && zones.length > 0) 
+                        ? (zones[i] || zones[zones.length - 1]) 
+                        : defaultZone;
+                        
                     return (
                         <g key={`zone-${i}`} transform={`translate(${zoneMeta.x}, 0)`}>
                             {/* Flat Background */}
