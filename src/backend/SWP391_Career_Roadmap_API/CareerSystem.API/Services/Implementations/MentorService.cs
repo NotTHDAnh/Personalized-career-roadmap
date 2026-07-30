@@ -208,7 +208,7 @@ namespace CareerSystem.API.Services.Implementations
                 SessionId = session.SessionId,
                 Sender = "AI",
                 Content = aiRawResponse, // Save as JSON
-                Timestamp = DateTime.Now
+                Timestamp = DateTime.Now.AddMilliseconds(10),
             };
             _context.ChatMessages.Add(aiMessage);
 
