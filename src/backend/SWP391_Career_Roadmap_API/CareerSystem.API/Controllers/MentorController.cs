@@ -27,9 +27,9 @@ namespace CareerSystem.API.Controllers
         }
 
         [HttpGet("history/{userId}")]
-        public async Task<IActionResult> GetChatHistory(string userId)
+        public async Task<IActionResult> GetChatHistory(string userId, [FromQuery] string? cursor = null, [FromQuery] int limit = 20)
         {
-            var history = await _mentorService.GetSessionHistoryAsync(userId);
+            var history = await _mentorService.GetSessionHistoryAsync(userId, cursor, limit);
             return Ok(history);
         }
 
