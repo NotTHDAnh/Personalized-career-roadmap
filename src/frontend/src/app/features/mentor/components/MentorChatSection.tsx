@@ -20,7 +20,7 @@ interface ChatSectionProps {
   onClearHistory: () => void;
   loadingHistory: boolean;
   hasActivePreview: boolean;
-  targetRoadmapStatus: "checking" | "create" | "update" | "update_locked" | "view";
+  targetRoadmapStatus: "create" | "update";
 }
 
 

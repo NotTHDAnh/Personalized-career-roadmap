@@ -105,7 +105,7 @@ export function MentorTab() {
     name: string;
   } | null>(null);
 
-  const [targetRoadmapStatus, setTargetRoadmapStatus] = useState<"checking" | "create" | "update" | "view">("create");
+  const [targetRoadmapStatus, setTargetRoadmapStatus] = useState<"create" | "update">("create");
   const [oldRoadmapId, setOldRoadmapId] = useState<string | null>(null);
   const [draftPreview, setDraftPreview] = useState<RoadmapPreview | null>(null);
 
