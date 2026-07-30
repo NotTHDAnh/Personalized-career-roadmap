@@ -114,7 +114,7 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
   }, [selectedRoadmapId, activeRoadmapData]);
 
   // Calculations for UI
-  const { totalSkills, completedSkills, missingSkillsDetails, targetRole } = useMemo(() => {
+  const analyticsData = useMemo(() => {
     let targetRoleName = "Target Role";
     const roadmapInfo = roadmaps.find(r => r.roadmapId === selectedRoadmapId);
     if (roadmapInfo) targetRoleName = roadmapInfo.targetRoleName;
@@ -148,7 +148,7 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
       };
     }
 
-    if (!currentRoadmap) return { totalSkills: 0, completedSkills: 0, missingSkillsDetails: [], targetRole: targetRoleName };
+    if (!currentRoadmap) return { totalSkills: 0, completedSkills: 0, totalSkillNodesCount: 0, completedSkillNodesCount: 0, missingSkillsDetails: [], targetRole: targetRoleName };
 
     const nodes = currentRoadmap.phases?.flatMap((p: any) => p.nodes) || [];
     
@@ -166,9 +166,17 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
     const allSkillNames = Object.keys(skillToNodes);
     
     let reactiveCompleted = 0;
+    let totalSkillNodesCount = 0;
+    let completedSkillNodesCount = 0;
+
     allSkillNames.forEach(skill => {
        const nodesForSkill = skillToNodes[skill];
-       const isCompleted = nodesForSkill.every(n => n.status === "COMPLETED" || n.status === "done");
+       const completedNodes = nodesForSkill.filter(n => n.status === "COMPLETED" || n.status === "done").length;
+       
+       totalSkillNodesCount += nodesForSkill.length;
+       completedSkillNodesCount += completedNodes;
+
+       const isCompleted = completedNodes === nodesForSkill.length && nodesForSkill.length > 0;
        if (isCompleted) reactiveCompleted++;
     });
 
@@ -211,6 +219,8 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
     return {
       totalSkills: completedCount + missingCount,
       completedSkills: completedCount,
+      totalSkillNodesCount,
+      completedSkillNodesCount,
       missingSkillsDetails,
       targetRole: targetRoleName
     };
@@ -227,10 +237,12 @@ export function SkillAnalyticsDashboard({ roadmaps, activeRoadmapData }: SkillAn
     );
   }
 
-  const progressPercent = totalSkills > 0 ? Math.round((completedSkills / totalSkills) * 100) : 0;
+  const { totalSkills, completedSkills, totalSkillNodesCount, completedSkillNodesCount, missingSkillsDetails, targetRole } = analyticsData;
+
+  const progressPercent = totalSkillNodesCount > 0 ? Math.round((completedSkillNodesCount / totalSkillNodesCount) * 100) : 0;
   const pieData = [
-    { name: 'Completed', value: completedSkills, color: '#10B981' }, 
-    { name: 'Missing', value: Math.max(0, totalSkills - completedSkills), color: '#F1F5F9' }
+    { name: 'Completed', value: progressPercent, color: '#10B981' }, 
+    { name: 'Missing', value: 100 - progressPercent, color: '#F1F5F9' }
   ];
 
   return (

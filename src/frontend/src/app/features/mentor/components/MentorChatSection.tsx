@@ -20,7 +20,7 @@ interface ChatSectionProps {
   onClearHistory: () => void;
   loadingHistory: boolean;
   hasActivePreview: boolean;
-  targetRoadmapStatus: "create" | "update";
+  targetRoadmapStatus: "checking" | "create" | "update" | "update_locked";
 }
 
 
@@ -29,13 +29,22 @@ const MessageItem = React.memo(({ message }: { message: Message }) => {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[78%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${
+        className={`max-w-[90%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${
           isUser
             ? "bg-[#006b5f] text-white rounded-br-sm"
             : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
         }`}
       >
-        <ReactMarkdown>{message.content}</ReactMarkdown>
+        <ReactMarkdown
+          components={{
+            p: ({ node, ...props }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
+            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 last:mb-0" {...props} />,
+            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 last:mb-0" {...props} />,
+            li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
       </div>
     </div>
   );
@@ -75,21 +84,6 @@ export default function MentorChatSection({
             Ask questions about your career direction, skill gaps and learning path.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onClearHistory}
-          disabled={messages.length <= 1 || loadingHistory || typing}
-          title="Clear chat history"
-          className="text-[#ba1a1a] hover:bg-[#ffdad6] hover:text-[#410002] rounded-xl shrink-0"
-        >
-          {loadingHistory ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <Trash2 className="w-5 h-5" />
-          )}
-        </Button>
       </div>
 
       <div
@@ -97,28 +91,7 @@ export default function MentorChatSection({
         className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 pr-3"
       >
         {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[90%] rounded-2xl px-5 py-4 text-sm leading-6 whitespace-pre-line ${message.role === "user"
-                  ? "bg-[#006b5f] text-white rounded-br-sm"
-                  : "bg-[#eff4ff] text-[#0b1c30] rounded-bl-sm"
-                }`}
-            >
-              <ReactMarkdown
-                components={{
-                  p: ({ node, ...props }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
-                  ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 last:mb-0" {...props} />,
-                  ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 last:mb-0" {...props} />,
-                  li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                }}
-              >
-                {message.content}
-              </ReactMarkdown>
-            </div>
-          </div>
+          <MessageItem key={message.id} message={message} />
         ))}
 
         {typing && (
@@ -162,19 +135,19 @@ export default function MentorChatSection({
           <Button
             type="button"
             variant="outline"
-            onClick={() => void onCreateRoadmap()}
-            disabled={!targetRole || typing || creatingRoadmap || hasActivePreview || targetRoadmapStatus === "checking" || targetRoadmapStatus === "update_locked"}
+            disabled={!targetRole || creatingRoadmap || hasActivePreview || targetRoadmapStatus === "update_locked" || targetRoadmapStatus === "checking"}
+            onClick={onCreateRoadmap}
             title={
-              targetRole
-                ? (targetRoadmapStatus === "update_locked" ? "Please ask AI Mentor to update your roadmap to unlock this button." : `Roadmap action for ${targetRole.name}`)
-                : "Ask AI Mentor about a target career role first"
+              !targetRole
+                ? "Ask AI Mentor about a target career role first"
+                : targetRoadmapStatus === "update_locked"
+                  ? "You already have a roadmap for this role. Chat with AI to request an update."
+                  : ""
             }
-            className="rounded-xl border-[#006b5f] text-[#006b5f] hover:bg-[#f0fffb] hover:text-[#00544b]"
+            className={`rounded-xl border-[#006b5f] text-[#006b5f] hover:bg-[#f0fffb] hover:text-[#00544b] ${targetRoadmapStatus === "update_locked" ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {(creatingRoadmap || targetRoadmapStatus === "checking") && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-            {targetRoadmapStatus === "create" ? "Create Roadmap" :
-             (targetRoadmapStatus === "update" || targetRoadmapStatus === "update_locked") ? "Update Roadmap" :
-             targetRoadmapStatus === "view" ? "View Roadmap" : "Checking..."}
+            {targetRoadmapStatus === "checking" ? "Checking Status..." : targetRoadmapStatus === "create" ? "Create Roadmap" : "Update Roadmap"}
           </Button>
 
           <Button

@@ -34,13 +34,13 @@ namespace CareerSystem.API.Services.Implementations
             }
 
             apiKey = apiKey.Trim();
-            // 2. Thiết lập endpoint gọi tới mô hình Gemini 2.5 Flash
-            string geminiUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
+            // 2. Thiết lập endpoint gọi tới mô hình Gemini 3.1 Flash
+            string geminiUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={apiKey}";
 
             var requestUri = new Uri(geminiUrl);
 
             // 3. Đóng gói request body theo đúng đặc tả định dạng của Gemini API.
-            // Cấu hình thêm generationConfig để tắt/bật tính năng suy nghĩ (thinkingBudget) của Gemini 2.5 Flash
+            // Cấu hình thêm generationConfig để tắt/bật tính năng suy nghĩ (thinkingBudget) của Gemini 3.1 Flash
             var requestBody = new
             {
                 contents = new[]
@@ -203,7 +203,7 @@ namespace CareerSystem.API.Services.Implementations
             if (string.IsNullOrWhiteSpace(apiKey)) return false;
             try
             {
-                string testUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey.Trim()}";
+                string testUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={apiKey.Trim()}";
                 var testBody = new
                 {
                     contents = new[] { new { parts = new[] { new { text = "ping" } } } }
