@@ -10,6 +10,20 @@ export type MentorAskResponse = {
   missingSkills?: string[];
 };
 
+export type ChatMessageDto = {
+  messageId: string;
+  sender: string;
+  content: string;
+  timestamp?: string | null;
+};
+
+export type CursorPagedResponse<T> = {
+  items: T[];
+  nextCursor: string | null;
+  hasNextPage: boolean;
+  totalCount: number;
+};
+
 export type GenerateRoadmapResponse = {
   message?: string;
   roadmapId?: string;

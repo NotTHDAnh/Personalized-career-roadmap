@@ -14,7 +14,7 @@ import ReactMarkdown from "react-markdown";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import type { KeyboardEvent } from "react";
-import type { Message, MentorAskResponse, GenerateRoadmapResponse, RoadmapPreview } from "@/app/types";
+import type { Message, MentorAskResponse, GenerateRoadmapResponse, RoadmapPreview, ChatMessageDto, CursorPagedResponse } from "@/app/types";
 import { apiClient } from "@/shared/api/apiClient";
 import { ApiKeyModal } from "@/app/components/common/ApiKeyModal";
 import { StudyHoursModal } from "@/app/components/common/StudyHoursModal";
@@ -128,20 +128,25 @@ export function MentorTab() {
       }
       try {
         setLoadingHistory(true);
-        const historyData = await apiClient.get<any[]>(`/mentor/history/${userId}`);
+        const historyData = await apiClient.get<CursorPagedResponse<ChatMessageDto> | ChatMessageDto[]>(`/mentor/history/${userId}`);
 
-        if (historyData && historyData.length > 0) {
-          const recentHistory = historyData.slice(-20);
+        const historyItems: ChatMessageDto[] = Array.isArray(historyData)
+          ? historyData
+          : (historyData?.items || historyData?.Items || []);
+
+        if (historyItems && historyItems.length > 0) {
           let lastAiResponse: any = null;
 
-          const formattedMessages: Message[] = recentHistory.map((msg) => {
-            const isUser = msg.sender.toUpperCase() === "USER";
-            let displayContent = msg.content;
+          const formattedMessages: Message[] = historyItems.map((msg: any) => {
+            const senderStr = msg.sender || msg.Sender || "";
+            const isUser = senderStr.toUpperCase() === "USER";
+            const rawContent = msg.content || msg.Content || "";
+            let displayContent = rawContent;
 
             if (!isUser) {
               try {
                 // AI response is stored as JSON string representing MentorAskResponse
-                const parsedJson = JSON.parse(msg.content);
+                const parsedJson = JSON.parse(rawContent);
 
                 // Keep track of the last valid target role
                 if (parsedJson.targetRoleName || parsedJson.TargetRoleName) {
@@ -151,12 +156,12 @@ export function MentorTab() {
                 displayContent = formatMentorResponse(parsedJson);
               } catch {
                 // Fallback to raw text if not JSON
-                displayContent = msg.content;
+                displayContent = rawContent;
               }
             }
 
             return {
-              id: msg.messageId || Date.now() + Math.random(),
+              id: msg.messageId || msg.MessageId || Date.now() + Math.random(),
               role: isUser ? "user" : "ai",
               content: displayContent,
             };

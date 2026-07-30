@@ -49,6 +49,8 @@ export type {
 
 export type {
   MentorAskResponse,
+  ChatMessageDto,
+  CursorPagedResponse,
   GenerateRoadmapResponse,
   RoadmapPreview,
   SkillNodeDetail,
