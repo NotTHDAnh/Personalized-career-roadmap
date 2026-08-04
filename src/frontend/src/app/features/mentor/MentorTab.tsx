@@ -31,33 +31,14 @@ import MentorSidebar from "./components/MentorSidebar";
 import { parseApiError, isApiKeyError, isApiKeyExpiredOrOutOfQuota } from "@/shared/utils/errorHelper";
 
 function formatMentorResponse(response: any) {
-  const answer = response.answer || response.Answer;
-  const targetRoleName = response.targetRoleName || response.TargetRoleName;
-  const recommendedCareers = response.recommendedCareers || response.RecommendedCareers;
-  const missingSkills = response.missingSkills || response.MissingSkills;
-  const followUpQuestion = response.followUpQuestion || response.FollowUpQuestion;
+  const answer = (response.answer || response.Answer || "The AI Mentor couldn't find an appropriate answer. Please try asking your question more clearly.").trim();
+  const followUpQuestion = (response.followUpQuestion || response.FollowUpQuestion || "").trim();
 
-  return [
-    answer || "The AI Mentor couldn't find an appropriate answer. Please try asking your question more clearly.",
+  if (followUpQuestion) {
+    return `${answer}\n\n${followUpQuestion}`;
+  }
 
-    response.targetRoleName
-      ? `**Target Role:** ${response.targetRoleName}`
-      : "",
-
-    response.recommendedCareers?.length
-      ? `**Recommended Careers:** ${response.recommendedCareers.join(", ")}`
-      : "",
-
-    response.missingSkills?.length
-      ? `**Missing Skills:** ${response.missingSkills.join(", ")}`
-      : "",
-
-    response.followUpQuestion
-      ? `**Follow-up Question:** ${response.followUpQuestion}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  return answer;
 }
 
 async function askMentor(message: string, userId: string): Promise<MentorAskResponse> {
