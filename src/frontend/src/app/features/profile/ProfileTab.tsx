@@ -246,7 +246,7 @@ export default function ProfileTranscripts() {
 
   const handleConnectGithub = () => {
     const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID || "Ov23liR1nYSRcwIsn0r7";
-    const redirectUri = import.meta.env.VITE_GITHUB_REDIRECT_URI || "http://localhost:5173/github-callback";
+    const redirectUri = import.meta.env.VITE_GITHUB_REDIRECT_URI || `${window.location.origin}/github-callback`;
     const scope = "read:user repo";
     window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`;
   };
