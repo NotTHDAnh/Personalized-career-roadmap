@@ -12,12 +12,14 @@ namespace CareerSystem.API.Services.Implementations
         private readonly IGeminiService _geminiService;
         private readonly AppDbContext _context;
         private readonly ILogger<AiRecommendationService> _logger;
+        private readonly IRagService _ragService;
 
-        public AiRecommendationService(IGeminiService geminiService, AppDbContext context, ILogger<AiRecommendationService> logger)
+        public AiRecommendationService(IGeminiService geminiService, AppDbContext context, ILogger<AiRecommendationService> logger, IRagService ragService)
         {
             _geminiService = geminiService;
             _context = context;
             _logger = logger;
+            _ragService = ragService;
         }
 
         private async Task<MentorAskResponseDto> ProcessAndValidateAiResponseAsync(string aiJsonResponse)
@@ -100,13 +102,19 @@ namespace CareerSystem.API.Services.Implementations
         {
             return await ExecuteAiActionWithFallbackAsync(async () =>
             {
-                // Định nghĩa câu lệnh Prompt cho Virtual Mentor, cung cấp đầy đủ dữ liệu ngữ cảnh thực tế từ DB
+                // Tra cứu ngữ cảnh từ Vector Database Pinecone (RAG) cho câu hỏi của sinh viên
+                string ragContextText = await _ragService.SearchRagContextAsync(question, topK: 3);
+
+                // Định nghĩa câu lệnh Prompt cho Virtual Mentor, cung cấp đầy đủ dữ liệu ngữ cảnh RAG từ Pinecone
                 string prompt = $@"
                     Bạn là Virtual Mentor cho sinh viên Software Engineering.
 
-                    Dữ liệu dưới đây lấy trực tiếp từ database.
+                    Dữ liệu dưới đây lấy trực tiếp từ database và hệ thống Vector DB RAG.
                     Bạn CHỈ được chọn targetRoleId có tồn tại trong careerRoles.
                     Không được bịa role, course, skill.
+
+                    RAG_VECTOR_CONTEXT (Thông tin tra cứu chính xác nhất từ Vector Database hệ thống):
+                    {(string.IsNullOrWhiteSpace(ragContextText) ? "Không có dữ liệu RAG bổ sung." : ragContextText)}
 
                     CONTEXT_JSON:
                     {contextJson}
@@ -118,7 +126,7 @@ namespace CareerSystem.API.Services.Implementations
                     {githubContextJson}
 
                     Nhiệm vụ:
-                    1. Trả lời câu hỏi tư vấn nghề nghiệp của sinh viên.
+                    1. Trả lời câu hỏi tư vấn nghề nghiệp của sinh viên dựa trên RAG_VECTOR_CONTEXT và CONTEXT_JSON.
                     2. Nếu xác định được nghề phù hợp, chọn đúng targetRoleId từ careerRoles.
                     3. Nếu câu hỏi chưa đủ rõ để chọn nghề, targetRoleId phải là null.
                     4. Nếu targetRoleId là null, hãy hỏi thêm 1 câu để làm rõ định hướng.
@@ -139,7 +147,7 @@ namespace CareerSystem.API.Services.Implementations
                     }}";
 
                 // Gọi Gemini API thông qua GeminiService
-                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey);
+                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey, thinkingBudget: 4000);
 
                 // Parse kết quả trả về thành dạng DTO và validate sự tồn tại của targetRoleId trong database
                 return await ProcessAndValidateAiResponseAsync(aiJsonResponse);
@@ -208,7 +216,7 @@ namespace CareerSystem.API.Services.Implementations
                     ]";
 
                 // thinkingBudget=0 vì backend đã xử lý logic tiên quyết, AI chỉ cần chọn môn phù hợp
-                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey, thinkingBudget: 0);
+                string aiJsonResponse = await _geminiService.CallGeminiApiAsync(prompt, apiKey, thinkingBudget: 4000);
 
                 // Trích xuất phần nội dung JSON nằm trong cặp dấu ngoặc vuông [ ]
                 aiJsonResponse = _geminiService.CleanJsonString(aiJsonResponse);

@@ -2,6 +2,7 @@ using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
+using CareerSystem.API.Utilities;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -46,7 +47,8 @@ namespace CareerSystem.API.Services.Implementations
 
             var (contextJson, githubContextJson) = await _promptContextService.BuildMentorContextAsync(user, request);
 
-            var result = await _aiRecommendationService.GetMentorAdviceAsync(contextJson, githubContextJson, request.Question, user.GeminiApiKey);
+            var decryptedApiKey = EncryptionUtility.Decrypt(user.GeminiApiKey);
+            var result = await _aiRecommendationService.GetMentorAdviceAsync(contextJson, githubContextJson, request.Question, decryptedApiKey);
 
             string rawJsonResponse = JsonSerializer.Serialize(result);
 
@@ -234,6 +236,7 @@ namespace CareerSystem.API.Services.Implementations
                 await _context.SaveChangesAsync();
             }
 
+            var now = DateTime.UtcNow;
             // 2. Save USER's question
             var userMessage = new ChatMessage
             {
@@ -241,7 +244,7 @@ namespace CareerSystem.API.Services.Implementations
                 SessionId = session.SessionId,
                 Sender = "USER",
                 Content = userQuestion,
-                Timestamp = DateTime.Now
+                Timestamp = now
             };
             _context.ChatMessages.Add(userMessage);
 
@@ -252,7 +255,7 @@ namespace CareerSystem.API.Services.Implementations
                 SessionId = session.SessionId,
                 Sender = "AI",
                 Content = aiRawResponse, // Save as JSON
-                Timestamp = DateTime.Now.AddMilliseconds(10),
+                Timestamp = now.AddSeconds(1),
             };
             _context.ChatMessages.Add(aiMessage);
 

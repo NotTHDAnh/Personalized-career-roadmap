@@ -56,11 +56,15 @@ namespace CareerSystem.API.Middlewares
 
             context.Response.StatusCode = statusCode;
 
+            var detailMessage = exception.InnerException != null 
+                ? $"{exception.Message} -> InnerException: {exception.InnerException.Message}" 
+                : exception.Message;
+
             var response = new
             {
                 statusCode = statusCode,
                 message = message,
-                detail = exMessage
+                detail = detailMessage
             };
 
             var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };

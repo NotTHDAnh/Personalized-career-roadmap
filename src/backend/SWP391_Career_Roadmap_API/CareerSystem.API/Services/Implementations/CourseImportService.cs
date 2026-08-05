@@ -59,7 +59,7 @@ namespace CareerSystem.API.Services.Implementations
             if (!string.IsNullOrWhiteSpace(staffId))
             {
                 var staffUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == staffId);
-                apiKey = staffUser?.GeminiApiKey;
+                apiKey = EncryptionUtility.Decrypt(staffUser?.GeminiApiKey);
             }
             if (string.IsNullOrWhiteSpace(apiKey))
             {

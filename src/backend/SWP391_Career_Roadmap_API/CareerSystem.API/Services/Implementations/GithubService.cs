@@ -8,6 +8,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 
 using CareerSystem.API.Services.Interfaces;
+using CareerSystem.API.Utilities;
 
 namespace CareerSystem.API.Services.Implementations
 {
@@ -301,7 +302,8 @@ namespace CareerSystem.API.Services.Implementations
                 var readme = await GetRepoReadmeAsync(githubProfile.GithubUsername, repo.Name, githubProfile.GithubAccessToken);
                 if (!string.IsNullOrWhiteSpace(readme))
                 {
-                    var (summary, tech) = await AnalyzeReadmeWithAiAsync(repo.Name, readme, repo.Language ?? "Unknown", repo.Description, user.GeminiApiKey);
+                    var decryptedApiKey = EncryptionUtility.Decrypt(user.GeminiApiKey);
+                    var (summary, tech) = await AnalyzeReadmeWithAiAsync(repo.Name, readme, repo.Language ?? "Unknown", repo.Description, decryptedApiKey);
                     aiSummary = summary;
                     techStack = tech;
                 }

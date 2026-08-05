@@ -2,6 +2,7 @@ using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
+using CareerSystem.API.Utilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace CareerSystem.API.Services.Implementations
@@ -140,7 +141,8 @@ namespace CareerSystem.API.Services.Implementations
 
             var (targetRole, passedCoursesText, courseCatalogJson) = await _promptContextService.BuildRoadmapContextAsync(request);
 
-            var recommendedCourses = await _aiRecommendationService.GetRoadmapCoursesAsync(targetRole, passedCoursesText, courseCatalogJson, user.GeminiApiKey);
+            var decryptedApiKey = EncryptionUtility.Decrypt(user.GeminiApiKey);
+            var recommendedCourses = await _aiRecommendationService.GetRoadmapCoursesAsync(targetRole, passedCoursesText, courseCatalogJson, decryptedApiKey);
 
             // 5. Khởi tạo Roadmap
             var newRoadmap = new Roadmap

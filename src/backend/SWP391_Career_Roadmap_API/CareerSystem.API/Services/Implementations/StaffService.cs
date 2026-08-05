@@ -31,8 +31,8 @@ namespace CareerSystem.API.Services.Implementations
                     Tags = u.StudentSkills.Select(ss => ss.Skill.SkillName).Take(3).ToList(),
                     Date = u.CreatedAt.HasValue ? u.CreatedAt.Value.ToString("dd-MMM-yyyy") : "N/A",
                     Avatar = $"https://api.dicebear.com/7.x/initials/svg?seed={Uri.EscapeDataString(u.FullName)}&backgroundColor=0F172A&textColor=ffffff",
-                    Status = u.Status,
-                    DeleteHistory = u.DeleteHistory
+                    Status = u.Status ?? true,
+                    DeleteHistory = u.DeleteHistory ?? false
                 })
                 .ToListAsync();
         }
@@ -42,7 +42,7 @@ namespace CareerSystem.API.Services.Implementations
             var student = await _context.Users.FirstOrDefaultAsync(u => u.UserId == id && u.Role == "STUDENT");
             if (student == null) return false;
 
-            student.Status = !student.Status;
+            student.Status = !(student.Status ?? true);
             await _context.SaveChangesAsync();
             return true;
         }
@@ -52,7 +52,7 @@ namespace CareerSystem.API.Services.Implementations
             var student = await _context.Users.FirstOrDefaultAsync(u => u.UserId == id && u.Role == "STUDENT");
             if (student == null) return false;
 
-            student.DeleteHistory = !student.DeleteHistory;
+            student.DeleteHistory = !(student.DeleteHistory ?? false);
             await _context.SaveChangesAsync();
             return true;
         }

@@ -7,6 +7,7 @@ using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Entities;
 using CareerSystem.API.Services.Interfaces;
+using CareerSystem.API.Utilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -153,7 +154,7 @@ namespace CareerSystem.API.Services.Implementations
                 if (!string.IsNullOrWhiteSpace(staffId))
                 {
                     var staffUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == staffId);
-                    apiKey = staffUser?.GeminiApiKey;
+                    apiKey = EncryptionUtility.Decrypt(staffUser?.GeminiApiKey);
                 }
                 if (string.IsNullOrWhiteSpace(apiKey))
                 {
@@ -506,7 +507,7 @@ namespace CareerSystem.API.Services.Implementations
                     if (!string.IsNullOrWhiteSpace(staffId))
                     {
                         var staffUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == staffId);
-                        apiKey = staffUser?.GeminiApiKey;
+                        apiKey = EncryptionUtility.Decrypt(staffUser?.GeminiApiKey);
                     }
                     if (string.IsNullOrWhiteSpace(apiKey))
                     {

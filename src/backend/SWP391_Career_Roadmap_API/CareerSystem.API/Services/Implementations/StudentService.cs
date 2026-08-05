@@ -36,8 +36,8 @@ namespace CareerSystem.API.Services.Implementations
                 Email = student.Email,
                 Role = student.Role,
                 CreatedAt = student.CreatedAt?.ToString("dd-MMM-yyyy HH:mm") ?? "N/A",
-                Status = student.Status,
-                DeleteHistory = student.DeleteHistory,
+                Status = student.Status ?? true,
+                DeleteHistory = student.DeleteHistory ?? false,
                 Tags = student.StudentSkills.Select(ss => ss.Skill.SkillName).ToList(),
                 Courses = student.AcademicRecords
                     .Where(ar => ar.Course != null && ar.Course.IsActive)

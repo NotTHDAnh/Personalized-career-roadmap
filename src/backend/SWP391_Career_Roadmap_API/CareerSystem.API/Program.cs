@@ -71,6 +71,13 @@ namespace CareerSystem.API
             builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IStaffService,
                 CareerSystem.API.Services.Implementations.StaffService>();
 
+            builder.Services.AddHttpClient<CareerSystem.API.Services.Interfaces.IGeminiEmbeddingService,
+                CareerSystem.API.Services.Implementations.GeminiEmbeddingService>();
+            builder.Services.AddHttpClient<CareerSystem.API.Services.Interfaces.IPineconeService,
+                CareerSystem.API.Services.Implementations.PineconeService>();
+            builder.Services.AddScoped<CareerSystem.API.Services.Interfaces.IRagService,
+                CareerSystem.API.Services.Implementations.RagService>();
+
             // EPPlus License (NonCommercial cho mục đích học tập)
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
@@ -142,11 +149,12 @@ namespace CareerSystem.API
 
             app.UseMiddleware<CareerSystem.API.Middlewares.ApiExceptionMiddleware>();
 
-            if (app.Environment.IsDevelopment())
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
             {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "CareerSystem API v1");
+                c.RoutePrefix = string.Empty; // Đặt Swagger ngay tại trang chủ domain
+            });
 
             // Tắt HTTPS redirect khi frontend đang gọi http://localhost:5087
             // app.UseHttpsRedirection();

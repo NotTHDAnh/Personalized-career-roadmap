@@ -5,6 +5,7 @@ using CareerSystem.API.Data;
 using CareerSystem.API.DTOs;
 using CareerSystem.API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using CareerSystem.API.Utilities;
 
 namespace CareerSystem.API.Services.Implementations
 {
@@ -34,7 +35,7 @@ namespace CareerSystem.API.Services.Implementations
             }
 
             string? maskedKey = null;
-            var key = user.GeminiApiKey!.Trim();
+            var key = EncryptionUtility.Decrypt(user.GeminiApiKey!).Trim();
             if (key.Length > 10)
             {
                 maskedKey = $"{key.Substring(0, 6)}...{key.Substring(key.Length - 4)}";
@@ -66,7 +67,7 @@ namespace CareerSystem.API.Services.Implementations
                 throw new ArgumentException("Gemini API Key không hợp lệ hoặc không hoạt động. Vui lòng kiểm tra lại.");
             }
 
-            user.GeminiApiKey = apiKey.Trim();
+            user.GeminiApiKey = EncryptionUtility.Encrypt(apiKey.Trim());
             await _context.SaveChangesAsync();
         }
 

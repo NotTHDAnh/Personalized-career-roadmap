@@ -129,7 +129,7 @@ namespace CareerSystem.API.Services.Implementations
                 }).ToListAsync();
 
             // Get Course + Learning OutCome, Skill from cache for contexting the AI
-            var courseCatalog = await GetMentorCatalogAsync();
+            var courseCatalog = await GetRoadmapCatalogJsonAsync();
 
             // Get latest mentor session of this student
             var latestSession = await _context.MentorSessions

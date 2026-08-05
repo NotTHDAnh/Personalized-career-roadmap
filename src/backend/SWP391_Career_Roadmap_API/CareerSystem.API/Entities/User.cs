@@ -23,9 +23,9 @@ public partial class User
 
     public string? GeminiApiKey { get; set; }
 
-    public bool Status { get; set; } = true;
+    public bool? Status { get; set; } = true;
 
-    public bool DeleteHistory { get; set; } = false;
+    public bool? DeleteHistory { get; set; } = false;
 
     public virtual ICollection<AcademicRecord> AcademicRecords { get; set; } = new List<AcademicRecord>();
 
