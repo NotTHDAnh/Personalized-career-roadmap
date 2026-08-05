@@ -384,7 +384,8 @@ namespace CareerSystem.API.Services.Implementations
                 throw new Exception("Vui lòng cấu hình Gemini API Key trong tài khoản của bạn để sử dụng tính năng này.");
 
             var (targetRole, passedCoursesText, courseCatalogJson) = await _promptContextService.BuildRoadmapContextAsync(request);
-            var recommendedCourses = await _aiRecommendationService.GetRoadmapCoursesAsync(targetRole, passedCoursesText, courseCatalogJson, user.GeminiApiKey);
+            var decryptedApiKey = EncryptionUtility.Decrypt(user.GeminiApiKey);
+            var recommendedCourses = await _aiRecommendationService.GetRoadmapCoursesAsync(targetRole, passedCoursesText, courseCatalogJson, decryptedApiKey);
 
             var passedCourseIds = await _context.AcademicRecords
                 .Include(ar => ar.Course)
