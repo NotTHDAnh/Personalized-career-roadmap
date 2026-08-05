@@ -1,0 +1,35 @@
+name: Deploy Backend to MasterASP
+
+on:
+  push:
+    branches:
+      - main # Đổi thành tên branch của bạn (ví dụ: main hoặc master)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore src/backend/SWP391_Career_Roadmap_API/CareerSystem.API/CareerSystem.API.csproj
+
+      - name: Build & Publish
+        run: dotnet publish src/backend/SWP391_Career_Roadmap_API/CareerSystem.API/CareerSystem.API.csproj -c Release -o ./publish
+
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./publish/
+          server-dir: /
+          dangerous-clean-slate: false

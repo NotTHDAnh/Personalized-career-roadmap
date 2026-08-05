@@ -29,3 +29,5 @@ Thumbs.db
 .agents/
 # appsetting
 appsettings.json
+
+publish/
